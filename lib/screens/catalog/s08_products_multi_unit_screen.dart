@@ -69,6 +69,11 @@ class _S08ProductsMultiUnitScreenState extends State<S08ProductsMultiUnitScreen>
                           children: [
                             if (product.scalePluCode != null)
                               ListTile(title: Text('رقم الميزان PLU: ${product.scalePluCode}')),
+                            TextButton.icon(
+                              onPressed: () => _editProduct(product),
+                              icon: const Icon(Icons.edit_outlined),
+                              label: const Text('تعديل بيانات الصنف'),
+                            ),
                             ...units.map((unit) => ListTile(
                               dense: true,
                               leading: const Icon(Icons.qr_code),
@@ -125,6 +130,32 @@ class _S08ProductsMultiUnitScreenState extends State<S08ProductsMultiUnitScreen>
     await context.read<PosAndCatalogProvider>().loadCatalog();
   }
 
+  Future<void> _editProduct(ProductModel product) async {
+    final draft = await showDialog<_ProductEditDraft>(
+      context: context,
+      builder: (_) => _EditProductDialog(product: product),
+    );
+    if (draft == null) return;
+    final db = await DatabaseHelper.instance.database;
+    final now = DateTime.now().toIso8601String();
+    final updated = <String, Object?>{
+      'name_ar': draft.name,
+      'sku_code': draft.sku,
+      'base_unit_name': draft.baseUnit,
+      'brand_name': draft.brand,
+      'product_type': draft.weighted ? 'WEIGHTED_SCALE' : 'STANDARD',
+      'scale_plu_code': draft.plu.isEmpty ? null : draft.plu,
+      'updated_at': now,
+      'sync_version': 2,
+    };
+    await db.transaction((txn) async {
+      await txn.update('products', updated, where: 'id=?', whereArgs: [product.id]);
+      final row = (await txn.query('products', where: 'id=?', whereArgs: [product.id], limit: 1)).first;
+      await _enqueueSync(txn, 'products', product.id, row, now);
+    });
+    await context.read<PosAndCatalogProvider>().loadCatalog();
+  }
+
   Future<void> _addUnit(ProductModel product) async {
     final unit = await showDialog<_UnitDraft>(
       context: context, builder: (_) => const _UnitDialog(),
@@ -163,6 +194,69 @@ class _S08ProductsMultiUnitScreenState extends State<S08ProductsMultiUnitScreen>
       'created_at': now, 'updated_at': now, 'is_deleted': 0,
     });
   }
+}
+
+class _ProductEditDraft {
+  const _ProductEditDraft(this.name, this.sku, this.baseUnit, this.brand, this.weighted, this.plu);
+  final String name, sku, baseUnit, brand, plu;
+  final bool weighted;
+}
+
+class _EditProductDialog extends StatefulWidget {
+  const _EditProductDialog({required this.product});
+  final ProductModel product;
+  @override
+  State<_EditProductDialog> createState() => _EditProductDialogState();
+}
+
+class _EditProductDialogState extends State<_EditProductDialog> {
+  late final TextEditingController _name;
+  late final TextEditingController _sku;
+  late final TextEditingController _base;
+  late final TextEditingController _brand;
+  late final TextEditingController _plu;
+  late bool _weighted;
+
+  @override
+  void initState() {
+    super.initState();
+    final product = widget.product;
+    _name = TextEditingController(text: product.nameAr);
+    _sku = TextEditingController(text: product.skuCode);
+    _base = TextEditingController(text: product.baseUnitName);
+    _brand = TextEditingController(text: product.brandName ?? '');
+    _plu = TextEditingController(text: product.scalePluCode ?? '');
+    _weighted = product.productType == 'WEIGHTED_SCALE';
+  }
+
+  @override
+  void dispose() {
+    _name.dispose(); _sku.dispose(); _base.dispose(); _brand.dispose(); _plu.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: const Text('تعديل بيانات الصنف'),
+    content: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
+      TextField(controller: _name, decoration: const InputDecoration(labelText: 'اسم الصنف')),
+      TextField(controller: _sku, decoration: const InputDecoration(labelText: 'رمز الصنف SKU')),
+      TextField(controller: _base, decoration: const InputDecoration(labelText: 'وحدة الأساس')),
+      TextField(controller: _brand, decoration: const InputDecoration(labelText: 'العلامة التجارية')),
+      SwitchListTile(value: _weighted, onChanged: (value) => setState(() => _weighted = value), title: const Text('صنف موزون')),
+      if (_weighted) TextField(controller: _plu, decoration: const InputDecoration(labelText: 'رقم PLU')),
+    ])),
+    actions: [
+      TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء')),
+      FilledButton(onPressed: () {
+        if (_name.text.trim().isEmpty || _sku.text.trim().isEmpty || _base.text.trim().isEmpty) return;
+        Navigator.pop(context, _ProductEditDraft(
+          _name.text.trim(), _sku.text.trim(), _base.text.trim(), _brand.text.trim(),
+          _weighted, _plu.text.trim(),
+        ));
+      }, child: const Text('حفظ التعديل')),
+    ],
+  );
 }
 
 class _UnitDraft {
