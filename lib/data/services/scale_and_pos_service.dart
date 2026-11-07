@@ -1,4 +1,5 @@
 import 'dart:math';
+import 'dart:convert';
 import 'package:sqflite/sqflite.dart';
 import '../database/database_helper.dart';
 import '../models/erp_and_sync_models.dart';
@@ -174,6 +175,28 @@ class PostingAndSalesService {
       final invoiceNo = await _nextNumber(txn, branchId, 'SALE', now);
       final saleType = remaining > 0 && paid > 0 ? 'MIXED' : remaining > 0 ? 'CREDIT' : 'CASH';
       final totalCost = items.fold<double>(0, (s, i) => s + i.baseQuantity * i.unitCost);
+      final paymentAllocations = <Map<String, Object?>>[];
+      var allocationRemaining = paid;
+      for (final payment in payments) {
+        final amount = min(payment.amount, allocationRemaining);
+        if (amount <= 0) continue;
+        allocationRemaining -= amount;
+        var glAccountId = 'gl-cash';
+        if (payment.cashAccountId != null) {
+          final accountRows = await txn.query('cash_accounts',
+            columns: ['gl_account_id'],
+            where: 'id=? AND is_deleted=0',
+            whereArgs: [payment.cashAccountId], limit: 1);
+          if (accountRows.isEmpty) throw StateError('حساب الدفع غير موجود');
+          glAccountId = accountRows.first['gl_account_id'] as String? ?? 'gl-cash';
+        }
+        paymentAllocations.add({
+          'input': payment, 'amount': amount, 'glAccountId': glAccountId,
+        });
+      }
+      if (allocationRemaining > 0.01) {
+        throw StateError('مجموع الدفعات أقل من المبلغ المسدد المحدد');
+      }
       await txn.insert('sales_invoices', {
         ..._base(invoiceId, branchId, now),
         'invoice_no': invoiceNo, 'invoice_date': now,
@@ -222,8 +245,12 @@ class PostingAndSalesService {
         'entry_date': now, 'doc_type': 'SALE', 'doc_id': invoiceId,
         'description': 'ترحيل فاتورة بيع $invoiceNo',
       });
-      if (paid > 0) {
-        await _journalLine(txn, branchId, journalId, 'gl-cash', paid, 0, now);
+      for (final allocation in paymentAllocations) {
+        await _journalLine(
+          txn, branchId, journalId,
+          allocation['glAccountId'] as String,
+          allocation['amount'] as double, 0, now,
+        );
       }
       if (remaining > 0) {
         await _journalLine(txn, branchId, journalId, 'gl-receivable', remaining, 0, now);
@@ -247,11 +274,9 @@ class PostingAndSalesService {
           invoiceId, 'SALE_PAYMENT', 0, paid, 'سداد فاتورة $invoiceNo', now);
       }
 
-      var allocated = 0.0;
-      for (final payment in payments) {
-        final amount = min(payment.amount, max(0, paid - allocated));
-        if (amount <= 0) continue;
-        allocated += amount;
+      for (final allocation in paymentAllocations) {
+        final payment = allocation['input'] as SalePaymentInput;
+        final amount = allocation['amount'] as double;
         final paymentId = _id('pay');
         await txn.insert('sales_payments', {
           ..._base(paymentId, branchId, now), 'invoice_id': invoiceId,
@@ -266,11 +291,29 @@ class PostingAndSalesService {
       }
       await txn.update('sales_invoices', {'journal_entry_id': journalId},
         where: 'id=?', whereArgs: [invoiceId]);
+      final invoicePayload = (await txn.query('sales_invoices',
+        where: 'id=?', whereArgs: [invoiceId], limit: 1)).first;
+      final itemPayload = await txn.query('sales_invoice_items',
+        where: 'invoice_id=?', whereArgs: [invoiceId]);
+      final paymentPayload = await txn.query('sales_payments',
+        where: 'invoice_id=?', whereArgs: [invoiceId]);
+      final journalPayload = await txn.query('journal_lines',
+        where: 'journal_entry_id=?', whereArgs: [journalId]);
+      final ledgerPayload = customerPartyId == null
+          ? <Map<String, Object?>>[]
+          : await txn.query('lah_alayh_ledger',
+              where: 'doc_id=?', whereArgs: [invoiceId]);
       final queueId = _id('sync');
       await txn.insert('sync_queue', {
         'id': queueId, 'uuid': 'uuid-$queueId', 'branch_id': branchId,
         'table_name': 'sales_invoices', 'row_uuid': invoiceId, 'operation': 'INSERT',
-        'payload_json': '{"invoice_id":"$invoiceId","invoice_no":"$invoiceNo"}',
+        'payload_json': jsonEncode({
+          'invoice': invoicePayload,
+          'items': itemPayload,
+          'payments': paymentPayload,
+          'journalLines': journalPayload,
+          'partyLedger': ledgerPayload,
+        }),
         'sync_version': 1, 'batch_id': null, 'status': 'PENDING',
         'queued_at': now, 'created_at': now, 'updated_at': now, 'is_deleted': 0,
       });
