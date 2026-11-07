@@ -1,3 +1,5 @@
+import 'package:sqflite/sqflite.dart';
+
 /// Owns the version-one SQLite schema, indexes and derived balance view.
 class SchemaBuilder {
   SchemaBuilder._();
@@ -5,7 +7,7 @@ class SchemaBuilder {
   static const int version = 1;
 
   /// Creates all tables in dependency order inside the caller's database transaction.
-  static Future<void> createAll(dynamic database) async {
+  static Future<void> createAll(DatabaseExecutor database) async {
     for (final sql in _tables) {
       await database.execute(sql);
     }
