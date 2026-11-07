@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme/enterprise_dark_theme.dart';
@@ -192,11 +193,21 @@ class _S19PartiesAndVouchersScreenState extends State<S19PartiesAndVouchersScree
         'created_at': now, 'updated_at': now, 'is_deleted': 0,
         'sync_status': 'LOCAL', 'sync_version': 1,
       });
+      final voucherPayload = (await txn.query('vouchers',
+        where: 'id=?', whereArgs: [id], limit: 1)).first;
+      final journalPayload = await txn.query('journal_lines',
+        where: 'journal_entry_id=?', whereArgs: [journalId]);
+      final ledgerPayload = await txn.query('lah_alayh_ledger',
+        where: 'doc_id=?', whereArgs: [id]);
       final queueId = 'sync-${DateTime.now().microsecondsSinceEpoch}';
       await txn.insert('sync_queue', {
         'id': queueId, 'uuid': 'uuid-$queueId', 'branch_id': 'branch-main',
         'table_name': 'vouchers', 'row_uuid': id, 'operation': 'INSERT',
-        'payload_json': '{"voucher_id":"$id","voucher_no":"$voucherNo"}',
+        'payload_json': jsonEncode({
+          'voucher': voucherPayload,
+          'journalLines': journalPayload,
+          'partyLedger': ledgerPayload,
+        }),
         'sync_version': 1, 'batch_id': null, 'status': 'PENDING',
         'queued_at': now, 'created_at': now, 'updated_at': now, 'is_deleted': 0,
       });
