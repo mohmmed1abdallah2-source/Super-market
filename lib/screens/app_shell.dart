@@ -50,6 +50,11 @@ class _AppShellState extends State<AppShell> {
                   )),
                 ),
               ),
+              IconButton(
+                tooltip: 'تسجيل الخروج',
+                onPressed: () => context.read<SupermarketErpProvider>().signOut(),
+                icon: const Icon(Icons.logout),
+              ),
             ],
           ),
           body: Row(children: [
