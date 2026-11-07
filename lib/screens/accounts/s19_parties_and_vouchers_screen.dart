@@ -46,7 +46,7 @@ class _S19PartiesAndVouchersScreenState extends State<S19PartiesAndVouchersScree
                   return Card(child: ListTile(
                     leading: CircleAvatar(child: Icon(party.partyType == 'SUPPLIER' ? Icons.local_shipping : Icons.person)),
                     title: Text(party.nameAr),
-                    subtitle: Text('\${party.code} • \${party.partyType == 'SUPPLIER' ? 'مورد' : 'عميل'}'),
+                    subtitle: Text('${party.code} • ${party.partyType == 'SUPPLIER' ? 'مورد' : 'عميل'}'),
                     trailing: snapshot.hasData
                       ? PartyBalanceChip(
                           totalAlayh: (balance['total_alayh'] as num? ?? 0),
@@ -82,7 +82,7 @@ class _S19PartiesAndVouchersScreenState extends State<S19PartiesAndVouchersScree
     showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('كشف حساب: \${party.nameAr}'),
+        title: Text('كشف حساب: ${party.nameAr}'),
         content: SizedBox(width: 650, child: SingleChildScrollView(child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -125,9 +125,9 @@ class _S19PartiesAndVouchersScreenState extends State<S19PartiesAndVouchersScree
   Future<void> _saveVoucher(_VoucherDraft draft) async {
     final db = await DatabaseHelper.instance.database;
     final now = DateTime.now().toIso8601String();
-    final id = 'voucher-\${DateTime.now().microsecondsSinceEpoch}';
-    final journalId = 'journal-\${DateTime.now().microsecondsSinceEpoch}';
-    final ledgerId = 'ledger-\${DateTime.now().microsecondsSinceEpoch}';
+    final id = 'voucher-${DateTime.now().microsecondsSinceEpoch}';
+    final journalId = 'journal-${DateTime.now().microsecondsSinceEpoch}';
+    final ledgerId = 'ledger-${DateTime.now().microsecondsSinceEpoch}';
     await db.transaction((txn) async {
       final cashRows = await txn.query('cash_accounts',
         where: 'id=? AND is_deleted=0', whereArgs: [draft.cashAccountId], limit: 1);
@@ -140,7 +140,7 @@ class _S19PartiesAndVouchersScreenState extends State<S19PartiesAndVouchersScree
       if (draft.method == 'WALLET' && draft.reference.trim().isEmpty) {
         throw StateError('رقم إشعار المحفظة مطلوب');
       }
-      final voucherNo = 'V-\${DateTime.now().millisecondsSinceEpoch}';
+      final voucherNo = 'V-${DateTime.now().millisecondsSinceEpoch}';
       await txn.insert('vouchers', {
         'id': id, 'uuid': 'uuid-$id', 'branch_id': 'branch-main',
         'voucher_no': voucherNo, 'voucher_type': draft.type,
@@ -158,8 +158,8 @@ class _S19PartiesAndVouchersScreenState extends State<S19PartiesAndVouchersScree
         'created_at': now, 'updated_at': now, 'is_deleted': 0,
         'sync_status': 'LOCAL', 'sync_version': 1,
       });
-      final cashLine = 'jl-cash-\${DateTime.now().microsecondsSinceEpoch}';
-      final partyLine = 'jl-party-\${DateTime.now().microsecondsSinceEpoch}';
+      final cashLine = 'jl-cash-${DateTime.now().microsecondsSinceEpoch}';
+      final partyLine = 'jl-party-${DateTime.now().microsecondsSinceEpoch}';
       await txn.insert('journal_lines', {
         'id': cashLine, 'uuid': 'uuid-$cashLine', 'branch_id': 'branch-main',
         'journal_entry_id': journalId,
@@ -192,7 +192,7 @@ class _S19PartiesAndVouchersScreenState extends State<S19PartiesAndVouchersScree
         'created_at': now, 'updated_at': now, 'is_deleted': 0,
         'sync_status': 'LOCAL', 'sync_version': 1,
       });
-      final queueId = 'sync-\${DateTime.now().microsecondsSinceEpoch}';
+      final queueId = 'sync-${DateTime.now().microsecondsSinceEpoch}';
       await txn.insert('sync_queue', {
         'id': queueId, 'uuid': 'uuid-$queueId', 'branch_id': 'branch-main',
         'table_name': 'vouchers', 'row_uuid': id, 'operation': 'INSERT',
