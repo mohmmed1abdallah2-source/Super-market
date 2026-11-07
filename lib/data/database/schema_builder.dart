@@ -240,19 +240,19 @@ class SchemaBuilder {
   static const String _partyBalanceView = '''
     CREATE VIEW v_party_balance AS
     SELECT p.id AS party_id,
-      COALESCE(p.opening_alayh, 0) + COALESCE(SUM(l.alayh_amount), 0) AS total_alayh,
-      COALESCE(p.opening_lah, 0) + COALESCE(SUM(l.lah_amount), 0) AS total_lah,
-      (COALESCE(p.opening_alayh, 0) + COALESCE(SUM(l.alayh_amount), 0)) -
-      (COALESCE(p.opening_lah, 0) + COALESCE(SUM(l.lah_amount), 0)) AS net,
+      COALESCE(SUM(l.alayh_amount), 0) AS total_alayh,
+      COALESCE(SUM(l.lah_amount), 0) AS total_lah,
+      (COALESCE(SUM(l.alayh_amount), 0)) -
+      (COALESCE(SUM(l.lah_amount), 0)) AS net,
       CASE
-        WHEN (COALESCE(p.opening_alayh, 0) + COALESCE(SUM(l.alayh_amount), 0)) >
-             (COALESCE(p.opening_lah, 0) + COALESCE(SUM(l.lah_amount), 0)) THEN 'ALAYH'
-        WHEN (COALESCE(p.opening_lah, 0) + COALESCE(SUM(l.lah_amount), 0)) >
-             (COALESCE(p.opening_alayh, 0) + COALESCE(SUM(l.alayh_amount), 0)) THEN 'LAH'
+        WHEN (COALESCE(SUM(l.alayh_amount), 0)) >
+             (COALESCE(SUM(l.lah_amount), 0)) THEN 'ALAYH'
+        WHEN (COALESCE(SUM(l.lah_amount), 0)) >
+             (COALESCE(SUM(l.alayh_amount), 0)) THEN 'LAH'
         ELSE 'ZERO'
       END AS balance_side,
-      ABS((COALESCE(p.opening_alayh, 0) + COALESCE(SUM(l.alayh_amount), 0)) -
-          (COALESCE(p.opening_lah, 0) + COALESCE(SUM(l.lah_amount), 0))) AS balance_abs
+      ABS((COALESCE(SUM(l.alayh_amount), 0)) -
+          (COALESCE(SUM(l.lah_amount), 0))) AS balance_abs
     FROM parties p
     LEFT JOIN lah_alayh_ledger l ON l.party_id = p.id AND l.is_deleted = 0
     WHERE p.is_deleted = 0
