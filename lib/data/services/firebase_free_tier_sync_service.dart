@@ -1,6 +1,6 @@
 import 'dart:convert';
-import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:crypto/crypto.dart';
 import 'package:sqflite/sqflite.dart';
 import '../database/database_helper.dart';
 
@@ -97,7 +97,7 @@ class FirebaseFreeTierSyncService {
       eventIds: rows.map((row) => row['id'] as String).toList(),
       eventCount: rows.length,
       compressedPayload: base64Encode(compressed),
-      checksum: base64Encode(utf8.encode(payload)).substring(0, 32),
+      checksum: sha256.convert(utf8.encode(payload)).toString(),
       createdAt: DateTime.now().toUtc().toIso8601String(),
     );
   }
@@ -158,8 +158,8 @@ class FirebaseFreeTierSyncService {
   Future<Map<String, Object?>> _buildDailySummary(
     Database db, String branchId, String dateKey, String batchId,
   ) async {
-    final start = '$dateKey 00:00:00';
-    final end = '$dateKey 23:59:59';
+    final start = '${dateKey}T00:00:00';
+    final end = '${dateKey}T23:59:59';
     final rows = await db.rawQuery(
       '''SELECT COUNT(*) AS sales_count, COALESCE(SUM(net_total),0) AS sales_total,
          COALESCE(SUM(remaining_alayh),0) AS credit_total
@@ -236,16 +236,7 @@ class FirebaseFreeTierSyncService {
 
   String _stableBatchId(List<Map<String, Object?>> rows) {
     final identity = rows.map((row) => row['uuid']).join('|');
-    var hash = 0;
-    for (final unit in identity.codeUnits) {
-      hash = 0x1fffffff & (hash + unit);
-      hash = 0x1fffffff & (hash + ((0x0007ffff & hash) << 10));
-      hash ^= hash >> 6;
-    }
-    hash = 0x1fffffff & (hash + ((0x03ffffff & hash) << 3));
-    hash ^= hash >> 11;
-    hash = 0x1fffffff & (hash + ((0x00003fff & hash) << 15));
-    return 'b\${hash.toRadixString(16)}';
+    return 'b${sha256.convert(utf8.encode(identity)).toString().substring(0, 24)}';
   }
 
   String _dateKey(DateTime date) =>
