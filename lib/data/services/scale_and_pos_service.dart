@@ -25,7 +25,7 @@ class ScaleAndBarcodeParser {
   /// Returns scale data only when both the layout and EAN-13 check digit are valid.
   ScaleBarcodeResult? parseScaleBarcode(String raw) {
     final code = raw.trim();
-    if (!isValidEan13(code) || !scalePrefixes.any(code.startsWith)) return null;
+    if (!isValidEan13(code) || !scalePrefixes.any((prefix) => code.startsWith(prefix))) return null;
     final pluEnd = pluStart + pluLength;
     final qtyEnd = quantityStart + quantityLength;
     if (pluStart < 0 || quantityStart < 0 || pluEnd > 12 ||
