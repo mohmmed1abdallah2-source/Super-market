@@ -394,16 +394,27 @@ service cloud.firestore {
       allow create: if sameBranch(branchId)
         && request.resource.data.branchId == branchId
         && request.resource.data.eventCount <= 100;
-      allow update, delete: if false;
+      allow update: if sameBranch(branchId)
+        && resource.data.batchId == request.resource.data.batchId
+        && resource.data.checksum == request.resource.data.checksum
+        && resource.data.compressedPayload == request.resource.data.compressedPayload;
+      allow delete: if false;
     }
     match /daily_summaries/{summaryId} {
       allow read: if signedIn()
-        && request.auth.token.role in ['OWNER', 'MANAGER'];
-      allow write: if false;
+        && request.auth.token.role in ['OWNER', 'MANAGER']
+        && request.auth.token.branch_id == resource.data.branchId;
+      allow create, update: if signedIn()
+        && request.auth.token.role in ['OWNER', 'MANAGER']
+        && request.auth.token.branch_id == request.resource.data.branchId;
+      allow delete: if false;
     }
     match /master_catalog/{catalogId} {
       allow read: if signedIn();
-      allow write: if false;
+      allow create, update: if signedIn()
+        && request.auth.token.role in ['OWNER', 'MANAGER']
+        && request.auth.token.branch_id == request.resource.data.branchId;
+      allow delete: if false;
     }
   }
 }
