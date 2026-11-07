@@ -216,7 +216,7 @@ class PostingAndSalesService {
           whereArgs: [item.productId], limit: 1);
         if (stockRows.isEmpty) throw StateError('الصنف غير موجود أو غير نشط');
         final stock = (stockRows.first['stock_base_qty'] as num).toDouble();
-        if (stock + 1e-7 < baseQty) throw StateError('المخزون غير كافٍ للصنف: \${item.productName}');
+        if (stock + 1e-7 < baseQty) throw StateError('المخزون غير كافٍ للصنف: ${item.productName}');
         await txn.update('products', {
           'stock_base_qty': stock - baseQty, 'updated_at': now,
         }, where: 'id=?', whereArgs: [item.productId]);
@@ -364,7 +364,7 @@ class PostingAndSalesService {
     final next = (row['last_no'] as num).toInt() + 1;
     await txn.update('number_sequences', {'last_no': next, 'updated_at': now},
       where: 'id=?', whereArgs: [row['id']]);
-    return '\${row['prefix']}$year-\${next.toString().padLeft((row['pad_length'] as num).toInt(), '0')}';
+    return '${row['prefix']}$year-${next.toString().padLeft((row['pad_length'] as num).toInt(), '0')}';
   }
 
   Map<String, Object?> _base(String id, String branch, String now) => {
@@ -374,5 +374,5 @@ class PostingAndSalesService {
   };
 
   String _id(String prefix) =>
-      '$prefix-\${DateTime.now().microsecondsSinceEpoch}-\${Random().nextInt(99999)}';
+      '$prefix-${DateTime.now().microsecondsSinceEpoch}-${Random().nextInt(99999)}';
 }
