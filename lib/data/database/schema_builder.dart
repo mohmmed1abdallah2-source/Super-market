@@ -228,7 +228,7 @@ class SchemaBuilder {
 
   static const List<String> _indexes = [
     'CREATE INDEX idx_products_name ON products(name_ar)',
-    'CREATE INDEX idx_products_plu ON products(scale_plu_code)',
+    'CREATE UNIQUE INDEX idx_products_scale_plu ON products(branch_id, scale_plu_code) WHERE scale_plu_code IS NOT NULL AND is_deleted = 0',
     'CREATE INDEX idx_unit_barcode ON product_units_barcodes(barcode)',
     'CREATE INDEX idx_ledger_party_date ON lah_alayh_ledger(party_id, entry_date)',
     'CREATE INDEX idx_sales_invoice_date ON sales_invoices(branch_id, invoice_date)',
