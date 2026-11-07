@@ -22,13 +22,13 @@ class PartyBalanceChip extends StatelessWidget {
     final String label;
     if (net > 0.000001) {
       color = EnterpriseDarkTheme.danger;
-      label = 'المتبقي عليه \${money.format(net)}';
+      label = 'المتبقي عليه ${money.format(net)}';
     } else if (net < -0.000001) {
       color = EnterpriseDarkTheme.success;
-      label = 'المتبقي له \${money.format(net.abs())}';
+      label = 'المتبقي له ${money.format(net.abs())}';
     } else {
       color = EnterpriseDarkTheme.muted;
-      label = 'مسدَّد (\${money.format(0)})';
+      label = 'مسدَّد (${money.format(0)})';
     }
     return Semantics(
       label: label,
