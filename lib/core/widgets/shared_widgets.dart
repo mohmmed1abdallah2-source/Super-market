@@ -28,7 +28,7 @@ class PartyBalanceChip extends StatelessWidget {
       label = 'المتبقي له ${money.format(net.abs())}';
     } else {
       color = EnterpriseDarkTheme.muted;
-      label = 'مسدَّد (${money.format(0)})';
+      label = 'مسدَّد (${money.format(0, includeCurrency: false)})';
     }
     return Semantics(
       label: label,
