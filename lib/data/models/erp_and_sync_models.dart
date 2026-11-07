@@ -170,6 +170,7 @@ class PosCartItemModel {
     String? unitId,
     String? unitName,
     double? conversionFactor,
+    double? unitCost,
   }) => PosCartItemModel(
     productId: productId,
     unitId: unitId ?? this.unitId,
@@ -179,7 +180,7 @@ class PosCartItemModel {
     quantity: quantity ?? this.quantity,
     unitPrice: unitPrice ?? this.unitPrice,
     lineDiscountAmount: lineDiscountAmount ?? this.lineDiscountAmount,
-    unitCost: unitCost,
+    unitCost: unitCost ?? this.unitCost,
   );
 }
 
