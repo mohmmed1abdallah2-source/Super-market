@@ -64,16 +64,16 @@ class _S08ProductsMultiUnitScreenState extends State<S08ProductsMultiUnitScreen>
                         margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
                         child: ExpansionTile(
                           title: Text(product.nameAr),
-                          subtitle: Text('رمز: \${product.skuCode} • المخزون: \${product.stockBaseQty} \${product.baseUnitName}'),
+                          subtitle: Text('رمز: ${product.skuCode} • المخزون: ${product.stockBaseQty} ${product.baseUnitName}'),
                           children: [
                             if (product.scalePluCode != null)
-                              ListTile(title: Text('رقم الميزان PLU: \${product.scalePluCode}')),
+                              ListTile(title: Text('رقم الميزان PLU: ${product.scalePluCode}')),
                             ...units.map((unit) => ListTile(
                               dense: true,
                               leading: const Icon(Icons.qr_code),
                               title: Text(unit.unitName),
-                              subtitle: Text('باركود: \${unit.barcode ?? 'يقرأ من الميزان'} • معامل التحويل: \${unit.conversionFactor}'),
-                              trailing: Text('تجزئة: \${unit.retailPrice.toStringAsFixed(2)}\nجملة: \${unit.wholesalePrice.toStringAsFixed(2)}'),
+                              subtitle: Text('باركود: ${unit.barcode ?? 'يقرأ من الميزان'} • معامل التحويل: ${unit.conversionFactor}'),
+                              trailing: Text('تجزئة: ${unit.retailPrice.toStringAsFixed(2)}\nجملة: ${unit.wholesalePrice.toStringAsFixed(2)}'),
                             )),
                             TextButton.icon(
                               onPressed: () => _addUnit(product),
@@ -99,7 +99,7 @@ class _S08ProductsMultiUnitScreenState extends State<S08ProductsMultiUnitScreen>
     if (result == null) return;
     final db = await DatabaseHelper.instance.database;
     final now = DateTime.now().toIso8601String();
-    final id = 'p-\${DateTime.now().microsecondsSinceEpoch}';
+    final id = 'p-${DateTime.now().microsecondsSinceEpoch}';
     await db.insert('products', {
       'id': id, 'uuid': 'uuid-$id', 'branch_id': 'branch-main',
       'sku_code': result.sku, 'name_ar': result.name, 'name_en': null,
@@ -131,7 +131,7 @@ class _S08ProductsMultiUnitScreenState extends State<S08ProductsMultiUnitScreen>
   }
 
   Future<void> _insertUnit(dynamic db, String productId, _UnitDraft unit, String now) async {
-    final id = 'unit-\${DateTime.now().microsecondsSinceEpoch}';
+    final id = 'unit-${DateTime.now().microsecondsSinceEpoch}';
     await db.insert('product_units_barcodes', {
       'id': id, 'uuid': 'uuid-$id', 'branch_id': 'branch-main',
       'product_id': productId, 'unit_name': unit.name,
@@ -276,7 +276,7 @@ class _UnitFields extends StatelessWidget {
     padding: const EdgeInsets.all(10),
     child: Column(children: [
       Row(children: [
-        Expanded(child: Text('الوحدة \${index + 1}')),
+        Expanded(child: Text('الوحدة ${index + 1}')),
         if (onRemove != null) IconButton(onPressed: onRemove, icon: const Icon(Icons.remove_circle_outline)),
       ]),
       TextField(controller: editor.name, decoration: const InputDecoration(labelText: 'اسم الوحدة')),
