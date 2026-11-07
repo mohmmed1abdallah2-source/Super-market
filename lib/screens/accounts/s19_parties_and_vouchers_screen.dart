@@ -253,12 +253,19 @@ class _VoucherDialogState extends State<_VoucherDialog> {
           DropdownMenuItem(value: 'RECEIPT', child: Text('سند قبض')),
           DropdownMenuItem(value: 'PAYMENT', child: Text('سند صرف')),
         ],
-        onChanged: (v) => setState(() => _type = v ?? 'RECEIPT'),
+        onChanged: (v) => setState(() {
+          _type = v ?? 'RECEIPT';
+          final eligible = widget.parties.where((party) =>
+            _type == 'RECEIPT' ? party.partyType == 'CUSTOMER' : party.partyType == 'SUPPLIER');
+          _partyId = eligible.isEmpty ? null : eligible.first.id;
+        }),
       ),
       DropdownButtonFormField<String>(
         value: _partyId,
         decoration: const InputDecoration(labelText: 'الطرف'),
-        items: widget.parties.map((p) => DropdownMenuItem(value: p.id, child: Text(p.nameAr))).toList(),
+        items: widget.parties.where((party) =>
+          _type == 'RECEIPT' ? party.partyType == 'CUSTOMER' : party.partyType == 'SUPPLIER')
+          .map((p) => DropdownMenuItem(value: p.id, child: Text(p.nameAr))).toList(),
         onChanged: (v) => setState(() => _partyId = v),
       ),
       TextField(controller: _amount, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'المبلغ')),
