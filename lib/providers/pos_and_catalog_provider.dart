@@ -43,8 +43,8 @@ class PosAndCatalogProvider extends ChangeNotifier {
       return false;
     }
     _tabs.add(PosTabSession(
-      id: 'tab-\${DateTime.now().microsecondsSinceEpoch}',
-      label: label ?? 'فاتورة \${_tabs.length + 1}',
+      id: 'tab-${DateTime.now().microsecondsSinceEpoch}',
+      label: label ?? 'فاتورة ${_tabs.length + 1}',
     ));
     _activeIndex = _tabs.length - 1;
     _lastError = null;
