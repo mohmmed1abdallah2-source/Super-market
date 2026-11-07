@@ -150,9 +150,9 @@ class PostingAndSalesService {
       final net = subtotal - itemDiscounts - discountAmount + roundingDiff;
       if (net < 0) throw ArgumentError('إجمالي الفاتورة غير صالح');
       final paymentTotal = payments.fold<double>(0, (s, p) => s + p.amount);
-      final paid = min(paymentTotal, net);
-      final change = max(0, paymentTotal - net);
-      final remaining = max(0, net - paymentTotal);
+      final paid = min(paymentTotal, net).toDouble();
+      final change = max(0, paymentTotal - net).toDouble();
+      final remaining = max(0, net - paymentTotal).toDouble();
       if (remaining > 0 && customerPartyId == null) {
         throw ArgumentError('حدد العميل لتسجيل المبلغ المتبقي عليه');
       }
@@ -178,7 +178,7 @@ class PostingAndSalesService {
       final paymentAllocations = <Map<String, Object?>>[];
       var allocationRemaining = paid;
       for (final payment in payments) {
-        final amount = min(payment.amount, allocationRemaining);
+        final amount = min(payment.amount, allocationRemaining).toDouble();
         if (amount <= 0) continue;
         allocationRemaining -= amount;
         var glAccountId = 'gl-cash';
