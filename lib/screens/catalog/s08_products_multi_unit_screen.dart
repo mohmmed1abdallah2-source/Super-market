@@ -138,6 +138,11 @@ class _S08ProductsMultiUnitScreenState extends State<S08ProductsMultiUnitScreen>
     if (draft == null) return;
     final db = await DatabaseHelper.instance.database;
     final now = DateTime.now().toIso8601String();
+    final currentRows = await db.query('products',
+      columns: ['sync_version'], where: 'id=?', whereArgs: [product.id], limit: 1);
+    final nextVersion = currentRows.isEmpty
+        ? 2
+        : (currentRows.first['sync_version'] as num).toInt() + 1;
     final updated = <String, Object?>{
       'name_ar': draft.name,
       'sku_code': draft.sku,
@@ -146,7 +151,7 @@ class _S08ProductsMultiUnitScreenState extends State<S08ProductsMultiUnitScreen>
       'product_type': draft.weighted ? 'WEIGHTED_SCALE' : 'STANDARD',
       'scale_plu_code': draft.plu.isEmpty ? null : draft.plu,
       'updated_at': now,
-      'sync_version': 2,
+      'sync_version': nextVersion,
     };
     await db.transaction((txn) async {
       await txn.update('products', updated, where: 'id=?', whereArgs: [product.id]);
@@ -241,7 +246,7 @@ class _EditProductDialogState extends State<_EditProductDialog> {
     content: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
       TextField(controller: _name, decoration: const InputDecoration(labelText: 'اسم الصنف')),
       TextField(controller: _sku, decoration: const InputDecoration(labelText: 'رمز الصنف SKU')),
-      TextField(controller: _base, decoration: const InputDecoration(labelText: 'وحدة الأساس')),
+      TextField(controller: _base, readOnly: true, decoration: const InputDecoration(labelText: 'وحدة الأساس (ثابتة بعد إنشاء الصنف)')),
       TextField(controller: _brand, decoration: const InputDecoration(labelText: 'العلامة التجارية')),
       SwitchListTile(value: _weighted, onChanged: (value) => setState(() => _weighted = value), title: const Text('صنف موزون')),
       if (_weighted) TextField(controller: _plu, decoration: const InputDecoration(labelText: 'رقم PLU')),
