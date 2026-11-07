@@ -164,6 +164,23 @@ class PosAndCatalogProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Changes a cart line to another product unit and refreshes conversion and prices.
+  Future<void> changeItemUnit(int index, ProductUnitBarcodeModel unit) async {
+    final tab = activeTab;
+    if (tab == null || index < 0 || index >= tab.items.length) return;
+    final old = tab.items[index];
+    if (old.productId != unit.productId) return;
+    final price = tab.priceTier == 'RETAIL' ? unit.retailPrice : unit.wholesalePrice;
+    tab.items[index] = old.copyWith(
+      unitId: unit.id,
+      unitName: unit.unitName,
+      conversionFactor: unit.conversionFactor,
+      unitPrice: price,
+      unitCost: unit.costPrice / unit.conversionFactor,
+    );
+    notifyListeners();
+  }
+
   /// Removes one cart line from the active invoice.
   void removeItem(int index) {
     final tab = activeTab;
