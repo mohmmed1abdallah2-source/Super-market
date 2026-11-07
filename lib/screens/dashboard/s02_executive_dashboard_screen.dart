@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme/enterprise_dark_theme.dart';
-import '../../core/theme/enterprise_dark_theme.dart' show MoneyFormatter;
 import '../../providers/supermarket_erp_provider.dart';
 
 /// Presents branch KPIs, cash balances, inventory alerts and sync quota status.
