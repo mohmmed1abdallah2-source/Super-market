@@ -132,6 +132,12 @@ class _S03SupermarketPosScreenState extends State<S03SupermarketPosScreen> {
                   icon: const Icon(Icons.add),
                   tooltip: 'إضافة الصنف',
                 ),
+                const SizedBox(width: 6),
+                OutlinedButton.icon(
+                  onPressed: () => provider.addBarcode('2010250125000'),
+                  icon: const Icon(Icons.scale),
+                  label: const Text('تجربة الميزان'),
+                ),
               ]),
             ),
             Padding(
