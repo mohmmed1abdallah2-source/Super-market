@@ -233,7 +233,9 @@ class _VoucherDialogState extends State<_VoucherDialog> {
   @override
   void initState() {
     super.initState();
-    _partyId = widget.parties.isEmpty ? null : widget.parties.first.id;
+    _partyId = widget.parties.where((party) => party.partyType == 'CUSTOMER').isEmpty
+        ? null
+        : widget.parties.firstWhere((party) => party.partyType == 'CUSTOMER').id;
   }
 
   @override
