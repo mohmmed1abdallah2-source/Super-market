@@ -129,7 +129,7 @@ class SupermarketErpProvider extends ChangeNotifier {
   Future<void> loadQuota() async {
     final db = await _helper.database;
     final now = DateTime.now();
-    final dateKey = '\${now.year.toString().padLeft(4, '0')}-\${now.month.toString().padLeft(2, '0')}-\${now.day.toString().padLeft(2, '0')}';
+    final dateKey = '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
     final rows = await db.query('firebase_quota_tracker',
       where: 'date_key=?', whereArgs: [dateKey], limit: 1);
     if (rows.isEmpty) {
