@@ -72,7 +72,7 @@ class FirebaseFreeTierSyncService {
       where: 'branch_id=? AND status IN (?,?)',
       whereArgs: [branchId, 'PENDING', 'FAILED'],
       orderBy: 'queued_at ASC',
-      limit: maxEventsPerBatch.clamp(1, 100),
+      limit: maxEventsPerBatch.clamp(1, 100).toInt(),
     );
     if (rows.isEmpty) return null;
     final batchId = _stableBatchId(rows);
