@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../../data/database/database_helper.dart';
 import '../../data/models/product_and_unit_models.dart';
@@ -100,23 +101,27 @@ class _S08ProductsMultiUnitScreenState extends State<S08ProductsMultiUnitScreen>
     final db = await DatabaseHelper.instance.database;
     final now = DateTime.now().toIso8601String();
     final id = 'p-${DateTime.now().microsecondsSinceEpoch}';
-    await db.insert('products', {
-      'id': id, 'uuid': 'uuid-$id', 'branch_id': 'branch-main',
-      'sku_code': result.sku, 'name_ar': result.name, 'name_en': null,
-      'category_id': 'cat-grocery', 'brand_name': result.brand,
-      'product_type': result.weighted ? 'WEIGHTED_SCALE' : 'STANDARD',
-      'scale_plu_code': result.plu.isEmpty ? null : result.plu,
-      'base_unit_name': result.baseUnit, 'stock_base_qty': 0,
-      'avg_cost_base_unit': 0, 'last_cost_base_unit': 0,
-      'min_stock_alert_qty': 0, 'reorder_qty': 0,
-      'has_expiry_date': 0, 'nearest_expiry_date': null,
-      'tax_rate_pct': 0, 'is_active': 1,
-      'created_at': now, 'updated_at': now, 'is_deleted': 0,
-      'sync_status': 'LOCAL', 'sync_version': 1,
+    await db.transaction((txn) async {
+      final productRow = <String, Object?>{
+        'id': id, 'uuid': 'uuid-$id', 'branch_id': 'branch-main',
+        'sku_code': result.sku, 'name_ar': result.name, 'name_en': null,
+        'category_id': 'cat-grocery', 'brand_name': result.brand,
+        'product_type': result.weighted ? 'WEIGHTED_SCALE' : 'STANDARD',
+        'scale_plu_code': result.plu.isEmpty ? null : result.plu,
+        'base_unit_name': result.baseUnit, 'stock_base_qty': 0,
+        'avg_cost_base_unit': 0, 'last_cost_base_unit': 0,
+        'min_stock_alert_qty': 0, 'reorder_qty': 0,
+        'has_expiry_date': 0, 'nearest_expiry_date': null,
+        'tax_rate_pct': 0, 'is_active': 1,
+        'created_at': now, 'updated_at': now, 'is_deleted': 0,
+        'sync_status': 'LOCAL', 'sync_version': 1,
+      };
+      await txn.insert('products', productRow);
+      await _enqueueSync(txn, 'products', id, productRow, now);
+      for (final unit in result.units) {
+        await _insertUnit(txn, id, unit, now);
+      }
     });
-    for (final unit in result.units) {
-      await _insertUnit(db, id, unit, now);
-    }
     await context.read<PosAndCatalogProvider>().loadCatalog();
   }
 
@@ -132,7 +137,7 @@ class _S08ProductsMultiUnitScreenState extends State<S08ProductsMultiUnitScreen>
 
   Future<void> _insertUnit(dynamic db, String productId, _UnitDraft unit, String now) async {
     final id = 'unit-${DateTime.now().microsecondsSinceEpoch}';
-    await db.insert('product_units_barcodes', {
+    final row = <String, Object?>{
       'id': id, 'uuid': 'uuid-$id', 'branch_id': 'branch-main',
       'product_id': productId, 'unit_name': unit.name,
       'conversion_factor': unit.factor, 'barcode': unit.barcode.isEmpty ? null : unit.barcode,
@@ -140,6 +145,22 @@ class _S08ProductsMultiUnitScreenState extends State<S08ProductsMultiUnitScreen>
       'wholesale_price': unit.wholesale, 'min_sell_price': unit.minSell,
       'is_default_pos_unit': 0, 'created_at': now, 'updated_at': now,
       'is_deleted': 0, 'sync_status': 'LOCAL', 'sync_version': 1,
+    };
+    await db.insert('product_units_barcodes', row);
+    await _enqueueSync(db, 'product_units_barcodes', id, row, now);
+  }
+
+  Future<void> _enqueueSync(
+    dynamic db, String tableName, String rowId,
+    Map<String, Object?> payload, String now,
+  ) async {
+    final queueId = 'sync-${DateTime.now().microsecondsSinceEpoch}';
+    await db.insert('sync_queue', {
+      'id': queueId, 'uuid': 'uuid-$queueId', 'branch_id': 'branch-main',
+      'table_name': tableName, 'row_uuid': rowId, 'operation': 'INSERT',
+      'payload_json': jsonEncode(payload), 'sync_version': 1,
+      'batch_id': null, 'status': 'PENDING', 'queued_at': now,
+      'created_at': now, 'updated_at': now, 'is_deleted': 0,
     });
   }
 }
