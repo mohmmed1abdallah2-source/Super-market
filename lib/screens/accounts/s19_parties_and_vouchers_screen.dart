@@ -163,7 +163,7 @@ class _S19PartiesAndVouchersScreenState extends State<S19PartiesAndVouchersScree
       await txn.insert('journal_lines', {
         'id': cashLine, 'uuid': 'uuid-$cashLine', 'branch_id': 'branch-main',
         'journal_entry_id': journalId,
-        'gl_account_id': isReceipt ? 'gl-cash' : 'gl-payable',
+        'gl_account_id': isReceipt ? (cashRows.first['gl_account_id'] as String? ?? 'gl-cash') : 'gl-payable',
         'dr_amount': isReceipt ? draft.amount : 0,
         'cr_amount': isReceipt ? 0 : draft.amount,
         'created_at': now, 'updated_at': now, 'is_deleted': 0,
@@ -172,7 +172,7 @@ class _S19PartiesAndVouchersScreenState extends State<S19PartiesAndVouchersScree
       await txn.insert('journal_lines', {
         'id': partyLine, 'uuid': 'uuid-$partyLine', 'branch_id': 'branch-main',
         'journal_entry_id': journalId,
-        'gl_account_id': isReceipt ? 'gl-receivable' : 'gl-cash',
+        'gl_account_id': isReceipt ? 'gl-receivable' : (cashRows.first['gl_account_id'] as String? ?? 'gl-cash'),
         'dr_amount': isReceipt ? 0 : draft.amount,
         'cr_amount': isReceipt ? draft.amount : 0,
         'created_at': now, 'updated_at': now, 'is_deleted': 0,
@@ -268,7 +268,6 @@ class _VoucherDialogState extends State<_VoucherDialog> {
         items: const [
           DropdownMenuItem(value: 'CASH', child: Text('نقداً')),
           DropdownMenuItem(value: 'WALLET', child: Text('محفظة')),
-          DropdownMenuItem(value: 'BANK', child: Text('بنك')),
         ],
         onChanged: (v) => setState(() {
           _method = v ?? 'CASH';
