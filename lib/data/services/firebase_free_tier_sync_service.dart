@@ -75,28 +75,43 @@ class FirebaseFreeTierSyncService {
       limit: maxEventsPerBatch.clamp(1, 100).toInt(),
     );
     if (rows.isEmpty) return null;
-    final batchId = _stableBatchId(rows);
-    final payload = jsonEncode({
-      'schemaVersion': 1,
-      'branchId': branchId,
-      'batchId': batchId,
-      'events': rows.map((row) => {
-        'eventId': row['uuid'],
-        'table': row['table_name'],
-        'rowUuid': row['row_uuid'],
-        'operation': row['operation'],
-        'version': row['sync_version'],
-        'payload': jsonDecode(row['payload_json'] as String),
-        'queuedAt': row['queued_at'],
-      }).toList(),
-    });
-    final compressed = gzip.encode(utf8.encode(payload));
+
+    var selected = rows;
+    late String batchId;
+    late String payload;
+    late List<int> compressed;
+    late String encoded;
+    while (true) {
+      batchId = _stableBatchId(selected);
+      payload = jsonEncode({
+        'schemaVersion': 1,
+        'branchId': branchId,
+        'batchId': batchId,
+        'events': selected.map((row) => {
+          'eventId': row['uuid'],
+          'table': row['table_name'],
+          'rowUuid': row['row_uuid'],
+          'operation': row['operation'],
+          'version': row['sync_version'],
+          'payload': jsonDecode(row['payload_json'] as String),
+          'queuedAt': row['queued_at'],
+        }).toList(),
+      });
+      compressed = gzip.encode(utf8.encode(payload));
+      encoded = base64Encode(compressed);
+      if (encoded.length <= 900 * 1024) break;
+      if (selected.length == 1) {
+        throw StateError('حمولة المزامنة الواحدة تتجاوز الحجم الآمن لمستند Firestore');
+      }
+      selected = selected.sublist(0, (selected.length / 2).ceil());
+    }
+
     return CompressedSyncBatch(
       id: batchId,
       branchId: branchId,
-      eventIds: rows.map((row) => row['id'] as String).toList(),
-      eventCount: rows.length,
-      compressedPayload: base64Encode(compressed),
+      eventIds: selected.map((row) => row['id'] as String).toList(),
+      eventCount: selected.length,
+      compressedPayload: encoded,
       checksum: sha256.convert(utf8.encode(payload)).toString(),
       createdAt: DateTime.now().toUtc().toIso8601String(),
     );
