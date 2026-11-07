@@ -157,6 +157,28 @@ class _S03SupermarketPosScreenState extends State<S03SupermarketPosScreen> {
                 Text('F4 تعليق  •  F6 فاتورة جديدة', style: Theme.of(context).textTheme.bodySmall),
               ]),
             ),
+            if (provider.products.isNotEmpty)
+              SizedBox(
+                height: 48,
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  children: provider.products.take(8).map((product) => Padding(
+                    padding: const EdgeInsetsDirectional.only(end: 7),
+                    child: ActionChip(
+                      avatar: Icon(
+                        product.productType == 'WEIGHTED_SCALE' ? Icons.scale : Icons.inventory_2,
+                        size: 17,
+                      ),
+                      label: Text(product.nameAr),
+                      onPressed: () async {
+                        final units = await provider.unitsFor(product.id);
+                        if (units.isNotEmpty) await provider.addUnit(product, units.first);
+                      },
+                    ),
+                  )).toList(),
+                ),
+              ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               child: Consumer<SupermarketErpProvider>(
