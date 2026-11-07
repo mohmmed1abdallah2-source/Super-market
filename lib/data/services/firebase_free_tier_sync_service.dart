@@ -130,9 +130,15 @@ class FirebaseFreeTierSyncService {
       await _transport.putBatch(
         branchId: branchId, batchId: batch.id, data: batchDocument,
       );
+      await db.transaction((txn) async {
+        await _incrementQuota(txn, branchId, dateKey, writes: 1);
+      });
       final summary = await _buildDailySummary(db, branchId, dateKey, batch.id);
       final summaryId = '\${branchId}_\${dateKey.replaceAll('-', '')}';
       await _transport.putDailySummary(documentId: summaryId, data: summary);
+      await db.transaction((txn) async {
+        await _incrementQuota(txn, branchId, dateKey, writes: 1);
+      });
 
       await db.transaction((txn) async {
         final now = DateTime.now().toIso8601String();
@@ -143,7 +149,6 @@ class FirebaseFreeTierSyncService {
             'updated_at': now,
           }, where: 'id=?', whereArgs: [id]);
         }
-        await _incrementQuota(txn, branchId, dateKey, writes: 2);
       });
       return SyncResult.sent(batchId: batch.id, eventCount: batch.eventCount);
     } catch (error) {
