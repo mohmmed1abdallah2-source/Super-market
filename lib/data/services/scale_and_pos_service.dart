@@ -135,6 +135,9 @@ class PostingAndSalesService {
     }
     for (final payment in payments) {
       if (payment.amount <= 0) throw ArgumentError('قيمة الدفعة يجب أن تكون موجبة');
+      if (payment.cashAccountId == null || payment.cashAccountId!.trim().isEmpty) {
+        throw ArgumentError('يجب تحديد الصندوق أو المحفظة لكل دفعة');
+      }
       if (payment.method == 'WALLET' &&
           (payment.walletRefNo == null || payment.walletRefNo!.trim().isEmpty)) {
         throw ArgumentError('رقم إشعار المحفظة مطلوب');
@@ -159,7 +162,9 @@ class PostingAndSalesService {
       if (customerPartyId != null) {
         final parties = await txn.query('parties',
           where: 'id=? AND is_deleted=0', whereArgs: [customerPartyId], limit: 1);
-        if (parties.isEmpty) throw StateError('العميل غير موجود');
+        if (parties.isEmpty || parties.first['party_type'] != 'CUSTOMER') {
+          throw StateError('الطرف المحدد ليس عميلاً صالحاً للبيع');
+        }
         if ((parties.first['is_blocked'] as num? ?? 0) == 1 && remaining > 0) {
           throw StateError('العميل موقوف عن الشراء الآجل');
         }
@@ -184,10 +189,17 @@ class PostingAndSalesService {
         var glAccountId = 'gl-cash';
         if (payment.cashAccountId != null) {
           final accountRows = await txn.query('cash_accounts',
-            columns: ['gl_account_id'],
+            columns: ['gl_account_id', 'account_kind'],
             where: 'id=? AND is_deleted=0',
             whereArgs: [payment.cashAccountId], limit: 1);
           if (accountRows.isEmpty) throw StateError('حساب الدفع غير موجود');
+          final accountKind = accountRows.first['account_kind'] as String;
+          if (payment.method == 'WALLET' && accountKind != 'WALLET') {
+            throw StateError('اختر حساب محفظة إلكترونية لطريقة الدفع هذه');
+          }
+          if (payment.method == 'CASH' && accountKind == 'WALLET') {
+            throw StateError('حساب المحفظة لا يقبل دفعة نقدية');
+          }
           glAccountId = accountRows.first['gl_account_id'] as String? ?? 'gl-cash';
         }
         paymentAllocations.add({
