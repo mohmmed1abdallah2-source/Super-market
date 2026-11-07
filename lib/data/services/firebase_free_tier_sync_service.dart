@@ -3,22 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:crypto/crypto.dart';
 import 'package:sqflite/sqflite.dart';
 import '../database/database_helper.dart';
-
-/// Provider-neutral contract for sending immutable branch sync batches.
-abstract class ISyncTransport {
-  /// Persists one idempotently identified compressed batch document.
-  Future<void> putBatch({
-    required String branchId,
-    required String batchId,
-    required Map<String, Object?> data,
-  });
-
-  /// Updates the branch's daily dashboard summary document.
-  Future<void> putDailySummary({
-    required String documentId,
-    required Map<String, Object?> data,
-  });
-}
+import 'i_sync_transport.dart';
 
 /// Firestore implementation of the sync transport; it never runs inside a sale transaction.
 class FirestoreSyncTransport implements ISyncTransport {
