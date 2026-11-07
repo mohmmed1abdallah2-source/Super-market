@@ -28,7 +28,9 @@ service cloud.firestore {
         && request.resource.data.branchId == branchId
         && resource.data.batchId == batchId
         && request.resource.data.batchId == batchId
-        && resource.data.checksum == request.resource.data.checksum;
+        && resource.data.checksum == request.resource.data.checksum
+        && resource.data.eventCount == request.resource.data.eventCount
+        && resource.data.compressedPayload == request.resource.data.compressedPayload;
       allow delete: if false;
     }
 
