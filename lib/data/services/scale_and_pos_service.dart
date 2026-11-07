@@ -223,7 +223,7 @@ class PostingAndSalesService {
       for (final item in items) {
         final baseQty = item.baseQuantity;
         final stockRows = await txn.query('products',
-          columns: ['stock_base_qty'],
+          columns: ['stock_base_qty', 'sync_version'],
           where: 'id=? AND is_active=1 AND is_deleted=0',
           whereArgs: [item.productId], limit: 1);
         if (stockRows.isEmpty) throw StateError('الصنف غير موجود أو غير نشط');
@@ -231,6 +231,7 @@ class PostingAndSalesService {
         if (stock + 1e-7 < baseQty) throw StateError('المخزون غير كافٍ للصنف: ${item.productName}');
         await txn.update('products', {
           'stock_base_qty': stock - baseQty, 'updated_at': now,
+          'sync_version': ((stockRows.first['sync_version'] as num? ?? 1).toInt() + 1),
         }, where: 'id=?', whereArgs: [item.productId]);
         final lineId = _id('line');
         await txn.insert('sales_invoice_items', {
@@ -309,6 +310,8 @@ class PostingAndSalesService {
         where: 'invoice_id=?', whereArgs: [invoiceId]);
       final paymentPayload = await txn.query('sales_payments',
         where: 'invoice_id=?', whereArgs: [invoiceId]);
+      final stockPayload = await txn.query('stock_movements',
+        where: 'doc_id=? AND doc_type=?', whereArgs: [invoiceId, 'SALE']);
       final journalPayload = await txn.query('journal_lines',
         where: 'journal_entry_id=?', whereArgs: [journalId]);
       final ledgerPayload = customerPartyId == null
@@ -323,6 +326,7 @@ class PostingAndSalesService {
           'invoice': invoicePayload,
           'items': itemPayload,
           'payments': paymentPayload,
+          'stockMovements': stockPayload,
           'journalLines': journalPayload,
           'partyLedger': ledgerPayload,
         }),
