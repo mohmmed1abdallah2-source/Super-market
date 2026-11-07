@@ -43,17 +43,13 @@ class DatabaseHelper {
         await db.execute('PRAGMA synchronous = NORMAL');
       },
       onCreate: (db, version) async {
-        await db.transaction((txn) async {
-          await SchemaBuilder.createAll(txn);
-          await SeedData.seed(txn);
-        });
+        await SchemaBuilder.createAll(db);
+        await SeedData.seed(db);
       },
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 1) {
-          await db.transaction((txn) async {
-            await SchemaBuilder.createAll(txn);
-            await SeedData.seed(txn);
-          });
+          await SchemaBuilder.createAll(db);
+          await SeedData.seed(db);
         }
       },
     );
