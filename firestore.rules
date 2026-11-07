@@ -23,7 +23,13 @@ service cloud.firestore {
         && request.resource.data.eventCount > 0
         && request.resource.data.eventCount <= 100
         && request.resource.data.compressedPayload is string;
-      allow update, delete: if false;
+      allow update: if branchMember(branchId)
+        && resource.data.branchId == branchId
+        && request.resource.data.branchId == branchId
+        && resource.data.batchId == batchId
+        && request.resource.data.batchId == batchId
+        && resource.data.checksum == request.resource.data.checksum;
+      allow delete: if false;
     }
 
     match /daily_summaries/{summaryId} {
