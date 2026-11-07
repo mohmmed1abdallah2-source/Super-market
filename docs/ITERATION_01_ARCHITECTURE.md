@@ -127,6 +127,7 @@ erDiagram
   parties ||--o{ vouchers : party
   sales_invoices ||--|{ sales_invoice_items : contains
   sales_invoices ||--o{ sales_payments : paid_by
+  products ||--o{ stock_movements : moves
   cash_accounts ||--o{ sales_payments : receives
   cash_accounts ||--o{ vouchers : used_by
   chart_of_accounts ||--o{ journal_lines : account
@@ -333,6 +334,17 @@ erDiagram
     text method
     real amount
     text wallet_ref_no
+  }
+  stock_movements {
+    text id PK
+    text branch_id FK
+    text product_id FK
+    text movement_date
+    text movement_type
+    real quantity_base
+    real unit_cost_base
+    text doc_type
+    text doc_id
   }
 ```
 
