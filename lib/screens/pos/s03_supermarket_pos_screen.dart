@@ -47,7 +47,7 @@ class _S03SupermarketPosScreenState extends State<S03SupermarketPosScreen> {
     if (tab == null || tab.items.isEmpty || erp.currentUser == null) return;
     final draft = await showDialog<_PaymentDraft>(
       context: context,
-      builder: (context) => const _PaymentDialog(total: 0),
+      builder: (context) => _PaymentDialog(total: pos.activeSubtotal),
     );
     if (draft == null || !mounted) return;
     if (draft.method != 'CREDIT' && draft.amount <= 0) return;
@@ -150,6 +150,27 @@ class _S03SupermarketPosScreenState extends State<S03SupermarketPosScreen> {
                 const Spacer(),
                 Text('F4 تعليق  •  F6 فاتورة جديدة', style: Theme.of(context).textTheme.bodySmall),
               ]),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              child: Consumer<SupermarketErpProvider>(
+                builder: (context, erp, _) => DropdownButtonFormField<String?>(
+                  value: tab?.customerPartyId,
+                  isExpanded: true,
+                  decoration: const InputDecoration(
+                    labelText: 'العميل (مطلوب عند البيع الآجل)',
+                    prefixIcon: Icon(Icons.person_outline),
+                  ),
+                  items: [
+                    const DropdownMenuItem<String?>(value: null, child: Text('عميل نقدي / بدون حساب')),
+                    ...erp.parties.where((party) => party.partyType == 'CUSTOMER')
+                      .map((party) => DropdownMenuItem<String?>(
+                        value: party.id, child: Text(party.nameAr),
+                      )),
+                  ],
+                  onChanged: (value) => provider.setCustomer(value),
+                ),
+              ),
             ),
             const Divider(height: 20),
             Expanded(child: tab == null || tab.items.isEmpty
