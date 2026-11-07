@@ -70,7 +70,7 @@ class _S02ExecutiveDashboardScreenState extends State<S02ExecutiveDashboardScree
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text('مزامنة Firebase', style: Theme.of(context).textTheme.titleMedium),
                   const SizedBox(height: 8),
-                  Text('الكتابات التقديرية اليوم: \${provider.quota?.writesUsed ?? 0}'),
+                  Text('الكتابات التقديرية اليوم: ${provider.quota?.writesUsed ?? 0}'),
                   LinearProgressIndicator(
                     value: (provider.quota?.writeUsageRatio ?? 0).clamp(0.0, 1.0).toDouble(),
                     color: EnterpriseDarkTheme.primary,
