@@ -37,6 +37,7 @@ class SeedData {
       {'id':'gl-cash','code':'1101','name_ar':'الصندوق','account_type':'ASSET'},
       {'id':'gl-wallet','code':'1102','name_ar':'المحافظ الإلكترونية','account_type':'ASSET'},
       {'id':'gl-receivable','code':'1201','name_ar':'حسابات العملاء','account_type':'ASSET'},
+      {'id':'gl-payable','code':'2101','name_ar':'حسابات الموردين','account_type':'LIABILITY'},
       {'id':'gl-sales','code':'4101','name_ar':'المبيعات','account_type':'REVENUE'},
       {'id':'gl-inventory','code':'1301','name_ar':'المخزون','account_type':'ASSET'},
       {'id':'gl-cogs','code':'5101','name_ar':'تكلفة البضاعة المباعة','account_type':'EXPENSE'},
