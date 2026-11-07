@@ -78,7 +78,7 @@ class _S03SupermarketPosScreenState extends State<S03SupermarketPosScreen> {
       await erp.loadDashboard();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('تم حفظ الفاتورة محلياً رقم ${result.invoiceNo}')),
+          SnackBar(content: Text('تم حفظ الفاتورة ${result.invoiceNo} • الباقي للزبون: ${MoneyFormatter().format(result.changeReturned)}')),
         );
       }
     } catch (error) {
@@ -193,6 +193,11 @@ class _S03SupermarketPosScreenState extends State<S03SupermarketPosScreen> {
                       trailing: Row(mainAxisSize: MainAxisSize.min, children: [
                         Text(MoneyFormatter().format(item.lineTotal)),
                         IconButton(
+                          onPressed: () => _changeUnit(index, item, provider),
+                          icon: const Icon(Icons.swap_horiz),
+                          tooltip: 'تغيير وحدة البيع',
+                        ),
+                        IconButton(
                           onPressed: () => provider.removeItem(index),
                           icon: const Icon(Icons.delete_outline, color: EnterpriseDarkTheme.danger),
                         ),
@@ -228,6 +233,26 @@ class _S03SupermarketPosScreenState extends State<S03SupermarketPosScreen> {
         );
       },
     );
+  }
+
+  Future<void> _changeUnit(
+    int index, PosCartItemModel item, PosAndCatalogProvider provider,
+  ) async {
+    final units = await provider.unitsFor(item.productId);
+    if (!mounted || units.length < 2) return;
+    final selectedId = await showDialog<String>(
+      context: context,
+      builder: (context) => SimpleDialog(
+        title: Text('اختر وحدة ${item.productName}'),
+        children: units.map((unit) => SimpleDialogOption(
+          onPressed: () => Navigator.pop(context, unit.id),
+          child: Text('${unit.unitName} — ${MoneyFormatter().format(unit.retailPrice)}'),
+        )).toList(),
+      ),
+    );
+    if (selectedId == null) return;
+    final selected = units.firstWhere((unit) => unit.id == selectedId);
+    await provider.changeItemUnit(index, selected);
   }
 
   Widget _buildTabs(PosAndCatalogProvider provider) => SizedBox(
