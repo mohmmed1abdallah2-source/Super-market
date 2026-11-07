@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:supermarket_erp/data/services/scale_and_pos_service.dart';
+import 'package:supermarket_erp/data/models/erp_and_sync_models.dart';
 
 void main() {
   const parser = ScaleAndBarcodeParser();
@@ -20,6 +21,19 @@ void main() {
 
     test('does not treat a regular product EAN as a scale label', () {
       expect(parser.parseScaleBarcode('6281000001002'), isNull);
+    });
+
+    test('converts a carton sale into base stock units', () {
+      const item = PosCartItemModel(
+        productId: 'milk',
+        unitId: 'carton',
+        productName: 'حليب',
+        unitName: 'كرتون 24',
+        conversionFactor: 24,
+        quantity: 2,
+        unitPrice: 6000,
+      );
+      expect(item.baseQuantity, 48);
     });
 
     test('validates EAN-13 check digit independently', () {
