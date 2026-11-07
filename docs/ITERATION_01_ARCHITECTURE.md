@@ -393,7 +393,9 @@ service cloud.firestore {
       allow read: if sameBranch(branchId);
       allow create: if sameBranch(branchId)
         && request.resource.data.branchId == branchId
-        && request.resource.data.eventCount <= 100;
+        && request.resource.data.eventCount <= 100
+        && request.resource.data.compressedPayload is string
+        && request.resource.data.compressedPayload.size() <= 921600;
       allow update: if sameBranch(branchId)
         && resource.data.batchId == request.resource.data.batchId
         && resource.data.checksum == request.resource.data.checksum
@@ -410,7 +412,8 @@ service cloud.firestore {
       allow delete: if false;
     }
     match /master_catalog/{catalogId} {
-      allow read: if signedIn();
+      allow read: if signedIn()
+        && request.auth.token.branch_id == resource.data.branchId;
       allow create, update: if signedIn()
         && request.auth.token.role in ['OWNER', 'MANAGER']
         && request.auth.token.branch_id == request.resource.data.branchId;
