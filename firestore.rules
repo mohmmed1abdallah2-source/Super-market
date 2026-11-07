@@ -22,7 +22,8 @@ service cloud.firestore {
         && request.resource.data.eventCount is int
         && request.resource.data.eventCount > 0
         && request.resource.data.eventCount <= 100
-        && request.resource.data.compressedPayload is string;
+        && request.resource.data.compressedPayload is string
+        && request.resource.data.compressedPayload.size() <= 921600;
       allow update: if branchMember(branchId)
         && resource.data.branchId == branchId
         && request.resource.data.branchId == branchId
@@ -46,7 +47,8 @@ service cloud.firestore {
     }
 
     match /master_catalog/{catalogId} {
-      allow read: if signedIn();
+      allow read: if signedIn()
+        && request.auth.token.branch_id == resource.data.branchId;
       allow create, update: if signedIn()
         && request.auth.token.role in ['OWNER', 'MANAGER']
         && request.auth.token.branch_id == request.resource.data.branchId;
