@@ -78,7 +78,7 @@ class _S03SupermarketPosScreenState extends State<S03SupermarketPosScreen> {
       await erp.loadDashboard();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('تم حفظ الفاتورة محلياً رقم \${result.invoiceNo}')),
+          SnackBar(content: Text('تم حفظ الفاتورة محلياً رقم ${result.invoiceNo}')),
         );
       }
     } catch (error) {
@@ -189,7 +189,7 @@ class _S03SupermarketPosScreenState extends State<S03SupermarketPosScreen> {
                     final item = tab.items[index];
                     return ListTile(
                       title: Text(item.productName),
-                      subtitle: Text('\${item.unitName} • \${item.quantity} × \${MoneyFormatter().format(item.unitPrice)}'),
+                      subtitle: Text('${item.unitName} • ${item.quantity} × ${MoneyFormatter().format(item.unitPrice)}'),
                       trailing: Row(mainAxisSize: MainAxisSize.min, children: [
                         Text(MoneyFormatter().format(item.lineTotal)),
                         IconButton(
