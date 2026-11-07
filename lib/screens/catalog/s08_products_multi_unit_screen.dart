@@ -167,7 +167,9 @@ class _S08ProductsMultiUnitScreenState extends State<S08ProductsMultiUnitScreen>
     );
     if (unit == null) return;
     final db = await DatabaseHelper.instance.database;
-    await _insertUnit(db, product.id, unit, DateTime.now().toIso8601String());
+    await db.transaction((txn) async {
+      await _insertUnit(txn, product.id, unit, DateTime.now().toIso8601String());
+    });
     if (mounted) setState(() {});
   }
 
