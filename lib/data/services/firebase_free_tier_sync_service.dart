@@ -134,7 +134,7 @@ class FirebaseFreeTierSyncService {
         await _incrementQuota(txn, branchId, dateKey, writes: 1);
       });
       final summary = await _buildDailySummary(db, branchId, dateKey, batch.id);
-      final summaryId = '\${branchId}_\${dateKey.replaceAll('-', '')}';
+      final summaryId = '${branchId}_${dateKey.replaceAll('-', '')}';
       await _transport.putDailySummary(documentId: summaryId, data: summary);
       await db.transaction((txn) async {
         await _incrementQuota(txn, branchId, dateKey, writes: 1);
@@ -154,7 +154,7 @@ class FirebaseFreeTierSyncService {
     } catch (error) {
       await db.update('sync_queue', {
         'status': 'FAILED', 'updated_at': DateTime.now().toIso8601String(),
-      }, where: 'id IN (\${batch.eventIds.map((_) => '?').join(',')})',
+      }, where: 'id IN (${batch.eventIds.map((_) => '?').join(',')})',
         whereArgs: batch.eventIds);
       return SyncResult.failed(error.toString());
     }
@@ -245,7 +245,7 @@ class FirebaseFreeTierSyncService {
   }
 
   String _dateKey(DateTime date) =>
-      '\${date.year.toString().padLeft(4, '0')}-\${date.month.toString().padLeft(2, '0')}-\${date.day.toString().padLeft(2, '0')}';
+      '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
 }
 
 /// Immutable compressed payload ready for transport.
