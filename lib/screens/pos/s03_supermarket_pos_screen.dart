@@ -82,9 +82,11 @@ class _S03SupermarketPosScreenState extends State<S03SupermarketPosScreen> {
         );
       }
     } catch (error) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('لم تُحفظ الفاتورة: $error')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('لم تُحفظ الفاتورة: $error')),
+        );
+      }
     } finally {
       if (mounted) setState(() => _posting = false);
       _barcodeFocus.requestFocus();
@@ -183,7 +185,7 @@ class _S03SupermarketPosScreenState extends State<S03SupermarketPosScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               child: Consumer<SupermarketErpProvider>(
                 builder: (context, erp, _) => DropdownButtonFormField<String?>(
-                  value: tab?.customerPartyId,
+                  initialValue: tab?.customerPartyId,
                   isExpanded: true,
                   decoration: const InputDecoration(
                     labelText: 'العميل (مطلوب عند البيع الآجل)',
@@ -345,7 +347,7 @@ class _PaymentDialogState extends State<_PaymentDialog> {
     title: const Text('طريقة الدفع'),
     content: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
       DropdownButtonFormField<String>(
-        value: _method,
+        initialValue: _method,
         decoration: const InputDecoration(labelText: 'طريقة السداد'),
         items: const [
           DropdownMenuItem(value: 'CASH', child: Text('نقداً')),
@@ -368,7 +370,7 @@ class _PaymentDialogState extends State<_PaymentDialog> {
       if (_method == 'WALLET') ...[
         const SizedBox(height: 10),
         DropdownButtonFormField<String>(
-          value: _account,
+          initialValue: _account,
           decoration: const InputDecoration(labelText: 'المحفظة'),
           items: const [
             DropdownMenuItem(value: 'wallet-jawali', child: Text('جوالي')),
