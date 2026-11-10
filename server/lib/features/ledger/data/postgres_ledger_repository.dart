@@ -21,7 +21,7 @@ class PostgresLedgerRepository implements LedgerRepository {
     required String idempotencyKey,
     required String requestHash,
   }) async {
-    return _connection.transaction((ctx) async {
+    return _connection.transaction<Map<String, Object?>>((ctx) async {
       final replay = await _claimIdempotency(ctx, command.branchId, idempotencyKey, requestHash);
       if (replay != null) return replay;
 
