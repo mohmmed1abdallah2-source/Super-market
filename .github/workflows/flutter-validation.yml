@@ -42,8 +42,8 @@ jobs:
           for path in candidates:
               content = path.read_text()
               content, count = re.subn(
-                  r"(?m)^(\\s*compileSdk(?:Version)?\\s*(?:=\\s*)?)flutter\\.compileSdkVersion\\b",
-                  r"\\g<1>36",
+                  r"(?m)^(\s*compileSdk(?:Version)?\s*(?:=\s*)?)flutter\.compileSdkVersion\b",
+                  r"\g<1>36",
                   content,
               )
               if count:
