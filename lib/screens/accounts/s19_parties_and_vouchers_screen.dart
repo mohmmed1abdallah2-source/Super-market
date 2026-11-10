@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/widgets/shared_widgets.dart';
+import '../../core/pdf/receipt_and_ledger_pdf_builder.dart';
 import '../../data/database/database_helper.dart';
 import '../../data/models/erp_and_sync_models.dart';
 import '../../providers/supermarket_erp_provider.dart';
@@ -103,9 +104,13 @@ class _S19PartiesAndVouchersScreenState extends State<S19PartiesAndVouchersScree
     final provider = context.read<SupermarketErpProvider>();
     if (provider.parties.isEmpty) await provider.loadParties();
     if (!mounted) return;
-    final draft = await showDialog<_VoucherDraft>(
+    final draft = await showModalBottomSheet<_VoucherDraft>(
       context: context,
-      builder: (context) => _VoucherDialog(parties: provider.parties),
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (context) => KeyboardSafeModalSheet(
+        child: _VoucherDialog(parties: provider.parties),
+      ),
     );
     if (draft == null) return;
     try {
