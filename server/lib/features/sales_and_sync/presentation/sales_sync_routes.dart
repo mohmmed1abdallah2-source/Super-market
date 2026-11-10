@@ -12,21 +12,36 @@ class SalesSyncRoutes {
   /// Creates the route group.
   const SalesSyncRoutes({
     required this.postSale,
+    required this.listSalesInvoices,
     required this.processBatch,
     required this.apiToken,
   });
 
   final PostSaleInvoiceUseCase postSale;
+  final ListSalesInvoicesUseCase listSalesInvoices;
   final ProcessSyncBatchUseCase processBatch;
   final String apiToken;
 
   /// Builds the supported sales and sync endpoints.
   Router get router {
     final router = Router();
+    router.get('/v1/sales/invoices', _listSalesInvoices);
     router.post('/v1/sales/invoices', _postSale);
     router.post('/v1/sync/batch', _postBatch);
     return router;
   }
+
+  Future<Response> _listSalesInvoices(Request request) async => _guard(request, () async {
+        final query = request.url.queryParameters;
+        final result = await listSalesInvoices(
+          branchId: _branchId(request),
+          from: _date(query['from']),
+          to: _date(query['to']),
+          cursor: query['cursor'],
+          limit: int.tryParse(query['limit'] ?? '50') ?? 50,
+        );
+        return _json(200, {'items': result});
+      });
 
   Future<Response> _postSale(Request request) async => _guard(request, () async {
         final body = await _body(request);
@@ -131,6 +146,9 @@ class SalesSyncRoutes {
     }
     return item.trim();
   }
+
+  DateTime? _date(String? value) =>
+      value == null || value.isEmpty ? null : DateTime.parse(value).toUtc();
 
   String _hash(Map<String, dynamic> body) =>
       sha256.convert(utf8.encode(jsonEncode(body))).toString();
