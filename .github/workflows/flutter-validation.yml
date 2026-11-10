@@ -112,6 +112,29 @@ jobs:
           path: build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
 
+  validate-server:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Dart
+        uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+
+      - name: Get server dependencies
+        run: dart pub get
+
+      - name: Analyze Dart server
+        run: dart analyze
+
+      - name: Run server unit tests
+        run: dart test
+
   build-windows:
     runs-on: windows-latest
     steps:
