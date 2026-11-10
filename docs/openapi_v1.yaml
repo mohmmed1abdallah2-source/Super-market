@@ -240,7 +240,7 @@ components:
     bearerAuth:
       type: http
       scheme: bearer
-      bearerFormat: JWT
+      description: Branch-scoped bearer token. The X-Branch-Id header must match the token's branch.
   parameters:
     BranchId:
       in: header
