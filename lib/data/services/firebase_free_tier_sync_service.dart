@@ -1,5 +1,6 @@
 import 'dart:convert';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:io' show gzip;
+import 'package:cloud_firestore/cloud_firestore.dart' hide Transaction;
 import 'package:crypto/crypto.dart';
 import 'package:sqflite/sqflite.dart';
 import '../database/database_helper.dart';
@@ -109,7 +110,7 @@ class FirebaseFreeTierSyncService {
     if (batch == null) return const SyncResult.noPending();
     final dateKey = _dateKey(DateTime.now());
     final quota = await _readOrCreateQuota(db, branchId, dateKey);
-    if (quota.writesUsed + 2 > quota.maxDailyWritesLimit ||
+    if (quota.writesUsed + 2 > quota.maxWrites ||
         quota.writesUsed + 2 > dailyWriteSafetyLimit) {
       return SyncResult.deferred(
         'تم إيقاف المزامنة مؤقتاً لحماية الحصة اليومية؛ بقيت البيانات محفوظة محلياً.',
