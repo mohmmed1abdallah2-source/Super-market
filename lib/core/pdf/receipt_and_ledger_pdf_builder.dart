@@ -5,7 +5,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
-import '../models/erp_and_sync_models.dart';
+import '../../data/models/erp_and_sync_models.dart';
 import '../../providers/pos_and_ledger_provider.dart';
 import 'official_report_template.dart';
 
