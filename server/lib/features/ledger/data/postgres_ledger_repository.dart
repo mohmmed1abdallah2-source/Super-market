@@ -326,6 +326,18 @@ class PostgresLedgerRepository implements LedgerRepository {
         },
       );
 
+      await ctx.execute(
+        '''INSERT INTO sync_operation_receipts
+          (branch_id, operation_id, operation_type, idempotency_key, result_status)
+         VALUES (@branch, @operation, 'VOUCHER', @key, 'ACCEPTED')
+         ON CONFLICT (branch_id, operation_id) DO NOTHING''',
+        substitutionValues: {
+          'branch': command.branchId,
+          'operation': command.operationId,
+          'key': command.idempotencyKey,
+        },
+      );
+
       final result = <String, Object?>{
         'id': voucherId,
         'voucherNo': voucherNo,
