@@ -1,0 +1,41 @@
+name: Flutter validation
+
+on:
+  push:
+    branches:
+      - main
+      - feature/official-pdf-report-template
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Generate Android platform files
+        run: flutter create --platforms=android .
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Run tests
+        run: flutter test
+
+      - name: Build debug APK
+        run: flutter build apk --debug
