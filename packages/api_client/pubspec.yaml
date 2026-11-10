@@ -1,0 +1,10 @@
+name: api_client
+description: HTTP client for the Supermarket ERP versioned API.
+version: 0.1.0
+publish_to: none
+environment:
+  sdk: ">=3.3.0 <4.0.0"
+dependencies:
+  core_contracts:
+    path: ../core_contracts
+  http: ^1.2.2
