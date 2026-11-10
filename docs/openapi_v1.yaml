@@ -1,0 +1,473 @@
+openapi: 3.1.0
+info:
+  title: Global Enterprise Supermarket ERP API
+  version: 1.0.0
+  description: >
+    Versioned API contract for parties, simplified party balances, vouchers,
+    POS invoices and idempotent batch synchronization. This file defines the
+    contract; endpoints are not considered deployed until the server implementation
+    and integration tests are completed.
+servers:
+  - url: https://api.example.invalid
+    description: Replace with the deployed branch API base URL.
+security:
+  - bearerAuth: []
+tags:
+  - name: Parties
+  - name: Ledger
+  - name: Sales
+  - name: Synchronization
+paths:
+  /v1/parties:
+    get:
+      tags: [Parties]
+      operationId: listParties
+      summary: List parties with calculated balance
+      parameters:
+        - in: query
+          name: partyType
+          schema:
+            $ref: '#/components/schemas/PartyType'
+        - in: query
+          name: cursor
+          schema: { type: string }
+        - in: query
+          name: limit
+          schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+      responses:
+        '200':
+          description: Parties page
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/Party' }
+                  nextCursor: { type: [string, 'null'] }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    post:
+      tags: [Parties]
+      operationId: createParty
+      summary: Create a customer, supplier or other party
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreatePartyRequest' }
+      responses:
+        '201':
+          description: Party created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Party' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /v1/parties/{id}/statement:
+    get:
+      tags: [Parties]
+      operationId: getPartyStatement
+      summary: Get chronological party ledger statement
+      parameters:
+        - $ref: '#/components/parameters/PartyId'
+        - in: query
+          name: from
+          schema: { type: string, format: date-time }
+        - in: query
+          name: to
+          schema: { type: string, format: date-time }
+        - in: query
+          name: cursor
+          schema: { type: string }
+        - in: query
+          name: limit
+          schema: { type: integer, minimum: 1, maximum: 500, default: 100 }
+      responses:
+        '200':
+          description: Party statement
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PartyStatement' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /v1/ledger/vouchers:
+    get:
+      tags: [Ledger]
+      operationId: listVouchers
+      summary: List receipt, payment and adjustment vouchers
+      parameters:
+        - in: query
+          name: partyId
+          schema: { type: string, format: uuid }
+        - in: query
+          name: voucherType
+          schema: { $ref: '#/components/schemas/VoucherType' }
+        - in: query
+          name: from
+          schema: { type: string, format: date-time }
+        - in: query
+          name: to
+          schema: { type: string, format: date-time }
+      responses:
+        '200':
+          description: Voucher list
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Voucher' }
+    post:
+      tags: [Ledger]
+      operationId: postVoucher
+      summary: Post a receipt, payment or adjustment voucher
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateVoucherRequest' }
+      responses:
+        '201':
+          description: Voucher posted
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Voucher' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /v1/ledger/cash-accounts:
+    get:
+      tags: [Ledger]
+      operationId: listCashAccounts
+      summary: List branch cash drawers and electronic wallets
+      responses:
+        '200':
+          description: Cash accounts
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/CashAccount' }
+  /v1/sales/invoices:
+    get:
+      tags: [Sales]
+      operationId: listSalesInvoices
+      summary: List sales invoices
+      parameters:
+        - in: query
+          name: from
+          schema: { type: string, format: date-time }
+        - in: query
+          name: to
+          schema: { type: string, format: date-time }
+        - in: query
+          name: cursor
+          schema: { type: string }
+        - in: query
+          name: limit
+          schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+      responses:
+        '200':
+          description: Sales invoices
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/SaleInvoice' }
+    post:
+      tags: [Sales]
+      operationId: postSalesInvoice
+      summary: Post a sale invoice
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateSaleInvoiceRequest' }
+      responses:
+        '201':
+          description: Sale posted
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SaleInvoice' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /v1/sync/batch:
+    post:
+      tags: [Synchronization]
+      operationId: processSyncBatch
+      summary: Process up to 100 offline operations atomically
+      description: >
+        The request key is stable across retries. Each operation has a stable UUID.
+        Reusing a key with a different canonical request body returns 409.
+        The default contract is atomic: if a financial operation fails validation,
+        no operation in the batch is committed.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SyncBatchRequest' }
+      responses:
+        '200':
+          description: Previously processed identical batch or successful batch
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SyncBatchResponse' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '413':
+          description: Batch exceeds 100 operations
+        '422': { $ref: '#/components/responses/ValidationError' }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    IdempotencyKey:
+      in: header
+      name: Idempotency-Key
+      required: true
+      description: Stable unique key reused unchanged for retries of the same command.
+      schema:
+        type: string
+        minLength: 16
+        maxLength: 200
+    PartyId:
+      in: path
+      name: id
+      required: true
+      schema: { type: string, format: uuid }
+  responses:
+    Unauthorized:
+      description: Missing or invalid access token
+    NotFound:
+      description: Resource not found in the authenticated branch
+    Conflict:
+      description: Idempotency key reused with a different body or business conflict
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ApiError' }
+    ValidationError:
+      description: Request failed business validation
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ApiError' }
+  schemas:
+    PartyType:
+      type: string
+      enum: [CUSTOMER, SUPPLIER, EMPLOYEE, PARTNER, REPRESENTATIVE]
+    BalanceSide:
+      type: string
+      enum: [ALAYH, LAH, ZERO]
+    Party:
+      type: object
+      required: [id, partyType, code, name, totalAlayh, totalLah, balanceAbs, balanceSide]
+      properties:
+        id: { type: string, format: uuid }
+        partyType: { $ref: '#/components/schemas/PartyType' }
+        code: { type: string }
+        name: { type: string }
+        phone: { type: [string, 'null'] }
+        address: { type: [string, 'null'] }
+        creditLimit: { type: string, pattern: '^[0-9]+(\\.[0-9]{1,4})?$' }
+        totalAlayh: { type: string }
+        totalLah: { type: string }
+        balanceAbs: { type: string }
+        balanceSide: { $ref: '#/components/schemas/BalanceSide' }
+    CreatePartyRequest:
+      type: object
+      required: [partyType, code, name]
+      properties:
+        partyType: { $ref: '#/components/schemas/PartyType' }
+        code: { type: string, minLength: 1, maxLength: 64 }
+        name: { type: string, minLength: 1, maxLength: 200 }
+        phone: { type: [string, 'null'] }
+        address: { type: [string, 'null'] }
+        creditLimit: { type: string, default: '0.0000' }
+        paymentTermsDays: { type: integer, minimum: 0, default: 0 }
+        priceTier: { type: string, enum: [RETAIL, WHOLESALE], default: RETAIL }
+    LedgerEntry:
+      type: object
+      required: [id, partyId, entryAt, entryType, alayhAmount, lahAmount, runningBalance, balanceSide]
+      properties:
+        id: { type: string, format: uuid }
+        partyId: { type: string, format: uuid }
+        entryAt: { type: string, format: date-time }
+        entryType: { type: string }
+        statement: { type: string }
+        documentType: { type: string }
+        documentId: { type: [string, 'null'], format: uuid }
+        alayhAmount: { type: string }
+        lahAmount: { type: string }
+        runningBalance: { type: string }
+        balanceSide: { $ref: '#/components/schemas/BalanceSide' }
+    PartyStatement:
+      type: object
+      required: [party, entries, totalAlayh, totalLah, balanceAbs, balanceSide]
+      properties:
+        party: { $ref: '#/components/schemas/Party' }
+        entries:
+          type: array
+          items: { $ref: '#/components/schemas/LedgerEntry' }
+        totalAlayh: { type: string }
+        totalLah: { type: string }
+        balanceAbs: { type: string }
+        balanceSide: { $ref: '#/components/schemas/BalanceSide' }
+        nextCursor: { type: [string, 'null'] }
+    CashAccount:
+      type: object
+      required: [id, code, name, accountKind, currentBalance, currency]
+      properties:
+        id: { type: string, format: uuid }
+        code: { type: string }
+        name: { type: string }
+        accountKind: { type: string, enum: [CASH_DRAWER, WALLET, BANK] }
+        walletProvider: { type: [string, 'null'], enum: [JAWALI, JEEB, FLOOSAK, KURAIMI, null] }
+        currentBalance: { type: string }
+        currency: { type: string }
+    PaymentMethod:
+      type: string
+      enum: [CASH, WALLET, CREDIT, MIXED]
+    WalletProvider:
+      type: string
+      enum: [JAWALI, JEEB, FLOOSAK, KURAIMI]
+    VoucherType:
+      type: string
+      enum: [RECEIPT, PAYMENT, ADJUSTMENT]
+    Voucher:
+      type: object
+      required: [id, voucherNo, voucherType, partyId, amount, method, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        voucherNo: { type: string }
+        voucherType: { $ref: '#/components/schemas/VoucherType' }
+        partyId: { type: string, format: uuid }
+        cashAccountId: { type: string, format: uuid }
+        amount: { type: string }
+        method: { $ref: '#/components/schemas/PaymentMethod' }
+        walletProvider: { oneOf: [{ $ref: '#/components/schemas/WalletProvider' }, { type: 'null' }] }
+        walletRefNo: { type: [string, 'null'] }
+        description: { type: [string, 'null'] }
+        createdAt: { type: string, format: date-time }
+    CreateVoucherRequest:
+      type: object
+      required: [operationId, voucherType, partyId, cashAccountId, amount, method]
+      properties:
+        operationId: { type: string, format: uuid }
+        voucherType: { $ref: '#/components/schemas/VoucherType' }
+        partyId: { type: string, format: uuid }
+        cashAccountId: { type: string, format: uuid }
+        amount: { type: string, pattern: '^[0-9]+(\\.[0-9]{1,4})?$' }
+        method: { $ref: '#/components/schemas/PaymentMethod' }
+        walletProvider: { $ref: '#/components/schemas/WalletProvider' }
+        walletRefNo: { type: string, minLength: 6, maxLength: 100 }
+        description: { type: string, maxLength: 500 }
+    SaleInvoiceItem:
+      type: object
+      required: [id, productId, barcode, unitName, qtySold, conversionFactor, qtyBase, unitPrice, lineTotal]
+      properties:
+        id: { type: string, format: uuid }
+        productId: { type: string, format: uuid }
+        barcode: { type: [string, 'null'] }
+        unitName: { type: string }
+        qtySold: { type: string }
+        conversionFactor: { type: string }
+        qtyBase: { type: string }
+        unitPrice: { type: string }
+        lineTotal: { type: string }
+    SalePayment:
+      type: object
+      required: [id, method, amount]
+      properties:
+        id: { type: string, format: uuid }
+        method: { $ref: '#/components/schemas/PaymentMethod' }
+        cashAccountId: { type: [string, 'null'], format: uuid }
+        amount: { type: string }
+        walletProvider: { oneOf: [{ $ref: '#/components/schemas/WalletProvider' }, { type: 'null' }] }
+        walletRefNo: { type: [string, 'null'] }
+    SaleInvoice:
+      type: object
+      required: [id, invoiceNo, items, payments, netTotal, paidTotal, remainingAlayh, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        invoiceNo: { type: string }
+        customerPartyId: { type: [string, 'null'], format: uuid }
+        priceTier: { type: string, enum: [RETAIL, WHOLESALE] }
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/SaleInvoiceItem' }
+        payments:
+          type: array
+          items: { $ref: '#/components/schemas/SalePayment' }
+        netTotal: { type: string }
+        paidTotal: { type: string }
+        changeReturned: { type: string, default: '0.0000' }
+        remainingAlayh: { type: string }
+        createdAt: { type: string, format: date-time }
+    CreateSaleInvoiceRequest:
+      type: object
+      required: [operationId, priceTier, items, payments]
+      properties:
+        operationId: { type: string, format: uuid }
+        customerPartyId: { type: [string, 'null'], format: uuid }
+        priceTier: { type: string, enum: [RETAIL, WHOLESALE] }
+        items:
+          type: array
+          minItems: 1
+          items: { $ref: '#/components/schemas/SaleInvoiceItem' }
+        payments:
+          type: array
+          items: { $ref: '#/components/schemas/SalePayment' }
+        discountAmount: { type: string, default: '0.0000' }
+    SyncOperation:
+      type: object
+      required: [operationId, operationType, payload]
+      properties:
+        operationId: { type: string, format: uuid }
+        operationType: { type: string, enum: [PARTY_CREATE, SALE_INVOICE, VOUCHER] }
+        payload:
+          type: object
+          additionalProperties: true
+    SyncBatchRequest:
+      type: object
+      required: [batchId, operations]
+      properties:
+        batchId: { type: string, format: uuid }
+        operations:
+          type: array
+          minItems: 1
+          maxItems: 100
+          items: { $ref: '#/components/schemas/SyncOperation' }
+    SyncBatchResponse:
+      type: object
+      required: [batchId, acceptedIds, rejected, serverTime, replayed]
+      properties:
+        batchId: { type: string, format: uuid }
+        acceptedIds:
+          type: array
+          items: { type: string, format: uuid }
+        rejected:
+          type: array
+          items:
+            type: object
+            required: [operationId, code, message]
+            properties:
+              operationId: { type: string, format: uuid }
+              code: { type: string }
+              message: { type: string }
+        serverTime: { type: string, format: date-time }
+        replayed: { type: boolean }
+    ApiError:
+      type: object
+      required: [code, message]
+      properties:
+        code: { type: string }
+        message: { type: string }
+        details: { type: object, additionalProperties: true }
