@@ -331,8 +331,7 @@ class _S03SupermarketPosScreenState extends State<S03SupermarketPosScreen> {
         return ListTile(
           title: Text(item.productName),
           subtitle: Text(
-            item.unitName + ' • ' + item.quantity.toString() +
-            ' × ' + MoneyFormatter().format(item.unitPrice),
+            '${item.unitName} • ${item.quantity} × ${MoneyFormatter().format(item.unitPrice)}',
           ),
           trailing: Row(mainAxisSize: MainAxisSize.min, children: [
             Text(MoneyFormatter().format(item.lineTotal)),
@@ -368,7 +367,7 @@ class _S03SupermarketPosScreenState extends State<S03SupermarketPosScreen> {
         child: Row(children: [
           if (!desktop) ...[
             Expanded(
-              child: Text(count.toStringAsFixed(0) + ' صنف',
+              child: Text('${count.toStringAsFixed(0)} صنف',
                 style: Theme.of(context).textTheme.bodySmall),
             ),
           ],
