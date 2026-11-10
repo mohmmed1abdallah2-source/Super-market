@@ -1,5 +1,4 @@
 import 'dart:typed_data';
-import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -88,8 +87,8 @@ class OfficialReportTemplate {
     final arabicBold = await _loadFont(
       'assets/fonts/NotoNaskhArabic-Bold.ttf',
     );
-    final defaultEmblemBytes = emblemImageBytes ??
-        base64Decode((await rootBundle.loadString('assets/images/report_logo.png.b64')).trim());
+    // لا نستخدم صورة شعار افتراضية شفافة؛ مرّر bytes للشعار الحقيقي عند توفره.
+    // عند عدم تمرير صورة يظهر مكان الشعار النصي داخل الترويسة.
     final document = pw.Document();
 
     document.addPage(
@@ -123,7 +122,7 @@ class OfficialReportTemplate {
             date: date,
             refNumber: refNumber,
             attachments: attachments,
-            emblemBytes: defaultEmblemBytes,
+            emblemBytes: emblemImageBytes,
             boldFont: arabicBold,
           ),
           pw.SizedBox(height: 14),
