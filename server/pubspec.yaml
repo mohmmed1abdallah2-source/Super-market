@@ -1,0 +1,12 @@
+name: supermarket_erp_server
+description: Dart HTTP API and PostgreSQL persistence for Supermarket ERP.
+version: 0.1.0
+publish_to: none
+environment:
+  sdk: ">=3.3.0 <4.0.0"
+dependencies:
+  crypto: ^3.0.6
+  postgres: ^2.6.4
+  shelf: ^1.4.2
+  shelf_router: ^1.1.4
+  uuid: ^4.5.1
