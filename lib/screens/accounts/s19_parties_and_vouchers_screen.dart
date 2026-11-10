@@ -1,10 +1,10 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/widgets/shared_widgets.dart';
 import '../../data/database/database_helper.dart';
 import '../../data/models/erp_and_sync_models.dart';
 import '../../providers/supermarket_erp_provider.dart';
+import '../../providers/pos_and_ledger_provider.dart';
 
 /// Manages customer/supplier balances, detailed statements and cash/wallet vouchers.
 class S19PartiesAndVouchersScreen extends StatefulWidget {
@@ -127,94 +127,20 @@ class _S19PartiesAndVouchersScreenState extends State<S19PartiesAndVouchersScree
   }
 
   Future<void> _saveVoucher(_VoucherDraft draft) async {
-    final db = await DatabaseHelper.instance.database;
-    final now = DateTime.now().toIso8601String();
-    final id = 'voucher-${DateTime.now().microsecondsSinceEpoch}';
-    final journalId = 'journal-${DateTime.now().microsecondsSinceEpoch}';
-    final ledgerId = 'ledger-${DateTime.now().microsecondsSinceEpoch}';
-    await db.transaction((txn) async {
-      final cashRows = await txn.query('cash_accounts',
-        where: 'id=? AND is_deleted=0', whereArgs: [draft.cashAccountId], limit: 1);
-      if (cashRows.isEmpty) throw StateError('الصندوق أو المحفظة غير موجودة');
-      final currentBalance = (cashRows.first['current_balance'] as num).toDouble();
-      final isReceipt = draft.type == 'RECEIPT';
-      if (!isReceipt && currentBalance < draft.amount) {
-        throw StateError('الرصيد المتاح في الصندوق أو المحفظة غير كافٍ');
-      }
-      if (draft.method == 'WALLET' && draft.reference.trim().isEmpty) {
-        throw StateError('رقم إشعار المحفظة مطلوب');
-      }
-      final voucherNo = 'V-${DateTime.now().millisecondsSinceEpoch}';
-      await txn.insert('vouchers', {
-        'id': id, 'uuid': 'uuid-$id', 'branch_id': 'branch-main',
-        'voucher_no': voucherNo, 'voucher_type': draft.type,
-        'voucher_date': now, 'party_id': draft.partyId,
-        'cash_account_id': draft.cashAccountId, 'amount': draft.amount,
-        'method': draft.method, 'wallet_ref_no': draft.method == 'WALLET' ? draft.reference.trim() : null,
-        'description': draft.description, 'journal_entry_id': journalId,
-        'created_at': now, 'updated_at': now, 'is_deleted': 0,
-        'sync_status': 'LOCAL', 'sync_version': 1,
-      });
-      await txn.insert('journal_entries', {
-        'id': journalId, 'uuid': 'uuid-$journalId', 'branch_id': 'branch-main',
-        'entry_no': voucherNo, 'entry_date': now, 'doc_type': 'VOUCHER',
-        'doc_id': id, 'description': draft.description,
-        'created_at': now, 'updated_at': now, 'is_deleted': 0,
-        'sync_status': 'LOCAL', 'sync_version': 1,
-      });
-      final cashLine = 'jl-cash-${DateTime.now().microsecondsSinceEpoch}';
-      final partyLine = 'jl-party-${DateTime.now().microsecondsSinceEpoch}';
-      await txn.insert('journal_lines', {
-        'id': cashLine, 'uuid': 'uuid-$cashLine', 'branch_id': 'branch-main',
-        'journal_entry_id': journalId,
-        'gl_account_id': isReceipt ? (cashRows.first['gl_account_id'] as String? ?? 'gl-cash') : 'gl-payable',
-        'dr_amount': isReceipt ? draft.amount : 0,
-        'cr_amount': isReceipt ? 0 : draft.amount,
-        'created_at': now, 'updated_at': now, 'is_deleted': 0,
-        'sync_status': 'LOCAL', 'sync_version': 1,
-      });
-      await txn.insert('journal_lines', {
-        'id': partyLine, 'uuid': 'uuid-$partyLine', 'branch_id': 'branch-main',
-        'journal_entry_id': journalId,
-        'gl_account_id': isReceipt ? 'gl-receivable' : (cashRows.first['gl_account_id'] as String? ?? 'gl-cash'),
-        'dr_amount': isReceipt ? 0 : draft.amount,
-        'cr_amount': isReceipt ? draft.amount : 0,
-        'created_at': now, 'updated_at': now, 'is_deleted': 0,
-        'sync_status': 'LOCAL', 'sync_version': 1,
-      });
-      await txn.rawUpdate(
-        'UPDATE cash_accounts SET current_balance=current_balance+?, updated_at=? WHERE id=?',
-        [isReceipt ? draft.amount : -draft.amount, now, draft.cashAccountId]);
-      await txn.insert('lah_alayh_ledger', {
-        'id': ledgerId, 'uuid': 'uuid-$ledgerId', 'branch_id': 'branch-main',
-        'party_id': draft.partyId, 'entry_date': now,
-        'entry_type': draft.type,
-        'alayh_amount': isReceipt ? 0 : draft.amount,
-        'lah_amount': isReceipt ? draft.amount : 0,
-        'doc_type': 'VOUCHER', 'doc_id': id,
-        'statement_ar': draft.description, 'journal_entry_id': journalId,
-        'created_at': now, 'updated_at': now, 'is_deleted': 0,
-        'sync_status': 'LOCAL', 'sync_version': 1,
-      });
-      final voucherPayload = (await txn.query('vouchers',
-        where: 'id=?', whereArgs: [id], limit: 1)).first;
-      final journalPayload = await txn.query('journal_lines',
-        where: 'journal_entry_id=?', whereArgs: [journalId]);
-      final ledgerPayload = await txn.query('lah_alayh_ledger',
-        where: 'doc_id=?', whereArgs: [id]);
-      final queueId = 'sync-${DateTime.now().microsecondsSinceEpoch}';
-      await txn.insert('sync_queue', {
-        'id': queueId, 'uuid': 'uuid-$queueId', 'branch_id': 'branch-main',
-        'table_name': 'vouchers', 'row_uuid': id, 'operation': 'INSERT',
-        'payload_json': jsonEncode({
-          'voucher': voucherPayload,
-          'journalLines': journalPayload,
-          'partyLedger': ledgerPayload,
-        }),
-        'sync_version': 1, 'batch_id': null, 'status': 'PENDING',
-        'queued_at': now, 'created_at': now, 'updated_at': now, 'is_deleted': 0,
-      });
-    });
+    final erp = context.read<SupermarketErpProvider>();
+    final user = erp.currentUser;
+    if (user == null) throw StateError('يجب تسجيل الدخول أولاً');
+    final branchId = user['branch_id'] as String;
+    await context.read<PosAndLedgerProvider>().postVoucher(
+      branchId: branchId,
+      partyId: draft.partyId,
+      cashAccountId: draft.cashAccountId,
+      voucherType: draft.type,
+      method: draft.method,
+      amount: draft.amount,
+      walletRefNo: draft.method == 'WALLET' ? draft.reference.trim() : null,
+      description: draft.description,
+    );
   }
 }
 
@@ -322,7 +248,7 @@ class _VoucherDialogState extends State<_VoucherDialog> {
   void _save() {
     final amount = double.tryParse(_amount.text);
     if (_partyId == null || amount == null || amount <= 0 ||
-        (_method == 'WALLET' && _reference.text.trim().isEmpty)) {
+        (_method == 'WALLET' && _reference.text.trim().length < 6)) {
       return;
     }
     Navigator.pop(context, _VoucherDraft(
