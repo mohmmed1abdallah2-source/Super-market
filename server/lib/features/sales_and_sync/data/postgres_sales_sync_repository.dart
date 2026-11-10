@@ -407,8 +407,8 @@ class PostgresSalesSyncRepository implements SalesSyncRepository {
       final productRows = await ctx.mappedResultsQuery(
         '''SELECT stock_base_qty::text AS stock,
                   avg_cost_base_unit::text AS unitCost
-           FROM products WHERE id = @id FOR UPDATE''',
-        substitutionValues: {'id': productId},
+           FROM products WHERE id = @id AND branch_id = @branch AND is_active = TRUE FOR UPDATE''',
+        substitutionValues: {'id': productId, 'branch': branchId},
       );
       if (productRows.isEmpty) throw StateError('Product not found: $productId');
       final product = _flatten(productRows.single);
@@ -416,8 +416,8 @@ class PostgresSalesSyncRepository implements SalesSyncRepository {
         throw StateError('Insufficient stock for product $productId.');
       }
       await ctx.execute(
-        'UPDATE products SET stock_base_qty = stock_base_qty - @qty WHERE id = @id',
-        substitutionValues: {'qty': qtyBase, 'id': productId},
+        'UPDATE products SET stock_base_qty = stock_base_qty - @qty WHERE id = @id AND branch_id = @branch',
+        substitutionValues: {'qty': qtyBase, 'id': productId, 'branch': branchId},
       );
       subtotal += lineTotal;
       costTotal += qtyBase * _decimal(product['unitCost']);
