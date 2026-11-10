@@ -112,13 +112,17 @@ class _S19PartiesAndVouchersScreenState extends State<S19PartiesAndVouchersScree
       await _saveVoucher(draft);
       await provider.loadParties();
       await provider.loadVouchers();
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('تم حفظ السند وترحيله محلياً')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('تم حفظ السند وترحيله محلياً')),
+        );
+      }
     } catch (error) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('تعذر حفظ السند: $error')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('تعذر حفظ السند: $error')),
+        );
+      }
     }
   }
 
@@ -259,7 +263,7 @@ class _VoucherDialogState extends State<_VoucherDialog> {
     title: const Text('إصدار سند'),
     content: SizedBox(width: 500, child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
       DropdownButtonFormField<String>(
-        value: _type,
+        initialValue: _type,
         decoration: const InputDecoration(labelText: 'نوع السند'),
         items: const [
           DropdownMenuItem(value: 'RECEIPT', child: Text('سند قبض')),
@@ -273,7 +277,7 @@ class _VoucherDialogState extends State<_VoucherDialog> {
         }),
       ),
       DropdownButtonFormField<String>(
-        value: _partyId,
+        initialValue: _partyId,
         decoration: const InputDecoration(labelText: 'الطرف'),
         items: widget.parties.where((party) =>
           _type == 'RECEIPT' ? party.partyType == 'CUSTOMER' : party.partyType == 'SUPPLIER')
@@ -282,7 +286,7 @@ class _VoucherDialogState extends State<_VoucherDialog> {
       ),
       TextField(controller: _amount, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'المبلغ')),
       DropdownButtonFormField<String>(
-        value: _method,
+        initialValue: _method,
         decoration: const InputDecoration(labelText: 'طريقة الدفع'),
         items: const [
           DropdownMenuItem(value: 'CASH', child: Text('نقداً')),
@@ -295,7 +299,7 @@ class _VoucherDialogState extends State<_VoucherDialog> {
       ),
       if (_method == 'WALLET') ...[
         DropdownButtonFormField<String>(
-          value: _accountId,
+          initialValue: _accountId,
           decoration: const InputDecoration(labelText: 'المحفظة'),
           items: const [
             DropdownMenuItem(value: 'wallet-jawali', child: Text('جوالي')),
@@ -318,7 +322,9 @@ class _VoucherDialogState extends State<_VoucherDialog> {
   void _save() {
     final amount = double.tryParse(_amount.text);
     if (_partyId == null || amount == null || amount <= 0 ||
-        (_method == 'WALLET' && _reference.text.trim().isEmpty)) return;
+        (_method == 'WALLET' && _reference.text.trim().isEmpty)) {
+      return;
+    }
     Navigator.pop(context, _VoucherDraft(
       type: _type, partyId: _partyId!, cashAccountId: _accountId,
       amount: amount, method: _method, reference: _reference.text,
