@@ -76,15 +76,15 @@ jobs:
               patched = []
               changed = False
               for line in lines:
-                  if re.match(r"^\\s*compileSdk(?:Version)?\\b", line):
-                      indent = re.match(r"^\\s*", line).group(0)
+                  if re.match(r"^\s*compileSdk(?:Version)?\b", line):
+                      indent = re.match(r"^\s*", line).group(0)
                       patched.append(f"{indent}compileSdk 36")
                       changed = True
                   else:
                       patched.append(line)
 
               if changed:
-                  path.write_text("\\n".join(patched) + "\\n")
+                  path.write_text("\n".join(patched) + "\n")
                   print(f"Set file_picker compile SDK to 36 in {path}")
                   updated = True
 
@@ -134,6 +134,8 @@ jobs:
         run: flutter pub get
 
       - name: Build Windows application
+        env:
+          CMAKE_POLICY_VERSION_MINIMUM: "3.5"
         run: flutter build windows --release
 
       - name: Upload Windows application
