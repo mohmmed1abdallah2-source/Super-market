@@ -51,7 +51,7 @@ abstract final class ContractJson {
 
   /// Reads a nullable string field.
   static String? nullableString(Object? value) =>
-      value == null ? null : value.toString();
+      value?.toString();
 }
 
 /// Party information and its balance calculated exclusively from the ledger.
