@@ -22,6 +22,11 @@ dependencies:
   pdf: ^3.11.3
   printing: ^5.14.2
   file_picker: ^8.1.7
+  api_client:
+    path: packages/api_client
+  core_contracts:
+    path: packages/core_contracts
+  uuid: ^4.5.1
 
 dev_dependencies:
   flutter_test:
