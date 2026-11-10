@@ -61,27 +61,41 @@ class LahAlayhTable extends StatelessWidget {
         child: Text('لا توجد حركات مسجلة'),
       ));
     }
+    final ordered = entries.toList()
+      ..sort((a, b) => (a['entry_date']?.toString() ?? '')
+          .compareTo(b['entry_date']?.toString() ?? ''));
+    var running = 0.0;
+    final rows = <DataRow>[];
+    for (final entry in ordered) {
+      final alayh = (entry['alayh_amount'] as num?) ?? 0;
+      final lah = (entry['lah_amount'] as num?) ?? 0;
+      running += alayh - lah;
+      final balanceLabel = running > 0.000001
+          ? 'المتبقي عليه ${money.format(running)}'
+          : running < -0.000001
+              ? 'المتبقي له ${money.format(running.abs())}'
+              : 'مسدَّد (0.00)';
+      rows.add(DataRow(cells: [
+        DataCell(Text(entry['entry_date']?.toString() ?? '')),
+        DataCell(Text(entry['statement_ar']?.toString() ?? '')),
+        DataCell(Text(entry['doc_id']?.toString() ?? '')),
+        DataCell(Text(money.format(alayh), style: const TextStyle(color: EnterpriseDarkTheme.danger))),
+        DataCell(Text(money.format(lah), style: const TextStyle(color: EnterpriseDarkTheme.success))),
+        DataCell(Text(balanceLabel)),
+      ]));
+    }
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: DataTable(
         columns: const [
           DataColumn(label: Text('التاريخ')),
           DataColumn(label: Text('البيان')),
+          DataColumn(label: Text('المستند')),
           DataColumn(label: Text('عليه')),
           DataColumn(label: Text('له')),
+          DataColumn(label: Text('المتبقي')),
         ],
-        rows: entries.map((entry) {
-          final date = entry['entry_date']?.toString() ?? '';
-          final statement = entry['statement_ar']?.toString() ?? '';
-          final alayh = (entry['alayh_amount'] as num?) ?? 0;
-          final lah = (entry['lah_amount'] as num?) ?? 0;
-          return DataRow(cells: [
-            DataCell(Text(date)),
-            DataCell(Text(statement)),
-            DataCell(Text(money.format(alayh), style: const TextStyle(color: EnterpriseDarkTheme.danger))),
-            DataCell(Text(money.format(lah), style: const TextStyle(color: EnterpriseDarkTheme.success))),
-          ]);
-        }).toList(),
+        rows: rows,
       ),
     );
   }
