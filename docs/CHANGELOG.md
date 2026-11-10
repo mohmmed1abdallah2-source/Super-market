@@ -18,6 +18,9 @@ The format follows Keep a Changelog. Version numbers will be assigned when relea
 - Defined stable operation UUIDs and mandatory `Idempotency-Key` headers for write operations.
 - Defined the server-side PostgreSQL target while preserving the current SQLite offline-first application as the local operational database.
 
+
+- Added `docs/MULTI_STORE_ISOLATION_ARCHITECTURE.md` documenting the owner-to-many-stores flow, a separate PostgreSQL database and SQLite file per store, a minimal account/store control plane, secure store-scoped API routing, preservation of existing data, backup/restore requirements and the mandatory cross-store isolation test matrix. This is an architecture decision and implementation plan; multi-store runtime support is not yet implemented.
+
 ### Compatibility
 - Existing Iteration 1 Flutter source files and SQLite schema remain the compatibility baseline.
 - The repository currently uses a root Flutter application layout. The planned `server/` and `packages/` directories are new work and are not represented as implemented until their code and tests are added.
