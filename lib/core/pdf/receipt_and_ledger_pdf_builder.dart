@@ -1,5 +1,3 @@
-import 'dart:typed_data';
-
 import 'package:flutter/services.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -45,10 +43,10 @@ class ReceiptAndLedgerPdfBuilder {
     }
     final net = totalAlayh - totalLah;
     return OfficialReportTemplate.preview(
-      reportTitle: 'كشف حساب ' + party.nameAr,
+      reportTitle: 'كشف حساب ${party.nameAr}',
       rightHeader1: 'Global Enterprise Supermarket',
       rightHeader2: party.partyType == 'SUPPLIER' ? 'كشف حساب مورد' : 'كشف حساب عميل',
-      rightHeader3: 'رقم الطرف: ' + party.code,
+      rightHeader3: 'رقم الطرف: ${party.code}',
       date: _date(DateTime.now()),
       refNumber: party.id,
       summaryBoxes: [
@@ -58,7 +56,7 @@ class ReceiptAndLedgerPdfBuilder {
       ],
       columns: const ['م', 'التاريخ', 'البيان', 'المستند', 'عليه', 'له', 'المتبقي'],
       rows: rows,
-      fileName: 'party_statement_' + party.code + '.pdf',
+      fileName: 'party_statement_${party.code}.pdf',
       printAfterGenerate: printAfterGenerate,
       preferredRowsPerPage: 24,
     );
@@ -157,17 +155,17 @@ class ReceiptAndLedgerPdfBuilder {
     if (value == null) return '';
     final parsed = value is DateTime ? value : DateTime.tryParse(value.toString());
     if (parsed == null) return value.toString();
-    return parsed.year.toString().padLeft(4, '0') + '-' +
-        parsed.month.toString().padLeft(2, '0') + '-' +
-        parsed.day.toString().padLeft(2, '0');
+    return '${parsed.year.toString().padLeft(4, '0')}-'
+        '${parsed.month.toString().padLeft(2, '0')}-'
+        '${parsed.day.toString().padLeft(2, '0')}';
   }
 
   static String _money(double value, String currency) =>
-      value.toStringAsFixed(2) + ' ' + currency;
+      '${value.toStringAsFixed(2)} $currency';
 
   static String _balanceLabel(double net, String currency) {
-    if (net > 0.000001) return 'عليه ' + _money(net, currency);
-    if (net < -0.000001) return 'له ' + _money(net.abs(), currency);
+    if (net > 0.000001) return 'عليه ${_money(net, currency)}';
+    if (net < -0.000001) return 'له ${_money(net.abs(), currency)}';
     return 'مسدَّد (0.00)';
   }
 }
@@ -226,7 +224,7 @@ class ThermalReceiptBuilder {
     final width = paperWidthMm * PdfPageFormat.mm;
     final pageHeight = (260 + items.length * 28) * PdfPageFormat.mm;
     final document = pw.Document();
-    String money(double value) => value.toStringAsFixed(2) + ' ' + currency;
+    String money(double value) => '${value.toStringAsFixed(2)} $currency';
 
     document.addPage(pw.Page(
       pageFormat: PdfPageFormat(width, pageHeight, marginAll: 3 * PdfPageFormat.mm),
@@ -239,8 +237,8 @@ class ThermalReceiptBuilder {
           pw.SizedBox(height: 4),
           pw.Center(child: pw.Text('إيصال بيع', style: pw.TextStyle(font: bold, fontSize: 12))),
           pw.Divider(),
-          pw.Text('رقم الفاتورة: ' + invoiceNo, style: pw.TextStyle(font: bold, fontSize: 10)),
-          pw.Text('التاريخ: ' + invoiceDate.toLocal().toString().substring(0, 16), style: pw.TextStyle(font: font, fontSize: 9)),
+          pw.Text('رقم الفاتورة: $invoiceNo', style: pw.TextStyle(font: bold, fontSize: 10)),
+          pw.Text('التاريخ: ${invoiceDate.toLocal().toString().substring(0, 16)}', style: pw.TextStyle(font: font, fontSize: 9)),
           pw.Divider(),
           for (final item in items) ...[
             pw.Text(item.name, style: pw.TextStyle(font: bold, fontSize: 10)),
@@ -248,7 +246,7 @@ class ThermalReceiptBuilder {
               mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
               children: [
                 pw.Expanded(child: pw.Text(
-                  item.quantity.toStringAsFixed(3) + ' ' + item.unitName + ' × ' + money(item.unitPrice),
+                  '${item.quantity.toStringAsFixed(3)} ${item.unitName} × ${money(item.unitPrice)}',
                   style: pw.TextStyle(font: font, fontSize: 8),
                 )),
                 pw.Text(money(item.lineTotal), style: pw.TextStyle(font: bold, fontSize: 8)),
@@ -306,7 +304,7 @@ class ThermalReceiptBuilder {
       currency: currency,
     );
     await Printing.layoutPdf(
-      name: 'receipt_' + invoiceNo + '.pdf',
+      name: 'receipt_$invoiceNo.pdf',
       onLayout: (_) async => bytes,
       format: PdfPageFormat(paperWidthMm * PdfPageFormat.mm, 300 * PdfPageFormat.mm),
     );
