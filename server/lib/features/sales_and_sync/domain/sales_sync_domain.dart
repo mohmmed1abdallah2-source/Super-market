@@ -84,7 +84,7 @@ abstract interface class SalesSyncRepository {
     DateTime? from,
     DateTime? to,
     String? cursor,
-    int limit,
+    int limit = 50,
   });
 
   /// Applies a batch atomically and returns accepted operation identifiers.
