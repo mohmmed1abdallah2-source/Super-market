@@ -72,19 +72,28 @@ jobs:
 
           updated = False
           for path in candidates:
-              content = path.read_text()
-              content, count = re.subn(
-                  r"(?m)^(\s*compileSdk(?:Version)?\s*(?:=\s*)?)34\s*$",
-                  r"\g<1>36",
-                  content,
-              )
-              if count:
-                  path.write_text(content)
+              lines = path.read_text().splitlines()
+              patched = []
+              changed = False
+              for line in lines:
+                  if re.match(r"^\\s*compileSdk(?:Version)?\\b", line):
+                      indent = re.match(r"^\\s*", line).group(0)
+                      patched.append(f"{indent}compileSdk 36")
+                      changed = True
+                  else:
+                      patched.append(line)
+
+              if changed:
+                  path.write_text("\\n".join(patched) + "\\n")
                   print(f"Set file_picker compile SDK to 36 in {path}")
                   updated = True
 
           if not updated:
-              raise SystemExit("Could not find file_picker compileSdk setting at API 34")
+              details = []
+              for path in candidates:
+                  matching = [line for line in path.read_text().splitlines() if "compileSdk" in line]
+                  details.append(f"{path}: {matching}")
+              raise SystemExit("Could not locate file_picker compileSdk declaration. " + "; ".join(details))
           PY
 
       - name: Analyze
