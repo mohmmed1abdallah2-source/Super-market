@@ -18,7 +18,7 @@ void main() {
         amount: 10,
         method: 'WALLET',
         idempotencyKey: 'idempotency-key-0001',
-        requestHash: '0' * 64,
+        requestHash: List.filled(64, '0').join(),
         walletRefNo: '12345',
       );
       expect(() => useCase(command), throwsFormatException);
@@ -35,7 +35,7 @@ void main() {
         amount: 0,
         method: 'CASH',
         idempotencyKey: 'idempotency-key-0002',
-        requestHash: '1' * 64,
+        requestHash: List.filled(64, '1').join(),
       );
       expect(() => useCase(command), throwsFormatException);
     });
@@ -49,7 +49,7 @@ void main() {
         operationId: 'operation-00000003',
         request: {'items': <Object>[], 'payments': <Object>[]},
         idempotencyKey: 'idempotency-key-0003',
-        requestHash: '2' * 64,
+        requestHash: List.filled(64, '2').join(),
       );
       expect(() => useCase(command), throwsFormatException);
     });
@@ -68,7 +68,7 @@ void main() {
         branchId: 'branch-main',
         batchId: 'batch-0000000001',
         idempotencyKey: 'idempotency-key-0004',
-        requestHash: '3' * 64,
+        requestHash: List.filled(64, '3').join(),
         operations: operations,
       );
       expect(() => useCase(command), throwsRangeError);
@@ -85,7 +85,7 @@ void main() {
         branchId: 'branch-main',
         batchId: 'batch-0000000002',
         idempotencyKey: 'idempotency-key-0005',
-        requestHash: '4' * 64,
+        requestHash: List.filled(64, '4').join(),
         operations: [operation, operation],
       );
       expect(() => useCase(command), throwsFormatException);
