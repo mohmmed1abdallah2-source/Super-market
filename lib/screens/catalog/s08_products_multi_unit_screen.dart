@@ -159,6 +159,7 @@ class _S08ProductsMultiUnitScreenState extends State<S08ProductsMultiUnitScreen>
       final row = (await txn.query('products', where: 'id=?', whereArgs: [product.id], limit: 1)).first;
       await _enqueueSync(txn, 'products', product.id, row, now);
     });
+    if (!mounted) return;
     await context.read<PosAndCatalogProvider>().loadCatalog();
   }
 
