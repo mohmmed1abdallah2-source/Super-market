@@ -125,16 +125,30 @@ class PostgresLedgerRepository implements LedgerRepository {
       substitutionValues: {'branch': branchId, 'party': partyId},
     );
     if (partyRows.isEmpty) throw StateError('Party was not found.');
+    final cursorParts = cursor?.split('|');
+    final cursorTime = cursorParts == null || cursorParts.isEmpty
+        ? null
+        : DateTime.parse(cursorParts.first).toUtc();
+    final cursorId = cursorParts != null && cursorParts.length > 1
+        ? cursorParts[1]
+        : '';
     final whereRows = await _connection.mappedResultsQuery(
-      '''SELECT id::text AS id, entry_date, entry_type AS "entryType",
-                alayh_amount::text AS "alayhAmount", lah_amount::text AS "lahAmount",
-                doc_type AS "documentType", doc_id::text AS "documentId",
-                statement_ar AS statement
-         FROM lah_alayh_ledger
-         WHERE branch_id = @branch AND party_id = @party
-           AND (@from::timestamptz IS NULL OR entry_date >= @from)
+      '''SELECT * FROM (
+           SELECT id::text AS id, entry_date, entry_type AS "entryType",
+                  alayh_amount::text AS "alayhAmount", lah_amount::text AS "lahAmount",
+                  doc_type AS "documentType", doc_id::text AS "documentId",
+                  statement_ar AS statement,
+                  SUM(alayh_amount - lah_amount) OVER (
+                    ORDER BY entry_date, id
+                    ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+                  )::text AS "runningNet"
+           FROM lah_alayh_ledger
+           WHERE branch_id = @branch AND party_id = @party
+         ) ledger_rows
+         WHERE (@from::timestamptz IS NULL OR entry_date >= @from)
            AND (@to::timestamptz IS NULL OR entry_date <= @to)
-           AND (@cursor::timestamptz IS NULL OR entry_date > @cursor)
+           AND (@cursorTime::timestamptz IS NULL OR entry_date > @cursorTime
+             OR (entry_date = @cursorTime AND id > @cursorId))
          ORDER BY entry_date, id
          LIMIT @limit''',
       substitutionValues: {
@@ -142,22 +156,21 @@ class PostgresLedgerRepository implements LedgerRepository {
         'party': partyId,
         'from': from?.toUtc(),
         'to': to?.toUtc(),
-        'cursor': cursor == null ? null : DateTime.parse(cursor).toUtc(),
+        'cursorTime': cursorTime,
+        'cursorId': cursorId,
         'limit': limit,
       },
     );
 
-    var running = 0.0;
     final entries = <Map<String, Object?>>[];
     for (final row in whereRows) {
       final item = _flatten(row);
-      final alayh = _number(item['alayhAmount']);
-      final lah = _number(item['lahAmount']);
-      running += alayh - lah;
+      final running = _number(item['runningNet']);
+      final entryAt = (item['entry_date'] as DateTime).toUtc().toIso8601String();
       entries.add({
         'id': item['id'],
         'partyId': partyId,
-        'entryAt': (item['entry_date'] as DateTime).toUtc().toIso8601String(),
+        'entryAt': entryAt,
         'entryType': item['entryType'],
         'alayhAmount': item['alayhAmount'],
         'lahAmount': item['lahAmount'],
@@ -176,7 +189,7 @@ class PostgresLedgerRepository implements LedgerRepository {
       'totalLah': party['totalLah'],
       'balanceAbs': party['balanceAbs'],
       'balanceSide': party['balanceSide'],
-      'nextCursor': entries.isEmpty ? null : entries.last['entryAt'],
+      'nextCursor': entries.isEmpty ? null : (entries.last['entryAt'] as String) + '|' + (entries.last['id'] as String),
     };
   }
 
