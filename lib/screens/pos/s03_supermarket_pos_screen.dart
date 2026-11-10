@@ -46,9 +46,13 @@ class _S03SupermarketPosScreenState extends State<S03SupermarketPosScreen> {
     final erp = context.read<SupermarketErpProvider>();
     final tab = pos.activeTab;
     if (tab == null || tab.items.isEmpty || erp.currentUser == null) return;
-    final draft = await showDialog<_PaymentDraft>(
+    final draft = await showModalBottomSheet<_PaymentDraft>(
       context: context,
-      builder: (context) => _PaymentDialog(total: pos.activeSubtotal),
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (context) => KeyboardSafeModalSheet(
+        child: _PaymentDialog(total: pos.activeSubtotal),
+      ),
     );
     if (draft == null || !mounted) return;
     if (draft.method != 'CREDIT' && draft.amount <= 0) return;
