@@ -17,7 +17,7 @@ class LedgerRoutes {
     required this.postVoucher,
     required this.listVouchers,
     required this.listCashAccounts,
-    required this.apiToken,
+    required this.branchTokens,
   });
 
   final CreatePartyUseCase createParty;
@@ -26,7 +26,7 @@ class LedgerRoutes {
   final PostVoucherUseCase postVoucher;
   final ListVouchersUseCase listVouchers;
   final ListCashAccountsUseCase listCashAccounts;
-  final String apiToken;
+  final Map<String, String> branchTokens;
 
   /// Builds a Shelf router for the ledger endpoints.
   Router get router {
@@ -135,11 +135,13 @@ class LedgerRoutes {
       });
 
   Future<Response> _guard(Request request, Future<Response> Function() action) async {
-    if (apiToken.isEmpty ||
-        request.headers['authorization'] != 'Bearer $apiToken') {
+    final branch = request.headers['x-branch-id'];
+    final expectedToken = branch == null ? null : branchTokens[branch];
+    if (expectedToken == null ||
+        request.headers['authorization'] != 'Bearer $expectedToken') {
       return _json(401, {
         'code': 'UNAUTHORIZED',
-        'message': 'Authentication is required.',
+        'message': 'A valid branch-scoped bearer token is required.',
       });
     }
     try {
