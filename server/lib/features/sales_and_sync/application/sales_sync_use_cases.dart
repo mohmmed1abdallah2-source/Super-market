@@ -52,3 +52,34 @@ class ProcessSyncBatchUseCase {
     return _repository.processBatch(command);
   }
 }
+
+/// Lists branch sales invoices with their line items and payment allocations.
+class ListSalesInvoicesUseCase {
+  /// Creates the use case.
+  const ListSalesInvoicesUseCase(this._repository);
+
+  final SalesSyncRepository _repository;
+
+  /// Executes a paginated invoice query.
+  Future<List<Map<String, Object?>>> call({
+    required String branchId,
+    DateTime? from,
+    DateTime? to,
+    String? cursor,
+    int limit = 50,
+  }) {
+    if (limit < 1 || limit > 100) {
+      throw RangeError.range(limit, 1, 100, 'limit');
+    }
+    if (from != null && to != null && from.isAfter(to)) {
+      throw const FormatException('Start date must not exceed end date.');
+    }
+    return _repository.listSalesInvoices(
+      branchId: branchId,
+      from: from,
+      to: to,
+      cursor: cursor,
+      limit: limit,
+    );
+  }
+}
