@@ -7,6 +7,7 @@ import '../../data/models/erp_and_sync_models.dart';
 import '../../data/services/scale_and_pos_service.dart';
 import '../../providers/pos_and_catalog_provider.dart';
 import '../../providers/supermarket_erp_provider.dart';
+import '../../providers/pos_and_ledger_provider.dart';
 
 /// Fast cashier workspace with multi-invoice tabs, barcode entry and payment posting.
 class S03SupermarketPosScreen extends StatefulWidget {
@@ -51,7 +52,7 @@ class _S03SupermarketPosScreenState extends State<S03SupermarketPosScreen> {
     );
     if (draft == null || !mounted) return;
     if (draft.method != 'CREDIT' && draft.amount <= 0) return;
-    if (draft.method == 'WALLET' && draft.reference.trim().isEmpty) {
+    if (draft.method == 'WALLET' && draft.reference.trim().length < 6) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('رقم إشعار المحفظة مطلوب')));
       return;
     }
@@ -66,7 +67,7 @@ class _S03SupermarketPosScreenState extends State<S03SupermarketPosScreen> {
               walletRefNo: draft.method == 'WALLET' ? draft.reference.trim() : null,
             )];
       final user = erp.currentUser!;
-      final result = await PostingAndSalesService().completeSale(
+      final result = await context.read<PosAndLedgerProvider>().completeSale(
         branchId: user['branch_id'] as String,
         cashierUserId: user['id'] as String,
         items: List<PosCartItemModel>.from(tab.items),
@@ -107,6 +108,10 @@ class _S03SupermarketPosScreenState extends State<S03SupermarketPosScreen> {
             }
             if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.f6) {
               provider.createTab();
+              return KeyEventResult.handled;
+            }
+            if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.f8) {
+              _checkout();
               return KeyEventResult.handled;
             }
             return KeyEventResult.ignored;
