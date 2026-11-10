@@ -145,6 +145,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
       - name: Set up PostgreSQL schema
         run: |
           PGPASSWORD="$PGTEST_PASSWORD" psql -h "$PGTEST_HOST" -U "$PGTEST_USER" -d "$PGTEST_DATABASE" -v ON_ERROR_STOP=1 -f migrations/20261109_001_erp_core.sql
