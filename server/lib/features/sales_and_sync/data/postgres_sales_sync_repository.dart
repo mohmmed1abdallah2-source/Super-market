@@ -205,7 +205,7 @@ class PostgresSalesSyncRepository implements SalesSyncRepository {
          credit_limit, payment_terms_days, price_tier)
        VALUES (@id, @branch, @type, @code, @name, @phone, @address,
                @limit, @terms, @tier)
-       ON CONFLICT (branch_id, code) DO NOTHING''',
+       ON CONFLICT (id) DO NOTHING''',
       substitutionValues: {
         'id': id,
         'branch': branchId,
