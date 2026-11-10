@@ -184,7 +184,7 @@ class PostingAndSalesService {
           'SELECT net FROM v_party_balance WHERE party_id=?', [customerPartyId]);
         final balance = balances.isEmpty ? 0.0 : (balances.first['net'] as num).toDouble();
         final limitValue = (parties.first['credit_limit'] as num? ?? 0).toDouble();
-        if (remaining > 0 && limitValue > 0 && balance + remaining > limitValue) {
+        if (remaining > 0 && (limitValue <= 0 || balance + remaining > limitValue)) {
           throw StateError('تم تجاوز الحد الائتماني للعميل');
         }
       }
