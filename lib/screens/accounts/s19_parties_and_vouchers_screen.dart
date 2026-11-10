@@ -180,10 +180,12 @@ class _S19PartiesAndVouchersScreenState extends State<S19PartiesAndVouchersScree
       builder: (context) => const KeyboardSafeModalSheet(child: _PartyDialog()),
     );
     if (draft == null || !mounted) return;
-    final user = context.read<SupermarketErpProvider>().currentUser;
+    final erpProvider = context.read<SupermarketErpProvider>();
+    final ledgerProvider = context.read<PosAndLedgerProvider>();
+    final user = erpProvider.currentUser;
     if (user == null) return;
     try {
-      await context.read<PosAndLedgerProvider>().createParty(
+      await ledgerProvider.createParty(
         branchId: user['branch_id'] as String,
         partyType: draft.partyType,
         code: draft.code,
@@ -194,7 +196,7 @@ class _S19PartiesAndVouchersScreenState extends State<S19PartiesAndVouchersScree
         paymentTermsDays: draft.paymentTermsDays,
         priceTier: draft.priceTier,
       );
-      await context.read<SupermarketErpProvider>().loadParties();
+      await erpProvider.loadParties();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('تم حفظ الطرف محلياً وإضافته إلى طابور المزامنة')),
