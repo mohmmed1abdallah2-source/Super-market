@@ -1,0 +1,6 @@
+name: core_contracts
+description: Shared JSON contracts for the Supermarket ERP client and server.
+version: 0.1.0
+publish_to: none
+environment:
+  sdk: ">=3.3.0 <4.0.0"
