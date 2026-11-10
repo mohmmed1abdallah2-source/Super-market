@@ -16,6 +16,7 @@ class S19PartiesAndVouchersScreen extends StatefulWidget {
 }
 
 class _S19PartiesAndVouchersScreenState extends State<S19PartiesAndVouchersScreen> {
+  String _partyFilter = 'ALL';
   @override
   void initState() {
     super.initState();
@@ -54,10 +55,20 @@ class _S19PartiesAndVouchersScreenState extends State<S19PartiesAndVouchersScree
               ],
             ),
             const SizedBox(height: 10),
+            SegmentedButton<String>(
+              segments: const [
+                ButtonSegment(value: 'ALL', label: Text('الكل')),
+                ButtonSegment(value: 'CUSTOMER', label: Text('العملاء')),
+                ButtonSegment(value: 'SUPPLIER', label: Text('الموردون')),
+              ],
+              selected: {_partyFilter},
+              onSelectionChanged: (value) => setState(() => _partyFilter = value.first),
+            ),
+            const SizedBox(height: 10),
             if (provider.parties.isEmpty)
               const Padding(padding: EdgeInsets.all(30), child: Center(child: Text('لا توجد أطراف مسجلة')))
             else
-              ...provider.parties.map((party) => FutureBuilder<Map<String, Object?>>(
+              ...provider.parties.where((party) => _partyFilter == 'ALL' || party.partyType == _partyFilter).map((party) => FutureBuilder<Map<String, Object?>>(
                 future: _balanceFor(party.id),
                 builder: (context, snapshot) {
                   final balance = snapshot.data ?? const {};
