@@ -20,6 +20,7 @@ The format follows Keep a Changelog. Version numbers will be assigned when relea
 
 
 - Added `docs/MULTI_STORE_ISOLATION_ARCHITECTURE.md` documenting the owner-to-many-stores flow, a separate PostgreSQL database and SQLite file per store, a minimal account/store control plane, secure store-scoped API routing, preservation of existing data, backup/restore requirements and the mandatory cross-store isolation test matrix. This is an architecture decision and implementation plan; multi-store runtime support is not yet implemented.
+- Added the cross-platform consistency requirement: Windows and Android use per-store SQLite files, Web uses a browser-compatible per-store persistence adapter (IndexedDB-based), and all platforms synchronize through the same store-scoped API with idempotent operations and explicit conflict handling. This documents the target architecture; it does not claim the adapters or synchronization are implemented.
 
 ### Compatibility
 - Existing Iteration 1 Flutter source files and SQLite schema remain the compatibility baseline.
