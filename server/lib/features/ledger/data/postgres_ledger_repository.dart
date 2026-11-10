@@ -21,7 +21,7 @@ class PostgresLedgerRepository implements LedgerRepository {
     required String idempotencyKey,
     required String requestHash,
   }) async {
-    return _connection.transaction<Map<String, Object?>>((ctx) async {
+    return _connection.transaction((ctx) async {
       final replay = await _claimIdempotency(ctx, command.branchId, idempotencyKey, requestHash);
       if (replay != null) return replay;
 
@@ -62,7 +62,7 @@ class PostgresLedgerRepository implements LedgerRepository {
       final result = _flatten(rows.single);
       await _completeIdempotency(ctx, idempotencyKey, 201, result);
       return result;
-    });
+    }).then((value) => Map<String, Object?>.from(value as Map));
   }
 
   /// Lists parties with balance fields sourced only from v_party_balance.
@@ -196,7 +196,7 @@ class PostgresLedgerRepository implements LedgerRepository {
   /// Posts voucher, cash movement, party movement and journal entry atomically.
   @override
   Future<Map<String, Object?>> postVoucher(PostVoucherCommand command) async {
-    return _connection.transaction<Map<String, Object?>>((ctx) async {
+    return _connection.transaction((ctx) async {
       final replay = await _claimIdempotency(
         ctx, command.branchId, command.idempotencyKey, command.requestHash,
       );
@@ -365,7 +365,7 @@ class PostgresLedgerRepository implements LedgerRepository {
       };
       await _completeIdempotency(ctx, command.idempotencyKey, 201, result);
       return result;
-    });
+    }).then((value) => Map<String, Object?>.from(value as Map));
   }
 
   /// Lists voucher documents for one branch.
