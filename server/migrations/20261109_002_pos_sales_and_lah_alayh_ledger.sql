@@ -17,13 +17,13 @@ END
 $$;
 
 CREATE TABLE IF NOT EXISTS chart_of_accounts (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  branch_id UUID NOT NULL REFERENCES branches(id),
+  id TEXT PRIMARY KEY DEFAULT (gen_random_uuid()::text),
+  branch_id TEXT NOT NULL REFERENCES branches(id),
   code VARCHAR(40) NOT NULL,
   name_ar VARCHAR(160) NOT NULL,
   account_type VARCHAR(24) NOT NULL CHECK (account_type IN
     ('ASSET', 'LIABILITY', 'EQUITY', 'REVENUE', 'EXPENSE')),
-  parent_id UUID REFERENCES chart_of_accounts(id),
+  parent_id TEXT REFERENCES chart_of_accounts(id),
   is_active BOOLEAN NOT NULL DEFAULT TRUE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -31,12 +31,12 @@ CREATE TABLE IF NOT EXISTS chart_of_accounts (
 );
 
 CREATE TABLE IF NOT EXISTS journal_entries (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  branch_id UUID NOT NULL REFERENCES branches(id),
+  id TEXT PRIMARY KEY DEFAULT (gen_random_uuid()::text),
+  branch_id TEXT NOT NULL REFERENCES branches(id),
   entry_no VARCHAR(64) NOT NULL,
   entry_date TIMESTAMPTZ NOT NULL DEFAULT now(),
   doc_type VARCHAR(32) NOT NULL,
-  doc_id UUID NOT NULL,
+  doc_id TEXT NOT NULL,
   description TEXT NOT NULL DEFAULT '',
   status VARCHAR(16) NOT NULL DEFAULT 'DRAFT'
     CHECK (status IN ('DRAFT', 'POSTED', 'REVERSED')),
@@ -47,9 +47,9 @@ CREATE TABLE IF NOT EXISTS journal_entries (
 );
 
 CREATE TABLE IF NOT EXISTS journal_lines (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  journal_entry_id UUID NOT NULL REFERENCES journal_entries(id) ON DELETE RESTRICT,
-  gl_account_id UUID NOT NULL REFERENCES chart_of_accounts(id) ON DELETE RESTRICT,
+  id TEXT PRIMARY KEY DEFAULT (gen_random_uuid()::text),
+  journal_entry_id TEXT NOT NULL REFERENCES journal_entries(id) ON DELETE RESTRICT,
+  gl_account_id TEXT NOT NULL REFERENCES chart_of_accounts(id) ON DELETE RESTRICT,
   dr_amount NUMERIC(20,4) NOT NULL DEFAULT 0 CHECK (dr_amount >= 0),
   cr_amount NUMERIC(20,4) NOT NULL DEFAULT 0 CHECK (cr_amount >= 0),
   memo TEXT,
@@ -62,7 +62,7 @@ CREATE INDEX IF NOT EXISTS idx_journal_entries_doc ON journal_entries(branch_id,
 
 -- A posted journal entry must have at least two lines and equal totals.
 -- Deferred triggers allow all lines to be inserted before the final POSTED update.
-CREATE OR REPLACE FUNCTION assert_journal_entry_balanced(p_entry_id UUID)
+CREATE OR REPLACE FUNCTION assert_journal_entry_balanced(p_entry_id TEXT)
 RETURNS VOID
 LANGUAGE plpgsql
 AS $$
@@ -129,14 +129,14 @@ DEFERRABLE INITIALLY DEFERRED
 FOR EACH ROW EXECUTE FUNCTION journal_entry_status_balance_constraint();
 
 CREATE TABLE IF NOT EXISTS cash_accounts (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  branch_id UUID NOT NULL REFERENCES branches(id),
+  id TEXT PRIMARY KEY DEFAULT (gen_random_uuid()::text),
+  branch_id TEXT NOT NULL REFERENCES branches(id),
   code VARCHAR(40) NOT NULL,
   name_ar VARCHAR(120) NOT NULL,
   account_kind VARCHAR(20) NOT NULL CHECK (account_kind IN ('CASH_DRAWER', 'WALLET', 'BANK')),
   wallet_provider VARCHAR(20) CHECK (wallet_provider IN ('JAWALI', 'JEEB', 'FLOOSAK', 'KURAIMI')),
   wallet_phone VARCHAR(32),
-  gl_account_id UUID NOT NULL REFERENCES chart_of_accounts(id),
+  gl_account_id TEXT NOT NULL REFERENCES chart_of_accounts(id),
   current_balance NUMERIC(20,4) NOT NULL DEFAULT 0,
   currency CHAR(3) NOT NULL DEFAULT 'YER',
   is_active BOOLEAN NOT NULL DEFAULT TRUE,
@@ -148,8 +148,8 @@ CREATE TABLE IF NOT EXISTS cash_accounts (
 );
 
 CREATE TABLE IF NOT EXISTS parties (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  branch_id UUID NOT NULL REFERENCES branches(id),
+  id TEXT PRIMARY KEY DEFAULT (gen_random_uuid()::text),
+  branch_id TEXT NOT NULL REFERENCES branches(id),
   party_type VARCHAR(20) NOT NULL CHECK (party_type IN
     ('CUSTOMER', 'SUPPLIER', 'EMPLOYEE', 'PARTNER', 'REPRESENTATIVE')),
   code VARCHAR(64) NOT NULL,
@@ -167,17 +167,17 @@ CREATE TABLE IF NOT EXISTS parties (
 );
 
 CREATE TABLE IF NOT EXISTS lah_alayh_ledger (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  branch_id UUID NOT NULL REFERENCES branches(id),
-  party_id UUID NOT NULL REFERENCES parties(id) ON DELETE RESTRICT,
+  id TEXT PRIMARY KEY DEFAULT (gen_random_uuid()::text),
+  branch_id TEXT NOT NULL REFERENCES branches(id),
+  party_id TEXT NOT NULL REFERENCES parties(id) ON DELETE RESTRICT,
   entry_date TIMESTAMPTZ NOT NULL DEFAULT now(),
   entry_type VARCHAR(32) NOT NULL,
   alayh_amount NUMERIC(20,4) NOT NULL DEFAULT 0 CHECK (alayh_amount >= 0),
   lah_amount NUMERIC(20,4) NOT NULL DEFAULT 0 CHECK (lah_amount >= 0),
   doc_type VARCHAR(32) NOT NULL,
-  doc_id UUID NOT NULL,
+  doc_id TEXT NOT NULL,
   statement_ar TEXT NOT NULL DEFAULT '',
-  journal_entry_id UUID REFERENCES journal_entries(id) ON DELETE RESTRICT,
+  journal_entry_id TEXT REFERENCES journal_entries(id) ON DELETE RESTRICT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   CHECK ((alayh_amount > 0) <> (lah_amount > 0))
 );
@@ -206,19 +206,19 @@ LEFT JOIN lah_alayh_ledger l
 GROUP BY p.id, p.branch_id;
 
 CREATE TABLE IF NOT EXISTS vouchers (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  branch_id UUID NOT NULL REFERENCES branches(id),
+  id TEXT PRIMARY KEY DEFAULT (gen_random_uuid()::text),
+  branch_id TEXT NOT NULL REFERENCES branches(id),
   voucher_no VARCHAR(64) NOT NULL,
   voucher_type VARCHAR(16) NOT NULL CHECK (voucher_type IN ('RECEIPT', 'PAYMENT', 'ADJUSTMENT')),
   voucher_date TIMESTAMPTZ NOT NULL DEFAULT now(),
-  party_id UUID NOT NULL REFERENCES parties(id) ON DELETE RESTRICT,
-  cash_account_id UUID NOT NULL REFERENCES cash_accounts(id) ON DELETE RESTRICT,
+  party_id TEXT NOT NULL REFERENCES parties(id) ON DELETE RESTRICT,
+  cash_account_id TEXT NOT NULL REFERENCES cash_accounts(id) ON DELETE RESTRICT,
   amount NUMERIC(20,4) NOT NULL CHECK (amount > 0),
   method VARCHAR(16) NOT NULL CHECK (method IN ('CASH', 'WALLET', 'CREDIT', 'MIXED')),
   wallet_ref_no VARCHAR(100),
   description TEXT NOT NULL DEFAULT '',
-  journal_entry_id UUID NOT NULL REFERENCES journal_entries(id) ON DELETE RESTRICT,
-  operation_id UUID NOT NULL,
+  journal_entry_id TEXT NOT NULL REFERENCES journal_entries(id) ON DELETE RESTRICT,
+  operation_id TEXT NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (branch_id, voucher_no),
   UNIQUE (branch_id, operation_id),
@@ -226,12 +226,12 @@ CREATE TABLE IF NOT EXISTS vouchers (
 );
 
 CREATE TABLE IF NOT EXISTS sales_invoices (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  branch_id UUID NOT NULL REFERENCES branches(id),
+  id TEXT PRIMARY KEY DEFAULT (gen_random_uuid()::text),
+  branch_id TEXT NOT NULL REFERENCES branches(id),
   invoice_no VARCHAR(64) NOT NULL,
   invoice_date TIMESTAMPTZ NOT NULL DEFAULT now(),
-  cashier_user_id UUID,
-  customer_party_id UUID REFERENCES parties(id) ON DELETE RESTRICT,
+  cashier_user_id TEXT,
+  customer_party_id TEXT REFERENCES parties(id) ON DELETE RESTRICT,
   price_tier VARCHAR(16) NOT NULL DEFAULT 'RETAIL' CHECK (price_tier IN ('RETAIL', 'WHOLESALE')),
   sale_type VARCHAR(16) NOT NULL DEFAULT 'CASH' CHECK (sale_type IN ('CASH', 'CREDIT', 'MIXED')),
   status VARCHAR(16) NOT NULL DEFAULT 'POSTED' CHECK (status IN ('POSTED', 'VOIDED', 'RETURNED')),
@@ -241,8 +241,8 @@ CREATE TABLE IF NOT EXISTS sales_invoices (
   paid_total NUMERIC(20,4) NOT NULL DEFAULT 0 CHECK (paid_total >= 0),
   change_returned NUMERIC(20,4) NOT NULL DEFAULT 0 CHECK (change_returned >= 0),
   remaining_alayh NUMERIC(20,4) NOT NULL DEFAULT 0 CHECK (remaining_alayh >= 0),
-  journal_entry_id UUID NOT NULL REFERENCES journal_entries(id) ON DELETE RESTRICT,
-  operation_id UUID NOT NULL,
+  journal_entry_id TEXT NOT NULL REFERENCES journal_entries(id) ON DELETE RESTRICT,
+  operation_id TEXT NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (branch_id, invoice_no),
   UNIQUE (branch_id, operation_id),
@@ -250,9 +250,9 @@ CREATE TABLE IF NOT EXISTS sales_invoices (
 );
 
 CREATE TABLE IF NOT EXISTS sales_invoice_items (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  invoice_id UUID NOT NULL REFERENCES sales_invoices(id) ON DELETE RESTRICT,
-  product_id UUID NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
+  id TEXT PRIMARY KEY DEFAULT (gen_random_uuid()::text),
+  invoice_id TEXT NOT NULL REFERENCES sales_invoices(id) ON DELETE RESTRICT,
+  product_id TEXT NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
   barcode VARCHAR(64),
   unit_name VARCHAR(80) NOT NULL,
   qty_sold NUMERIC(20,4) NOT NULL CHECK (qty_sold > 0),
@@ -265,9 +265,9 @@ CREATE TABLE IF NOT EXISTS sales_invoice_items (
 CREATE INDEX IF NOT EXISTS idx_sales_items_product ON sales_invoice_items(product_id);
 
 CREATE TABLE IF NOT EXISTS sales_payments (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  invoice_id UUID NOT NULL REFERENCES sales_invoices(id) ON DELETE RESTRICT,
-  cash_account_id UUID REFERENCES cash_accounts(id) ON DELETE RESTRICT,
+  id TEXT PRIMARY KEY DEFAULT (gen_random_uuid()::text),
+  invoice_id TEXT NOT NULL REFERENCES sales_invoices(id) ON DELETE RESTRICT,
+  cash_account_id TEXT REFERENCES cash_accounts(id) ON DELETE RESTRICT,
   method VARCHAR(16) NOT NULL CHECK (method IN ('CASH', 'WALLET', 'CREDIT')),
   amount NUMERIC(20,4) NOT NULL CHECK (amount > 0),
   wallet_provider VARCHAR(20) CHECK (wallet_provider IN ('JAWALI', 'JEEB', 'FLOOSAK', 'KURAIMI')),
@@ -280,7 +280,7 @@ CREATE TABLE IF NOT EXISTS sales_payments (
 
 CREATE TABLE IF NOT EXISTS sync_idempotency (
   idempotency_key VARCHAR(200) PRIMARY KEY,
-  branch_id UUID NOT NULL REFERENCES branches(id),
+  branch_id TEXT NOT NULL REFERENCES branches(id),
   request_hash CHAR(64) NOT NULL,
   response_status INTEGER,
   response_body JSONB,
@@ -289,9 +289,9 @@ CREATE TABLE IF NOT EXISTS sync_idempotency (
 );
 
 CREATE TABLE IF NOT EXISTS sync_operation_receipts (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  branch_id UUID NOT NULL REFERENCES branches(id),
-  operation_id UUID NOT NULL,
+  id TEXT PRIMARY KEY DEFAULT (gen_random_uuid()::text),
+  branch_id TEXT NOT NULL REFERENCES branches(id),
+  operation_id TEXT NOT NULL,
   operation_type VARCHAR(32) NOT NULL,
   idempotency_key VARCHAR(200) NOT NULL REFERENCES sync_idempotency(idempotency_key),
   result_status VARCHAR(16) NOT NULL CHECK (result_status IN ('ACCEPTED', 'REJECTED')),
