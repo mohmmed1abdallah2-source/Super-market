@@ -118,12 +118,38 @@ jobs:
 
   validate-server:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: supermarket_test
+          POSTGRES_USER: erp_test
+          POSTGRES_PASSWORD: erp_test_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U erp_test -d supermarket_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
     defaults:
       run:
         working-directory: server
+    env:
+      PGTEST_HOST: 127.0.0.1
+      PGTEST_PORT: 5432
+      PGTEST_DATABASE: supermarket_test
+      PGTEST_USER: erp_test
+      PGTEST_PASSWORD: erp_test_password
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Set up PostgreSQL schema
+        run: |
+          PGPASSWORD="$PGTEST_PASSWORD" psql -h "$PGTEST_HOST" -U "$PGTEST_USER" -d "$PGTEST_DATABASE" -v ON_ERROR_STOP=1 -f migrations/20261109_001_erp_core.sql
+          PGPASSWORD="$PGTEST_PASSWORD" psql -h "$PGTEST_HOST" -U "$PGTEST_USER" -d "$PGTEST_DATABASE" -v ON_ERROR_STOP=1 -f migrations/20261109_002_pos_sales_and_lah_alayh_ledger.sql
+        working-directory: .
 
       - name: Set up Dart
         uses: dart-lang/setup-dart@v1
@@ -136,7 +162,7 @@ jobs:
       - name: Analyze Dart server
         run: dart analyze
 
-      - name: Run server unit tests
+      - name: Run server unit and PostgreSQL integration tests
         run: dart test
 
   build-windows:
