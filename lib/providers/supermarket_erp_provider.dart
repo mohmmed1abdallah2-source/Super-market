@@ -136,8 +136,14 @@ class SupermarketErpProvider extends ChangeNotifier {
          JOIN sales_invoices si ON si.id=sp.invoice_id
          WHERE si.branch_id=? AND si.status='COMPLETED'
            AND si.invoice_date BETWEEN ? AND ? AND si.is_deleted=0
-         GROUP BY sp.method''',
-      [branchId, start, end]);
+         GROUP BY sp.method
+         UNION ALL
+         SELECT 'CREDIT' AS method, COALESCE(SUM(remaining_alayh),0) AS total
+         FROM sales_invoices
+         WHERE branch_id=? AND status='COMPLETED'
+           AND invoice_date BETWEEN ? AND ? AND is_deleted=0
+           AND remaining_alayh > 0''',
+      [branchId, start, end, branchId, start, end]);
     _paymentTotalsByMethod = {
       for (final row in paymentRows)
         row['method'] as String: (row['total'] as num).toDouble(),
