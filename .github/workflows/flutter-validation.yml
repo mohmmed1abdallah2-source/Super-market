@@ -102,17 +102,14 @@ jobs:
       - name: Run tests
         run: flutter test
 
-      - name: Build debug APK
-        run: flutter build apk --debug
-
       - name: Build release APK
         run: flutter build apk --release
 
       - name: Upload Android APKs
         uses: actions/upload-artifact@v4
         with:
-          name: android-apks
-          path: build/app/outputs/flutter-apk/*.apk
+          name: android-release-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
 
   build-windows:
