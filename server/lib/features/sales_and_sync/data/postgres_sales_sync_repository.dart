@@ -414,7 +414,9 @@ class PostgresSalesSyncRepository implements SalesSyncRepository {
     if (changeReturned < 0 || changeReturned > cashGross) {
       throw const FormatException('Change can only be returned from received cash.');
     }
-    final paidTotal = cashGross + walletTotal - changeReturned;
+    // Local sales_payments contain the applied amounts after change is removed.
+    // changeReturned is therefore informational and must not be subtracted twice.
+    final paidTotal = cashGross + walletTotal;
     if ((paidTotal + creditTotal - netTotal).abs() > 0.0001) {
       throw const FormatException('Payments, change and outstanding amount do not match invoice total.');
     }
@@ -467,11 +469,6 @@ class PostgresSalesSyncRepository implements SalesSyncRepository {
         cashByAccount[cashId] = (cashByAccount[cashId] ?? 0) + (payment['amount'] as double);
       }
     }
-    if (changeReturned > 0 && cashByAccount.isNotEmpty) {
-      final first = cashByAccount.keys.first;
-      cashByAccount[first] = cashByAccount[first]! - changeReturned;
-    }
-
     for (final entry in cashByAccount.entries) {
       if (entry.value <= 0) continue;
       final accountRows = await ctx.mappedResultsQuery(
