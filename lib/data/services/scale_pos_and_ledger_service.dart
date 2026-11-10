@@ -46,9 +46,14 @@ class LocalPosAndLedgerEngine {
         _parser = parser ?? const ScaleAndBarcodeParser();
 
   final DatabaseHelper _helper;
-  final ApiClient? _apiClient;
+  ApiClient? _apiClient;
   final ScaleAndBarcodeParser _parser;
   static const Uuid _uuid = Uuid();
+
+  /// Attaches an authenticated API client after the user session is established.
+  void configureApiClient(ApiClient client) {
+    _apiClient = client;
+  }
 
   /// Resolves a barcode locally without requiring an API connection.
   Future<BarcodeLookupResult?> lookupBarcode(String barcode) =>
