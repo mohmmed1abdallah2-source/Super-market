@@ -54,7 +54,7 @@ class _S03SupermarketPosScreenState extends State<S03SupermarketPosScreen> {
       isScrollControlled: true,
       useSafeArea: true,
       builder: (context) => KeyboardSafeModalSheet(
-        child: _PaymentDialog(total: pos.activeSubtotal),
+        child: _PaymentDialog(total: pos.activeSubtotal, initialCustomerId: tab.customerPartyId),
       ),
     );
     if (draft == null || !mounted) return;
@@ -81,7 +81,7 @@ class _S03SupermarketPosScreenState extends State<S03SupermarketPosScreen> {
         items: soldItems,
         priceTier: tab.priceTier,
         payments: payments,
-        customerPartyId: tab.customerPartyId,
+        customerPartyId: draft.customerPartyId ?? tab.customerPartyId,
       );
       _lastSale = result;
       _lastSaleItems = soldItems;
@@ -447,16 +447,18 @@ class _S03SupermarketPosScreenState extends State<S03SupermarketPosScreen> {
 }
 
 class _PaymentDraft {
-  const _PaymentDraft(this.method, this.amount, this.accountId, this.reference);
+  const _PaymentDraft(this.method, this.amount, this.accountId, this.reference, {this.customerPartyId});
   final String method;
   final double amount;
   final String? accountId;
   final String reference;
+  final String? customerPartyId;
 }
 
 class _PaymentDialog extends StatefulWidget {
-  const _PaymentDialog({required this.total});
+  const _PaymentDialog({required this.total, this.initialCustomerId});
   final double total;
+  final String? initialCustomerId;
 
   @override
   State<_PaymentDialog> createState() => _PaymentDialogState();
@@ -465,6 +467,7 @@ class _PaymentDialog extends StatefulWidget {
 class _PaymentDialogState extends State<_PaymentDialog> {
   String _method = 'CASH';
   String _account = 'cash-drawer';
+  String? _customerPartyId;
   final _amount = TextEditingController();
   final _reference = TextEditingController();
 
@@ -472,6 +475,7 @@ class _PaymentDialogState extends State<_PaymentDialog> {
   void initState() {
     super.initState();
     _amount.text = widget.total.toStringAsFixed(2);
+    _customerPartyId = widget.initialCustomerId;
   }
 
   @override
@@ -485,6 +489,22 @@ class _PaymentDialogState extends State<_PaymentDialog> {
   Widget build(BuildContext context) => AlertDialog(
     title: const Text('طريقة الدفع'),
     content: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
+      Consumer<SupermarketErpProvider>(
+        builder: (context, erp, _) => DropdownButtonFormField<String?>(
+          initialValue: _customerPartyId,
+          isExpanded: true,
+          decoration: const InputDecoration(labelText: 'العميل للحساب الآجل أو الدفع المختلط'),
+          items: [
+            const DropdownMenuItem<String?>(value: null, child: Text('بدون عميل')),
+            ...erp.parties.where((party) => party.partyType == 'CUSTOMER')
+                .map((party) => DropdownMenuItem<String?>(
+                  value: party.id,
+                  child: Text(party.nameAr),
+                )),
+          ],
+          onChanged: (value) => setState(() => _customerPartyId = value),
+        ),
+      ),
       DropdownButtonFormField<String>(
         initialValue: _method,
         decoration: const InputDecoration(labelText: 'طريقة السداد'),
@@ -522,6 +542,11 @@ class _PaymentDialogState extends State<_PaymentDialog> {
         const SizedBox(height: 10),
         WalletRefField(controller: _reference),
       ],
+      if (_method == 'CASH' || _method == 'WALLET')
+        const Padding(
+          padding: EdgeInsets.only(top: 8),
+          child: Text('يمكن دفع جزء من الإجمالي، وسيُسجل الباقي على حساب العميل المحدد.'),
+        ),
       if (_method == 'CREDIT')
         const Padding(
           padding: EdgeInsets.only(top: 12),
@@ -533,7 +558,13 @@ class _PaymentDialogState extends State<_PaymentDialog> {
       FilledButton(
         onPressed: () {
           final amount = _method == 'CREDIT' ? 0.0 : double.tryParse(_amount.text) ?? 0;
-          Navigator.pop(context, _PaymentDraft(_method, amount, _method == 'CREDIT' ? null : _account, _reference.text));
+          Navigator.pop(context, _PaymentDraft(
+            _method,
+            amount,
+            _method == 'CREDIT' ? null : _account,
+            _reference.text,
+            customerPartyId: _customerPartyId,
+          ));
         },
         child: const Text('متابعة'),
       ),
