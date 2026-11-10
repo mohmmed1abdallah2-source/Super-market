@@ -229,8 +229,7 @@ class FirebaseFreeTierSyncService {
   }
 
   Future<void> _incrementQuota(
-    Transaction txn, String branchId, String dateKey, {required int writes},
-  ) async {
+    Transaction txn, String branchId, String dateKey, {required int writes}) async {
     final now = DateTime.now().toIso8601String();
     await txn.rawUpdate(
       '''UPDATE firebase_quota_tracker
