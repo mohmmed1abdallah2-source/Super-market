@@ -13,6 +13,68 @@ class PostgresSalesSyncRepository implements SalesSyncRepository {
   final PostgreSQLConnection _connection;
   static const Uuid _uuid = Uuid();
 
+  /// Lists branch invoices and expands each invoice's lines and payments.
+  @override
+  Future<List<Map<String, Object?>>> listSalesInvoices({
+    required String branchId,
+    DateTime? from,
+    DateTime? to,
+    String? cursor,
+    int limit = 50,
+  }) async {
+    final invoiceRows = await _connection.mappedResultsQuery(
+      '''SELECT id::text AS id, invoice_no AS "invoiceNo",
+                customer_party_id AS "customerPartyId", price_tier AS "priceTier",
+                net_total::text AS "netTotal", paid_total::text AS "paidTotal",
+                change_returned::text AS "changeReturned",
+                remaining_alayh::text AS "remainingAlayh",
+                invoice_date AS "createdAt"
+         FROM sales_invoices
+         WHERE branch_id = @branch
+           AND (@from::timestamptz IS NULL OR invoice_date >= @from)
+           AND (@to::timestamptz IS NULL OR invoice_date <= @to)
+           AND (@cursor::timestamptz IS NULL OR invoice_date < @cursor)
+         ORDER BY invoice_date DESC, id DESC
+         LIMIT @limit''',
+      substitutionValues: {
+        'branch': branchId,
+        'from': from?.toUtc(),
+        'to': to?.toUtc(),
+        'cursor': cursor == null ? null : DateTime.parse(cursor).toUtc(),
+        'limit': limit,
+      },
+    );
+    final result = <Map<String, Object?>>[];
+    for (final invoiceRow in invoiceRows) {
+      final invoice = _flatten(invoiceRow);
+      final id = invoice['id'] as String;
+      final itemRows = await _connection.mappedResultsQuery(
+        '''SELECT id::text AS id, product_id AS "productId",
+                  barcode, unit_name AS "unitName", qty_sold::text AS "qtySold",
+                  conversion_factor::text AS "conversionFactor",
+                  qty_base::text AS "qtyBase", unit_price::text AS "unitPrice",
+                  line_total::text AS "lineTotal"
+           FROM sales_invoice_items WHERE invoice_id = @invoice ORDER BY id''',
+        substitutionValues: {'invoice': id},
+      );
+      final paymentRows = await _connection.mappedResultsQuery(
+        '''SELECT id::text AS id, method, amount::text AS amount,
+                  cash_account_id AS "cashAccountId",
+                  wallet_provider AS "walletProvider",
+                  wallet_ref_no AS "walletRefNo"
+           FROM sales_payments WHERE invoice_id = @invoice ORDER BY id''',
+        substitutionValues: {'invoice': id},
+      );
+      result.add({
+        ...invoice,
+        'createdAt': _iso(invoice['createdAt']),
+        'items': itemRows.map(_flatten).toList(growable: false),
+        'payments': paymentRows.map(_flatten).toList(growable: false),
+      });
+    }
+    return result;
+  }
+
   /// Posts one invoice and its inventory, payments, ledger and journal effects.
   @override
   Future<Map<String, Object?>> postSale(SaleInvoiceCommand command) =>
