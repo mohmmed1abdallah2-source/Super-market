@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme/enterprise_dark_theme.dart';
 import '../../core/widgets/shared_widgets.dart';
+import '../../core/pdf/receipt_and_ledger_pdf_builder.dart';
 import '../../data/models/erp_and_sync_models.dart';
 import '../../data/services/scale_and_pos_service.dart';
 import '../../providers/pos_and_catalog_provider.dart';
@@ -21,6 +22,8 @@ class _S03SupermarketPosScreenState extends State<S03SupermarketPosScreen> {
   final _barcodeController = TextEditingController();
   final _barcodeFocus = FocusNode();
   bool _posting = false;
+  SaleInvoiceModel? _lastSale;
+  List<PosCartItemModel> _lastSaleItems = const [];
 
   @override
   void dispose() {
@@ -60,6 +63,7 @@ class _S03SupermarketPosScreenState extends State<S03SupermarketPosScreen> {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('رقم إشعار المحفظة مطلوب')));
       return;
     }
+    final soldItems = List<PosCartItemModel>.from(tab.items);
     setState(() => _posting = true);
     try {
       final payments = draft.method == 'CREDIT'
@@ -74,17 +78,28 @@ class _S03SupermarketPosScreenState extends State<S03SupermarketPosScreen> {
       final result = await context.read<PosAndLedgerProvider>().completeSale(
         branchId: user['branch_id'] as String,
         cashierUserId: user['id'] as String,
-        items: List<PosCartItemModel>.from(tab.items),
+        items: soldItems,
         priceTier: tab.priceTier,
         payments: payments,
         customerPartyId: tab.customerPartyId,
       );
+      _lastSale = result;
+      _lastSaleItems = soldItems;
       pos.clearActiveAfterSale();
       await erp.loadDashboard();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('تم حفظ الفاتورة ${result.invoiceNo} • الباقي للزبون: ${MoneyFormatter().format(result.changeReturned)}')),
         );
+      }
+      try {
+        await _printReceipt(result, soldItems);
+      } catch (printError) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('تم حفظ الفاتورة، لكن تعذرت الطباعة: $printError')),
+          );
+        }
       }
     } catch (error) {
       if (mounted) {
@@ -96,6 +111,36 @@ class _S03SupermarketPosScreenState extends State<S03SupermarketPosScreen> {
       if (mounted) setState(() => _posting = false);
       _barcodeFocus.requestFocus();
     }
+  }
+
+  Future<void> _printReceipt(SaleInvoiceModel sale, List<PosCartItemModel> items) async {
+    await ThermalReceiptBuilder.print(
+      storeName: 'Global Enterprise Supermarket',
+      invoiceNo: sale.invoiceNo,
+      invoiceDate: DateTime.now(),
+      items: items.map((item) => ThermalReceiptItem(
+        name: item.productName,
+        unitName: item.unitName,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        lineTotal: item.lineTotal,
+      )).toList(growable: false),
+      netTotal: sale.netTotal,
+      paidTotal: sale.paidTotal,
+      changeReturned: sale.changeReturned,
+      remainingAlayh: sale.remainingAlayh,
+    );
+  }
+
+  Future<void> _printLastReceipt() async {
+    final sale = _lastSale;
+    if (sale == null || _lastSaleItems.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('لا توجد فاتورة سابقة للطباعة')),
+      );
+      return;
+    }
+    await _printReceipt(sale, _lastSaleItems);
   }
 
   @override
@@ -116,6 +161,10 @@ class _S03SupermarketPosScreenState extends State<S03SupermarketPosScreen> {
             }
             if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.f8) {
               _checkout();
+              return KeyEventResult.handled;
+            }
+            if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.f9) {
+              _printLastReceipt();
               return KeyEventResult.handled;
             }
             return KeyEventResult.ignored;
@@ -257,7 +306,7 @@ class _S03SupermarketPosScreenState extends State<S03SupermarketPosScreen> {
                     icon: _posting
                       ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
                       : const Icon(Icons.payment),
-                    label: const Text('الدفع وحفظ الفاتورة'),
+                    label: const Text('الدفع وطباعة الإيصال (F8)'),
                   ),
                 ]),
               ),
