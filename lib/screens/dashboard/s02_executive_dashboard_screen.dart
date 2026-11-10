@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme/enterprise_dark_theme.dart';
+import '../../core/pdf/receipt_and_ledger_pdf_builder.dart';
 import '../../providers/supermarket_erp_provider.dart';
 
 /// Presents branch KPIs, cash balances, inventory alerts and sync quota status.
@@ -22,6 +23,16 @@ class _S02ExecutiveDashboardScreenState extends State<S02ExecutiveDashboardScree
     });
   }
 
+  Future<void> _printDailyReport(SupermarketErpProvider provider) async {
+    final data = provider.dashboard;
+    await ReceiptAndLedgerPdfBuilder.previewDailySalesByPayment(
+      date: DateTime.now(),
+      totalsByMethod: provider.paymentTotalsByMethod,
+      netSales: data['salesTotal'] ?? 0,
+      invoiceCount: (data['salesCount'] ?? 0).toInt(),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Consumer<SupermarketErpProvider>(
@@ -39,6 +50,15 @@ class _S02ExecutiveDashboardScreenState extends State<S02ExecutiveDashboardScree
               Text('لوحة التحكم التنفيذية', style: Theme.of(context).textTheme.headlineSmall),
               const SizedBox(height: 6),
               const Text('ملخص أداء الفرع — بيانات محلية محدثة'),
+              const SizedBox(height: 10),
+              Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: OutlinedButton.icon(
+                  onPressed: () => _printDailyReport(provider),
+                  icon: const Icon(Icons.picture_as_pdf),
+                  label: const Text('طباعة ملخص اليوم الرسمي PDF'),
+                ),
+              ),
               const SizedBox(height: 18),
               GridView.count(
                 crossAxisCount: MediaQuery.sizeOf(context).width > 800 ? 4 : 2,
@@ -50,7 +70,8 @@ class _S02ExecutiveDashboardScreenState extends State<S02ExecutiveDashboardScree
                 children: [
                   _KpiCard(title: 'عدد الفواتير اليوم', value: (data['salesCount'] ?? 0).toStringAsFixed(0), icon: Icons.receipt_long, color: EnterpriseDarkTheme.primary),
                   _KpiCard(title: 'مبيعات اليوم', value: money.format(data['salesTotal'] ?? 0), icon: Icons.trending_up, color: EnterpriseDarkTheme.success),
-                  _KpiCard(title: 'المبالغ المتبقية على العملاء', value: money.format(data['creditTotal'] ?? 0), icon: Icons.people, color: EnterpriseDarkTheme.warning),
+                  _KpiCard(title: 'المتبقي على العملاء', value: money.format(data['creditTotal'] ?? 0), icon: Icons.people, color: EnterpriseDarkTheme.warning),
+                  _KpiCard(title: 'المتبقي للموردين', value: money.format(data['supplierTotal'] ?? 0), icon: Icons.local_shipping, color: EnterpriseDarkTheme.danger),
                   _KpiCard(title: 'أصناف وصلت حد التنبيه', value: (data['stockAlerts'] ?? 0).toStringAsFixed(0), icon: Icons.warning_amber, color: EnterpriseDarkTheme.danger),
                 ],
               ),
@@ -62,6 +83,18 @@ class _S02ExecutiveDashboardScreenState extends State<S02ExecutiveDashboardScree
                   const SizedBox(height: 12),
                   Text(money.format(data['cashTotal'] ?? 0), style: Theme.of(context).textTheme.headlineMedium),
                   const Text('إجمالي الأرصدة المسجلة في الحسابات النقدية'),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 8,
+                    children: [
+                      _CashBalance(label: 'الصندوق والدرج', amount: data['cashDrawer'] ?? 0),
+                      _CashBalance(label: 'جوالي', amount: data['jawali'] ?? 0),
+                      _CashBalance(label: 'جيب', amount: data['jeeb'] ?? 0),
+                      _CashBalance(label: 'فلوسك', amount: data['floosak'] ?? 0),
+                      _CashBalance(label: 'كريمي', amount: data['kuraimi'] ?? 0),
+                    ],
+                  ),
                 ]),
               )),
               const SizedBox(height: 12),
@@ -105,4 +138,17 @@ class _KpiCard extends StatelessWidget {
       ]),
     ),
   );
+}
+
+class _CashBalance extends StatelessWidget {
+  const _CashBalance({required this.label, required this.amount});
+
+  final String label;
+  final double amount;
+
+  @override
+  Widget build(BuildContext context) => Chip(
+        avatar: const Icon(Icons.account_balance_wallet_outlined, size: 17),
+        label: Text('$label: ${MoneyFormatter().format(amount)}'),
+      );
 }
