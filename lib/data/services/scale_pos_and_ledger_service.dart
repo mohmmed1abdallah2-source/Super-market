@@ -86,6 +86,76 @@ class LocalPosAndLedgerEngine {
     return result;
   }
 
+  /// Creates a customer or supplier locally and queues the new party for sync.
+  Future<String> createParty({
+    required String branchId,
+    required String partyType,
+    required String code,
+    required String name,
+    String? phone,
+    String? address,
+    double creditLimit = 0,
+    int paymentTermsDays = 0,
+    String priceTier = 'RETAIL',
+  }) async {
+    final type = partyType.toUpperCase();
+    if (!const {'CUSTOMER', 'SUPPLIER'}.contains(type)) {
+      throw ArgumentError.value(partyType, 'partyType');
+    }
+    if (code.trim().isEmpty || name.trim().isEmpty) {
+      throw ArgumentError('كود الطرف واسمه مطلوبان');
+    }
+    if (creditLimit < 0 || paymentTermsDays < 0) {
+      throw ArgumentError('الحد الائتماني ومدة السداد لا يمكن أن يكونا سالبين');
+    }
+    final db = await _helper.database;
+    final id = _localId('party');
+    final queueId = _localId('sync');
+    final now = DateTime.now().toIso8601String();
+    await db.transaction((txn) async {
+      final existing = await txn.query(
+        'parties',
+        where: 'branch_id=? AND code=? AND is_deleted=0',
+        whereArgs: [branchId, code.trim()],
+        limit: 1,
+      );
+      if (existing.isNotEmpty) throw StateError('كود الطرف مسجل مسبقاً');
+      final party = <String, Object?>{
+        ..._base(id, branchId, now),
+        'party_type': type,
+        'code': code.trim(),
+        'name_ar': name.trim(),
+        'phone': phone?.trim(),
+        'address': address?.trim(),
+        'credit_limit': creditLimit,
+        'payment_terms_days': paymentTermsDays,
+        'price_tier': priceTier,
+        'is_blocked': 0,
+        'opening_alayh': 0,
+        'opening_lah': 0,
+      };
+      await txn.insert('parties', party);
+      await txn.insert('sync_queue', {
+        'id': queueId,
+        'uuid': 'uuid-$queueId',
+        'branch_id': branchId,
+        'table_name': 'parties',
+        'row_uuid': id,
+        'operation': 'INSERT',
+        'payload_json': jsonEncode({'party': party}),
+        'sync_version': 1,
+        'batch_id': null,
+        'status': 'PENDING',
+        'queued_at': now,
+        'created_at': now,
+        'updated_at': now,
+        'is_deleted': 0,
+      });
+    });
+    unawaited(_syncAfterCommit(branchId));
+    return id;
+  }
+
   /// Saves a customer receipt or supplier payment atomically in SQLite.
   ///
   /// Receipt movements increase the selected customer's lah total. Payment
