@@ -88,9 +88,14 @@ class SalesSyncRoutes {
       });
 
   Future<Response> _guard(Request request, Future<Response> Function() action) async {
-    if (apiToken.isEmpty ||
-        request.headers['authorization'] != 'Bearer $apiToken') {
-      return _json(401, {'code': 'UNAUTHORIZED', 'message': 'Authentication is required.'});
+    final branch = request.headers['x-branch-id'];
+    final expectedToken = branch == null ? null : branchTokens[branch];
+    if (expectedToken == null ||
+        request.headers['authorization'] != 'Bearer $expectedToken') {
+      return _json(401, {
+        'code': 'UNAUTHORIZED',
+        'message': 'A valid branch-scoped bearer token is required.',
+      });
     }
     try {
       return await action();
