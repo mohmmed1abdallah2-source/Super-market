@@ -367,3 +367,12 @@ flowchart TD
 - بيع وحدة معاملها 24 يخصم 24 من مخزون وحدة الأساس.
 - جميع الأزرار الأساسية لها مسار محفوظ/مطبوع/مزامن ومغطى باختبار.
 - لا تُعلن أي منصة ناجحة إلا بعد مشاهدة نتيجة البناء الفعلية.
+
+
+## Implementation notes (2026-11-10)
+
+- The repository did not contain the PostgreSQL Iteration 1 migration. A prerequisite migration named `20261109_001_erp_core.sql` was added to create branch, product, product-unit barcode, user, stock and sequence foundations. Migration 002 remains additive and checks for the required `branches` and `products` tables.
+- PostgreSQL identifiers use `TEXT` so they can preserve stable identifiers already used by the offline SQLite catalogue. Operation IDs and idempotency keys remain stable client-generated identifiers.
+- API requests require both a branch-scoped bearer token and the matching `X-Branch-Id` header. Configure `ERP_BRANCH_TOKENS` as a JSON object mapping branch IDs to tokens. `ERP_API_TOKEN` is a development fallback limited to `branch-main`.
+- The Flutter engine commits local sale/voucher/party work before attempting batch synchronization. A missing authenticated API client leaves work queued locally.
+- CI now includes a Dart server analyze/test job. Live PostgreSQL integration is not claimed until that environment is provisioned and the migration/test suite completes.
