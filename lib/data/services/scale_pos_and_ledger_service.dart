@@ -382,6 +382,18 @@ class LocalPosAndLedgerEngine {
       });
     }
 
+    final remainingAlayh = (invoice['remaining_alayh'] as num? ?? 0).toDouble();
+    if (remainingAlayh > 0) {
+      payments.add({
+        'id': _stableUuid('credit-payment:' + operationId),
+        'method': 'CREDIT',
+        'amount': remainingAlayh,
+        'cashAccountId': null,
+        'walletProvider': null,
+        'walletRefNo': null,
+      });
+    }
+
     return {
       'operationId': operationId,
       'customerPartyId': invoice['customer_party_id'],
