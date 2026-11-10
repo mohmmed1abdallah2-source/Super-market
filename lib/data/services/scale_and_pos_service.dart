@@ -25,11 +25,15 @@ class ScaleAndBarcodeParser {
   /// Returns scale data only when both the layout and EAN-13 check digit are valid.
   ScaleBarcodeResult? parseScaleBarcode(String raw) {
     final code = raw.trim();
-    if (!isValidEan13(code) || !scalePrefixes.any((prefix) => code.startsWith(prefix))) return null;
+    if (!isValidEan13(code) || !scalePrefixes.any((prefix) => code.startsWith(prefix))) {
+      return null;
+    }
     final pluEnd = pluStart + pluLength;
     final qtyEnd = quantityStart + quantityLength;
     if (pluStart < 0 || quantityStart < 0 || pluEnd > 12 ||
-        qtyEnd > 12 || quantityDivisor <= 0) return null;
+        qtyEnd > 12 || quantityDivisor <= 0) {
+      return null;
+    }
     final qty = int.tryParse(code.substring(quantityStart, qtyEnd));
     if (qty == null || qty <= 0) return null;
     return ScaleBarcodeResult(
@@ -127,14 +131,22 @@ class PostingAndSalesService {
     double discountPct = 0,
     double roundingDiff = 0,
   }) async {
-    if (items.isEmpty) throw ArgumentError('لا يمكن حفظ فاتورة بلا أصناف');
-    if (!['RETAIL', 'WHOLESALE'].contains(priceTier)) throw ArgumentError('فئة السعر غير صحيحة');
+    if (items.isEmpty) {
+      throw ArgumentError('لا يمكن حفظ فاتورة بلا أصناف');
+    }
+    if (!['RETAIL', 'WHOLESALE'].contains(priceTier)) {
+      throw ArgumentError('فئة السعر غير صحيحة');
+    }
     for (final item in items) {
       if (item.quantity <= 0 || item.conversionFactor <= 0 || item.unitPrice < 0 ||
-          item.lineDiscountAmount < 0) throw ArgumentError('بيانات أحد الأصناف غير صحيحة');
+          item.lineDiscountAmount < 0) {
+        throw ArgumentError('بيانات أحد الأصناف غير صحيحة');
+      }
     }
     for (final payment in payments) {
-      if (payment.amount <= 0) throw ArgumentError('قيمة الدفعة يجب أن تكون موجبة');
+      if (payment.amount <= 0) {
+        throw ArgumentError('قيمة الدفعة يجب أن تكون موجبة');
+      }
       if (payment.cashAccountId == null || payment.cashAccountId!.trim().isEmpty) {
         throw ArgumentError('يجب تحديد الصندوق أو المحفظة لكل دفعة');
       }
@@ -278,13 +290,19 @@ class PostingAndSalesService {
         [journalId]);
       final dr = (journalTotals.first['dr'] as num? ?? 0).toDouble();
       final cr = (journalTotals.first['cr'] as num? ?? 0).toDouble();
-      if ((dr - cr).abs() > 0.01) throw StateError('القيد المحاسبي غير متوازن');
+      if ((dr - cr).abs() > 0.01) {
+        throw StateError('القيد المحاسبي غير متوازن');
+      }
 
       if (customerPartyId != null) {
-        if (net > 0) await _ledgerLine(txn, branchId, customerPartyId, journalId,
-          invoiceId, 'SALE', net, 0, 'فاتورة بيع $invoiceNo', now);
-        if (paid > 0) await _ledgerLine(txn, branchId, customerPartyId, journalId,
-          invoiceId, 'SALE_PAYMENT', 0, paid, 'سداد فاتورة $invoiceNo', now);
+        if (net > 0) {
+          await _ledgerLine(txn, branchId, customerPartyId, journalId,
+              invoiceId, 'SALE', net, 0, 'فاتورة بيع $invoiceNo', now);
+        }
+        if (paid > 0) {
+          await _ledgerLine(txn, branchId, customerPartyId, journalId,
+              invoiceId, 'SALE_PAYMENT', 0, paid, 'سداد فاتورة $invoiceNo', now);
+        }
       }
 
       for (final allocation in paymentAllocations) {
