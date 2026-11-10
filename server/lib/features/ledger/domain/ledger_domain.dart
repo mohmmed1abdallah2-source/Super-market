@@ -113,7 +113,7 @@ abstract interface class LedgerRepository {
   Future<List<Map<String, Object?>>> listParties({
     required String branchId,
     String? partyType,
-    int limit,
+    int limit = 50,
     String? cursor,
   });
 
@@ -123,7 +123,7 @@ abstract interface class LedgerRepository {
     required String partyId,
     DateTime? from,
     DateTime? to,
-    int limit,
+    int limit = 100,
     String? cursor,
   });
 
