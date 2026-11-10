@@ -737,7 +737,12 @@ class PostgresSalesSyncRepository implements SalesSyncRepository {
       throw StateError('IDEMPOTENCY_KEY_REUSED');
     }
     final response = record['responseBody'];
-    return response is Map ? Map<String, Object?>.from(response) : null;
+    if (response is Map) return Map<String, Object?>.from(response);
+    if (response is String) {
+      final decoded = jsonDecode(response);
+      if (decoded is Map<String, dynamic>) return Map<String, Object?>.from(decoded);
+    }
+    return null;
   }
 
   Future<void> _completeKey(
