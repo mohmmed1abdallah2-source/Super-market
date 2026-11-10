@@ -43,6 +43,11 @@ class _S19PartiesAndVouchersScreenState extends State<S19PartiesAndVouchersScree
               runSpacing: 8,
               children: [
                 OutlinedButton.icon(
+                  onPressed: _newParty,
+                  icon: const Icon(Icons.person_add_alt_1),
+                  label: const Text('إضافة عميل أو مورد'),
+                ),
+                OutlinedButton.icon(
                   onPressed: () => _printPartyBalances('CUSTOMER'),
                   icon: const Icon(Icons.picture_as_pdf),
                   label: const Text('ملخص أرصدة العملاء PDF'),
@@ -165,6 +170,43 @@ class _S19PartiesAndVouchersScreenState extends State<S19PartiesAndVouchersScree
       parties: ledger.partyBalances,
       partyType: partyType,
     );
+  }
+
+  Future<void> _newParty() async {
+    final draft = await showModalBottomSheet<_PartyDraft>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (context) => const KeyboardSafeModalSheet(child: _PartyDialog()),
+    );
+    if (draft == null || !mounted) return;
+    final user = context.read<SupermarketErpProvider>().currentUser;
+    if (user == null) return;
+    try {
+      await context.read<PosAndLedgerProvider>().createParty(
+        branchId: user['branch_id'] as String,
+        partyType: draft.partyType,
+        code: draft.code,
+        name: draft.name,
+        phone: draft.phone,
+        address: draft.address,
+        creditLimit: draft.creditLimit,
+        paymentTermsDays: draft.paymentTermsDays,
+        priceTier: draft.priceTier,
+      );
+      await context.read<SupermarketErpProvider>().loadParties();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('تم حفظ الطرف محلياً وإضافته إلى طابور المزامنة')),
+        );
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('تعذر حفظ الطرف: $error')),
+        );
+      }
+    }
   }
 
   Future<void> _newVoucher() async {
@@ -327,6 +369,116 @@ class _VoucherDialogState extends State<_VoucherDialog> {
       type: _type, partyId: _partyId!, cashAccountId: _accountId,
       amount: amount, method: _method, reference: _reference.text,
       description: _description.text.trim(),
+    ));
+  }
+}
+
+class _PartyDraft {
+  const _PartyDraft({
+    required this.partyType,
+    required this.code,
+    required this.name,
+    required this.creditLimit,
+    required this.paymentTermsDays,
+    required this.priceTier,
+    this.phone,
+    this.address,
+  });
+
+  final String partyType;
+  final String code;
+  final String name;
+  final String? phone;
+  final String? address;
+  final double creditLimit;
+  final int paymentTermsDays;
+  final String priceTier;
+}
+
+class _PartyDialog extends StatefulWidget {
+  const _PartyDialog();
+
+  @override
+  State<_PartyDialog> createState() => _PartyDialogState();
+}
+
+class _PartyDialogState extends State<_PartyDialog> {
+  final _code = TextEditingController();
+  final _name = TextEditingController();
+  final _phone = TextEditingController();
+  final _address = TextEditingController();
+  final _creditLimit = TextEditingController(text: '0');
+  String _partyType = 'CUSTOMER';
+  String _priceTier = 'RETAIL';
+
+  @override
+  void dispose() {
+    _code.dispose();
+    _name.dispose();
+    _phone.dispose();
+    _address.dispose();
+    _creditLimit.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+        title: const Text('إضافة عميل أو مورد'),
+        content: SizedBox(
+          width: 480,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DropdownButtonFormField<String>(
+                initialValue: _partyType,
+                decoration: const InputDecoration(labelText: 'نوع الطرف'),
+                items: const [
+                  DropdownMenuItem(value: 'CUSTOMER', child: Text('عميل')),
+                  DropdownMenuItem(value: 'SUPPLIER', child: Text('مورد')),
+                ],
+                onChanged: (value) => setState(() => _partyType = value ?? 'CUSTOMER'),
+              ),
+              TextField(controller: _code, decoration: const InputDecoration(labelText: 'كود الطرف')),
+              TextField(controller: _name, decoration: const InputDecoration(labelText: 'اسم الطرف')),
+              TextField(controller: _phone, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: 'الهاتف')),
+              TextField(controller: _address, decoration: const InputDecoration(labelText: 'العنوان')),
+              if (_partyType == 'CUSTOMER')
+                TextField(
+                  controller: _creditLimit,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: const InputDecoration(labelText: 'الحد الائتماني'),
+                ),
+              if (_partyType == 'CUSTOMER')
+                DropdownButtonFormField<String>(
+                  initialValue: _priceTier,
+                  decoration: const InputDecoration(labelText: 'فئة السعر'),
+                  items: const [
+                    DropdownMenuItem(value: 'RETAIL', child: Text('تجزئة')),
+                    DropdownMenuItem(value: 'WHOLESALE', child: Text('جملة')),
+                  ],
+                  onChanged: (value) => setState(() => _priceTier = value ?? 'RETAIL'),
+                ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء')),
+          FilledButton(onPressed: _save, child: const Text('حفظ الطرف')),
+        ],
+      );
+
+  void _save() {
+    final limit = double.tryParse(_creditLimit.text) ?? 0;
+    if (_code.text.trim().isEmpty || _name.text.trim().isEmpty || limit < 0) return;
+    Navigator.pop(context, _PartyDraft(
+      partyType: _partyType,
+      code: _code.text.trim(),
+      name: _name.text.trim(),
+      phone: _phone.text.trim().isEmpty ? null : _phone.text.trim(),
+      address: _address.text.trim().isEmpty ? null : _address.text.trim(),
+      creditLimit: _partyType == 'CUSTOMER' ? limit : 0,
+      paymentTermsDays: 30,
+      priceTier: _partyType == 'CUSTOMER' ? _priceTier : 'WHOLESALE',
     ));
   }
 }
