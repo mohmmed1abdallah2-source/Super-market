@@ -196,7 +196,7 @@ class PostgresLedgerRepository implements LedgerRepository {
   /// Posts voucher, cash movement, party movement and journal entry atomically.
   @override
   Future<Map<String, Object?>> postVoucher(PostVoucherCommand command) async {
-    return _connection.transaction((ctx) async {
+    return _connection.transaction<Map<String, Object?>>((ctx) async {
       final replay = await _claimIdempotency(
         ctx, command.branchId, command.idempotencyKey, command.requestHash,
       );
