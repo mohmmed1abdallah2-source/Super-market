@@ -326,18 +326,20 @@ CROSS JOIN (VALUES
 ON CONFLICT (branch_id, code) DO NOTHING;
 
 INSERT INTO cash_accounts
-  (branch_id, code, name_ar, account_kind, wallet_provider, gl_account_id, currency)
-SELECT b.id, seed.code, seed.name_ar, seed.account_kind, seed.wallet_provider,
+  (id, branch_id, code, name_ar, account_kind, wallet_provider, gl_account_id, currency)
+SELECT
+       CASE WHEN b.id = 'branch-main' THEN seed.local_id ELSE b.id || ':' || seed.local_id END,
+       b.id, seed.code, seed.name_ar, seed.account_kind, seed.wallet_provider,
        coa.id, 'YER'
 FROM branches b
 CROSS JOIN (VALUES
-  ('CASH-MAIN', 'الصندوق الرئيسي', 'CASH_DRAWER', NULL::VARCHAR(20), '1000'),
-  ('CASH-DRAWER', 'درج الكاشير', 'CASH_DRAWER', NULL::VARCHAR(20), '1010'),
-  ('WALLET-JAWALI', 'محفظة جوالي', 'WALLET', 'JAWALI', '1020'),
-  ('WALLET-JEEB', 'محفظة جيب', 'WALLET', 'JEEB', '1030'),
-  ('WALLET-FLOOSAK', 'محفظة فلوسك', 'WALLET', 'FLOOSAK', '1040'),
-  ('WALLET-KURAIMI', 'محفظة كريمي', 'WALLET', 'KURAIMI', '1050')
-) AS seed(code, name_ar, account_kind, wallet_provider, gl_code)
+  ('cash-main', 'CASH-MAIN', 'الصندوق الرئيسي', 'CASH_DRAWER', NULL::VARCHAR(20), '1000'),
+  ('cash-drawer', 'CASH-DRAWER', 'درج الكاشير', 'CASH_DRAWER', NULL::VARCHAR(20), '1010'),
+  ('wallet-jawali', 'JAWALI', 'محفظة جوالي', 'WALLET', 'JAWALI', '1020'),
+  ('wallet-jaib', 'JAIB', 'محفظة جيب', 'WALLET', 'JEEB', '1030'),
+  ('wallet-flousk', 'FLOUSK', 'محفظة فلوسك', 'WALLET', 'FLOOSAK', '1040'),
+  ('wallet-kuraimi', 'KURAIMI', 'محفظة كريمي', 'WALLET', 'KURAIMI', '1050')
+) AS seed(local_id, code, name_ar, account_kind, wallet_provider, gl_code)
 JOIN chart_of_accounts coa ON coa.branch_id = b.id AND coa.code = seed.gl_code
 ON CONFLICT (branch_id, code) DO NOTHING;
 
