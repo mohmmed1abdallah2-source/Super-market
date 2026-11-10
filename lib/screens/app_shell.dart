@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../core/widgets/shared_widgets.dart';
 import '../providers/supermarket_erp_provider.dart';
+import '../providers/pos_and_ledger_provider.dart';
 import 'dashboard/s02_executive_dashboard_screen.dart';
 import 'pos/s03_supermarket_pos_screen.dart';
 import 'catalog/s08_products_multi_unit_screen.dart';
@@ -17,6 +18,18 @@ class AppShell extends StatefulWidget {
 
 class _AppShellState extends State<AppShell> {
   int _selectedIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final user = context.read<SupermarketErpProvider>().currentUser;
+      if (user != null) {
+        context.read<PosAndLedgerProvider>().refresh(user['branch_id'] as String);
+      }
+    });
+  }
 
   static const _destinations = [
     NavigationDestination(icon: Icon(Icons.dashboard_outlined), selectedIcon: Icon(Icons.dashboard), label: 'الرئيسية'),
@@ -41,6 +54,29 @@ class _AppShellState extends State<AppShell> {
           appBar: AppBar(
             title: const Text('نظام إدارة السوبر ماركت'),
             actions: [
+              Consumer<PosAndLedgerProvider>(
+                builder: (context, ledger, _) => IconButton(
+                  tooltip: 'عمليات معلقة للمزامنة: ${ledger.pendingSyncCount}',
+                  onPressed: ledger.isBusy
+                      ? null
+                      : () {
+                          final user = context.read<SupermarketErpProvider>().currentUser;
+                          if (user != null) {
+                            ledger.syncNow(user['branch_id'] as String);
+                          }
+                        },
+                  icon: Badge(
+                    isLabelVisible: ledger.pendingSyncCount > 0,
+                    label: Text(ledger.pendingSyncCount.toString()),
+                    child: Icon(
+                      ledger.pendingSyncCount == 0 ? Icons.cloud_done : Icons.cloud_upload_outlined,
+                      color: ledger.pendingSyncCount == 0
+                          ? Colors.greenAccent
+                          : Colors.orangeAccent,
+                    ),
+                  ),
+                ),
+              ),
               Consumer<SupermarketErpProvider>(
                 builder: (context, provider, _) => Padding(
                   padding: const EdgeInsetsDirectional.only(end: 12),
