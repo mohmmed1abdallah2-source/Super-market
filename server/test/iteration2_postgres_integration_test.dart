@@ -6,6 +6,8 @@ import 'package:postgres/postgres.dart';
 import 'package:test/test.dart';
 import 'package:uuid/uuid.dart';
 
+import '../lib/features/ledger/data/postgres_ledger_repository.dart';
+import '../lib/features/ledger/domain/ledger_domain.dart';
 import '../lib/features/sales_and_sync/data/postgres_sales_sync_repository.dart';
 import '../lib/features/sales_and_sync/domain/sales_sync_domain.dart';
 
@@ -81,6 +83,73 @@ void main() {
         );
         final line = totals.single.values.first;
         expect(double.parse(line['dr'] as String), closeTo(double.parse(line['cr'] as String), 0.0001));
+      } finally {
+        await connection.close();
+      }
+    },
+    skip: Platform.environment['PGTEST_HOST'] == null,
+  );
+
+  test(
+    'PostgreSQL voucher retry records one ledger movement and balanced journal',
+    () async {
+      final host = Platform.environment['PGTEST_HOST']!;
+      final connection = PostgreSQLConnection(
+        host,
+        int.tryParse(Platform.environment['PGTEST_PORT'] ?? '5432') ?? 5432,
+        Platform.environment['PGTEST_DATABASE']!,
+        username: Platform.environment['PGTEST_USER']!,
+        password: Platform.environment['PGTEST_PASSWORD']!,
+        timeoutInSeconds: 30,
+      );
+      await connection.open();
+      try {
+        final uuid = const Uuid();
+        final code = 'IT-' + uuid.v4().substring(0, 8);
+        final ledger = PostgresLedgerRepository(connection);
+        final partyBody = {'partyType': 'CUSTOMER', 'code': code, 'name': 'عميل تكامل'};
+        final party = await ledger.createParty(
+          CreatePartyCommand(
+            branchId: 'branch-main',
+            partyType: LedgerPartyType.customer,
+            code: code,
+            name: 'عميل تكامل',
+            creditLimit: 1000,
+            paymentTermsDays: 0,
+            priceTier: 'RETAIL',
+          ),
+          idempotencyKey: 'integration-party-' + uuid.v4(),
+          requestHash: sha256.convert(utf8.encode(jsonEncode(partyBody))).toString(),
+        );
+        final request = {
+          'voucherType': 'RECEIPT',
+          'partyId': party['id'],
+          'cashAccountId': 'cash-drawer',
+          'amount': 5,
+          'method': 'CASH',
+        };
+        final command = PostVoucherCommand(
+          branchId: 'branch-main',
+          operationId: uuid.v4(),
+          voucherType: LedgerVoucherType.receipt,
+          partyId: party['id'] as String,
+          cashAccountId: 'cash-drawer',
+          amount: 5,
+          method: 'CASH',
+          idempotencyKey: 'integration-voucher-' + uuid.v4(),
+          requestHash: sha256.convert(utf8.encode(jsonEncode(request))).toString(),
+        );
+        final first = await ledger.postVoucher(command);
+        final retry = await ledger.postVoucher(command);
+        expect(retry['id'], first['id']);
+
+        final balance = await connection.mappedResultsQuery(
+          'SELECT total_lah::text AS lah, total_alayh::text AS alayh FROM v_party_balance WHERE party_id=@party',
+          substitutionValues: {'party': party['id']},
+        );
+        final totals = balance.single.values.first;
+        expect(double.parse(totals['lah'] as String), 5);
+        expect(double.parse(totals['alayh'] as String), 0);
       } finally {
         await connection.close();
       }
