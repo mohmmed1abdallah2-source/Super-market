@@ -78,6 +78,15 @@ abstract interface class SalesSyncRepository {
   /// Posts one sale atomically and returns the stored invoice representation.
   Future<Map<String, Object?>> postSale(SaleInvoiceCommand command);
 
+  /// Lists sales invoices for the authenticated branch.
+  Future<List<Map<String, Object?>>> listSalesInvoices({
+    required String branchId,
+    DateTime? from,
+    DateTime? to,
+    String? cursor,
+    int limit,
+  });
+
   /// Applies a batch atomically and returns accepted operation identifiers.
   Future<Map<String, Object?>> processBatch(SyncBatchCommand command);
 }
