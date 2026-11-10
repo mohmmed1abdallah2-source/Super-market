@@ -456,7 +456,7 @@ class LocalPosAndLedgerEngine {
     final remainingAlayh = (invoice['remaining_alayh'] as num? ?? 0).toDouble();
     if (remainingAlayh > 0) {
       payments.add({
-        'id': _stableUuid('credit-payment:' + operationId),
+        'id': _stableUuid('credit-payment:$operationId'),
         'method': 'CREDIT',
         'amount': remainingAlayh,
         'cashAccountId': null,
@@ -569,5 +569,5 @@ class LocalPosAndLedgerEngine {
       '$prefix-${DateTime.now().microsecondsSinceEpoch}-${Random.secure().nextInt(1 << 20)}';
 
   String _stableUuid(String value) =>
-      _uuid.v5(Uuid.NAMESPACE_URL, 'supermarket-erp:$value');
+      _uuid.v5(Namespace.url.value, 'supermarket-erp:$value');
 }
