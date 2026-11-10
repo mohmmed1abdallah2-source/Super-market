@@ -411,8 +411,8 @@ class PostgresSalesSyncRepository implements SalesSyncRepository {
         'walletRefNo': walletRef,
       });
     }
-    if (changeReturned < 0 || changeReturned > cashGross) {
-      throw const FormatException('Change can only be returned from received cash.');
+    if (changeReturned < 0) {
+      throw const FormatException('Change returned cannot be negative.');
     }
     // Local sales_payments contain the applied amounts after change is removed.
     // changeReturned is therefore informational and must not be subtracted twice.
