@@ -161,6 +161,42 @@ class PosAndLedgerProvider extends ChangeNotifier {
     }
   }
 
+  /// Creates a customer or supplier and adds it to the pending sync queue.
+  Future<String> createParty({
+    required String branchId,
+    required String partyType,
+    required String code,
+    required String name,
+    String? phone,
+    String? address,
+    double creditLimit = 0,
+    int paymentTermsDays = 0,
+    String priceTier = 'RETAIL',
+  }) async {
+    _setBusy(true);
+    try {
+      final id = await _engine.createParty(
+        branchId: branchId,
+        partyType: partyType,
+        code: code,
+        name: name,
+        phone: phone,
+        address: address,
+        creditLimit: creditLimit,
+        paymentTermsDays: paymentTermsDays,
+        priceTier: priceTier,
+      );
+      await refresh(branchId);
+      _lastError = null;
+      return id;
+    } catch (error) {
+      _lastError = error.toString();
+      rethrow;
+    } finally {
+      _setBusy(false);
+    }
+  }
+
   /// Saves a receipt or payment voucher locally.
   Future<String> postVoucher({
     required String branchId,
