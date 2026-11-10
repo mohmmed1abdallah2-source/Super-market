@@ -39,9 +39,11 @@ class ApiClient {
     required this.baseUri,
     required http.Client httpClient,
     required Future<String?> Function() accessTokenProvider,
+    required Future<String?> Function() branchIdProvider,
     this.timeout = const Duration(seconds: 20),
   })  : _http = httpClient,
-        _accessTokenProvider = accessTokenProvider;
+        _accessTokenProvider = accessTokenProvider,
+        _branchIdProvider = branchIdProvider;
 
   /// API root URI, for example https://erp.example.com.
   final Uri baseUri;
@@ -51,6 +53,7 @@ class ApiClient {
 
   final http.Client _http;
   final Future<String?> Function() _accessTokenProvider;
+  final Future<String?> Function() _branchIdProvider;
 
   /// Releases the underlying HTTP client.
   void close() => _http.close();
@@ -212,8 +215,13 @@ class ApiClient {
   }) async {
     final uri = baseUri.resolve(path).replace(queryParameters: query);
     final token = await _accessTokenProvider();
+    final branchId = await _branchIdProvider();
+    if (branchId == null || branchId.trim().isEmpty) {
+      throw StateError('An authenticated branch context is required for API requests.');
+    }
     final headers = <String, String>{
       'Accept': 'application/json',
+      'X-Branch-Id': branchId,
       if (body != null) 'Content-Type': 'application/json; charset=utf-8',
       if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
       if (idempotencyKey != null) 'Idempotency-Key': idempotencyKey,
