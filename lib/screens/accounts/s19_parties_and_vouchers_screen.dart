@@ -37,6 +37,23 @@ class _S19PartiesAndVouchersScreenState extends State<S19PartiesAndVouchersScree
           children: [
             Text('العملاء والموردون', style: Theme.of(context).textTheme.headlineSmall),
             const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: () => _printPartyBalances('CUSTOMER'),
+                  icon: const Icon(Icons.picture_as_pdf),
+                  label: const Text('ملخص أرصدة العملاء PDF'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: () => _printPartyBalances('SUPPLIER'),
+                  icon: const Icon(Icons.picture_as_pdf),
+                  label: const Text('ملخص أرصدة الموردين PDF'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
             if (provider.parties.isEmpty)
               const Padding(padding: EdgeInsets.all(30), child: Center(child: Text('لا توجد أطراف مسجلة')))
             else
@@ -44,7 +61,7 @@ class _S19PartiesAndVouchersScreenState extends State<S19PartiesAndVouchersScree
                 future: _balanceFor(party.id),
                 builder: (context, snapshot) {
                   final balance = snapshot.data ?? const {};
-                  return Card(child: ListTile(
+                  return Card(child: ExpansionTile(
                     leading: CircleAvatar(child: Icon(party.partyType == 'SUPPLIER' ? Icons.local_shipping : Icons.person)),
                     title: Text(party.nameAr),
                     subtitle: Text('${party.code} • ${party.partyType == 'SUPPLIER' ? 'مورد' : 'عميل'}'),
@@ -54,7 +71,20 @@ class _S19PartiesAndVouchersScreenState extends State<S19PartiesAndVouchersScree
                           totalLah: (balance['total_lah'] as num? ?? 0),
                         )
                       : const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)),
-                    onTap: () => _showStatement(party),
+                    children: [
+                      if (party.phone != null && party.phone!.isNotEmpty)
+                        ListTile(leading: const Icon(Icons.phone), title: Text(party.phone!)),
+                      if (party.address != null && party.address!.isNotEmpty)
+                        ListTile(leading: const Icon(Icons.location_on_outlined), title: Text(party.address!)),
+                      Align(
+                        alignment: AlignmentDirectional.centerEnd,
+                        child: TextButton.icon(
+                          onPressed: () => _showStatement(party),
+                          icon: const Icon(Icons.receipt_long),
+                          label: const Text('عرض كشف الحساب'),
+                        ),
+                      ),
+                    ],
                   ));
                 },
               )),
@@ -95,8 +125,34 @@ class _S19PartiesAndVouchersScreenState extends State<S19PartiesAndVouchersScree
             LahAlayhTable(entries: rows),
           ],
         ))),
-        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('إغلاق'))],
+        actions: [
+          TextButton.icon(
+            onPressed: () async {
+              await ReceiptAndLedgerPdfBuilder.previewPartyStatement(
+                party: party,
+                entries: rows,
+                totalAlayh: (balance['total_alayh'] as num? ?? 0).toDouble(),
+                totalLah: (balance['total_lah'] as num? ?? 0).toDouble(),
+              );
+            },
+            icon: const Icon(Icons.picture_as_pdf),
+            label: const Text('طباعة كشف الحساب الرسمي PDF'),
+          ),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('إغلاق')),
+        ],
       ),
+    );
+  }
+
+  Future<void> _printPartyBalances(String partyType) async {
+    final user = context.read<SupermarketErpProvider>().currentUser;
+    if (user == null) return;
+    final ledger = context.read<PosAndLedgerProvider>();
+    await ledger.refresh(user['branch_id'] as String);
+    if (!mounted) return;
+    await ReceiptAndLedgerPdfBuilder.previewPartyBalances(
+      parties: ledger.partyBalances,
+      partyType: partyType,
     );
   }
 
