@@ -14,3 +14,8 @@ android/local.properties
 android/key.properties
 *.jks
 *.keystore
+
+# Local and production secrets
+.env
+.env.*
+!.env.server.example
