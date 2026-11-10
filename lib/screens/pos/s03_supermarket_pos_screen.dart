@@ -442,6 +442,31 @@ class _S03SupermarketPosScreenState extends State<S03SupermarketPosScreen> {
         icon: const Icon(Icons.add_circle_outline),
         tooltip: 'فاتورة جديدة (F6)',
       ),
+      Consumer<PosAndLedgerProvider>(
+        builder: (context, ledger, _) => Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              ledger.pendingSyncCount == 0 ? Icons.cloud_done : Icons.cloud_upload_outlined,
+              color: ledger.pendingSyncCount == 0
+                  ? EnterpriseDarkTheme.success
+                  : EnterpriseDarkTheme.warning,
+            ),
+            const SizedBox(width: 4),
+            Text(ledger.pendingSyncCount.toString()),
+            IconButton(
+              tooltip: 'مزامنة العمليات المعلقة',
+              onPressed: ledger.isBusy ? null : () {
+                final user = context.read<SupermarketErpProvider>().currentUser;
+                if (user != null) {
+                  ledger.syncNow(user['branch_id'] as String);
+                }
+              },
+              icon: const Icon(Icons.sync),
+            ),
+          ],
+        ),
+      ),
     ]),
   );
 }
