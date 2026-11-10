@@ -9,6 +9,7 @@ import 'package:uuid/uuid.dart';
 
 import '../database/database_helper.dart';
 import '../models/erp_and_sync_models.dart';
+import '../models/product_and_unit_models.dart';
 import '../services/scale_and_pos_service.dart';
 
 /// Facade for the existing configurable scale and ordinary barcode parser.
