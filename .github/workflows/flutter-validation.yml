@@ -152,7 +152,7 @@ jobs:
         run: |
           PGPASSWORD="$PGTEST_PASSWORD" psql -h "$PGTEST_HOST" -U "$PGTEST_USER" -d "$PGTEST_DATABASE" -v ON_ERROR_STOP=1 -f migrations/20261109_001_erp_core.sql
           PGPASSWORD="$PGTEST_PASSWORD" psql -h "$PGTEST_HOST" -U "$PGTEST_USER" -d "$PGTEST_DATABASE" -v ON_ERROR_STOP=1 -f migrations/20261109_002_pos_sales_and_lah_alayh_ledger.sql
-        working-directory: .
+        working-directory: ${{ github.workspace }}
 
       - name: Set up Dart
         uses: dart-lang/setup-dart@v1
