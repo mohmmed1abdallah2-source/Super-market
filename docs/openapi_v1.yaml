@@ -19,6 +19,8 @@ tags:
   - name: Synchronization
 paths:
   /v1/parties:
+    parameters:
+      - $ref: '#/components/parameters/BranchId'
     get:
       tags: [Parties]
       operationId: listParties
@@ -68,6 +70,8 @@ paths:
         '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/ValidationError' }
   /v1/parties/{id}/statement:
+    parameters:
+      - $ref: '#/components/parameters/BranchId'
     get:
       tags: [Parties]
       operationId: getPartyStatement
@@ -94,6 +98,8 @@ paths:
               schema: { $ref: '#/components/schemas/PartyStatement' }
         '404': { $ref: '#/components/responses/NotFound' }
   /v1/ledger/vouchers:
+    parameters:
+      - $ref: '#/components/parameters/BranchId'
     get:
       tags: [Ledger]
       operationId: listVouchers
@@ -139,6 +145,8 @@ paths:
         '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/ValidationError' }
   /v1/ledger/cash-accounts:
+    parameters:
+      - $ref: '#/components/parameters/BranchId'
     get:
       tags: [Ledger]
       operationId: listCashAccounts
@@ -152,6 +160,8 @@ paths:
                 type: array
                 items: { $ref: '#/components/schemas/CashAccount' }
   /v1/sales/invoices:
+    parameters:
+      - $ref: '#/components/parameters/BranchId'
     get:
       tags: [Sales]
       operationId: listSalesInvoices
@@ -197,6 +207,8 @@ paths:
         '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/ValidationError' }
   /v1/sync/batch:
+    parameters:
+      - $ref: '#/components/parameters/BranchId'
     post:
       tags: [Synchronization]
       operationId: processSyncBatch
@@ -230,6 +242,12 @@ components:
       scheme: bearer
       bearerFormat: JWT
   parameters:
+    BranchId:
+      in: header
+      name: X-Branch-Id
+      required: true
+      description: Branch identifier bound to the authenticated session.
+      schema: { type: string, minLength: 1, maxLength: 128 }
     IdempotencyKey:
       in: header
       name: Idempotency-Key
