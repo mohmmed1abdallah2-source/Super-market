@@ -148,172 +148,253 @@ class _S03SupermarketPosScreenState extends State<S03SupermarketPosScreen> {
     return Consumer<PosAndCatalogProvider>(
       builder: (context, provider, _) {
         final tab = provider.activeTab;
-        return Focus(
-          autofocus: true,
-          onKeyEvent: (node, event) {
-            if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.f4) {
-              provider.holdActiveTab();
-              return KeyEventResult.handled;
-            }
-            if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.f6) {
-              provider.createTab();
-              return KeyEventResult.handled;
-            }
-            if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.f8) {
-              _checkout();
-              return KeyEventResult.handled;
-            }
-            if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.f9) {
-              _printLastReceipt();
-              return KeyEventResult.handled;
-            }
-            return KeyEventResult.ignored;
-          },
-          child: Column(children: [
-            _buildTabs(provider),
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: Row(children: [
-                Expanded(child: TextField(
-                  controller: _barcodeController,
-                  focusNode: _barcodeFocus,
-                  autofocus: true,
-                  textDirection: TextDirection.ltr,
-                  decoration: const InputDecoration(
-                    prefixIcon: Icon(Icons.qr_code_scanner),
-                    labelText: 'امسح باركود الصنف أو باركود الميزان',
-                    hintText: 'أدخل الرمز ثم اضغط Enter',
-                  ),
-                  onSubmitted: (_) => _scan(),
-                )),
-                const SizedBox(width: 8),
-                IconButton.filled(
-                  onPressed: _scan,
-                  icon: const Icon(Icons.add),
-                  tooltip: 'إضافة الصنف',
-                ),
-                const SizedBox(width: 6),
-                OutlinedButton.icon(
-                  onPressed: () => provider.addBarcode('2010250125000'),
-                  icon: const Icon(Icons.scale),
-                  label: const Text('تجربة الميزان'),
-                ),
-              ]),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Row(children: [
-                const Text('نوع السعر:'),
-                const SizedBox(width: 10),
-                SegmentedButton<String>(
-                  segments: const [
-                    ButtonSegment(value: 'RETAIL', label: Text('سعر تجزئة')),
-                    ButtonSegment(value: 'WHOLESALE', label: Text('سعر جملة')),
-                  ],
-                  selected: {tab?.priceTier ?? 'RETAIL'},
-                  onSelectionChanged: (value) => provider.setPriceTier(value.first),
-                ),
-                const Spacer(),
-                Text('F4 تعليق  •  F6 فاتورة جديدة', style: Theme.of(context).textTheme.bodySmall),
-              ]),
-            ),
-            if (provider.products.isNotEmpty)
-              SizedBox(
-                height: 48,
-                child: ListView(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  children: provider.products.take(8).map((product) => Padding(
-                    padding: const EdgeInsetsDirectional.only(end: 7),
-                    child: ActionChip(
-                      avatar: Icon(
-                        product.productType == 'WEIGHTED_SCALE' ? Icons.scale : Icons.inventory_2,
-                        size: 17,
-                      ),
-                      label: Text(product.nameAr),
-                      onPressed: () async {
-                        final units = await provider.unitsFor(product.id);
-                        if (units.isNotEmpty) await provider.addUnit(product, units.first);
-                      },
-                    ),
-                  )).toList(),
-                ),
-              ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              child: Consumer<SupermarketErpProvider>(
-                builder: (context, erp, _) => DropdownButtonFormField<String?>(
-                  initialValue: tab?.customerPartyId,
-                  isExpanded: true,
-                  decoration: const InputDecoration(
-                    labelText: 'العميل (مطلوب عند البيع الآجل)',
-                    prefixIcon: Icon(Icons.person_outline),
-                  ),
-                  items: [
-                    const DropdownMenuItem<String?>(value: null, child: Text('عميل نقدي / بدون حساب')),
-                    ...erp.parties.where((party) => party.partyType == 'CUSTOMER')
-                      .map((party) => DropdownMenuItem<String?>(
-                        value: party.id, child: Text(party.nameAr),
-                      )),
-                  ],
-                  onChanged: (value) => provider.setCustomer(value),
-                ),
-              ),
-            ),
-            const Divider(height: 20),
-            Expanded(child: tab == null || tab.items.isEmpty
-              ? const Center(child: Text('امسح باركود الصنف لبدء الفاتورة'))
-              : ListView.separated(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  itemCount: tab.items.length,
-                  separatorBuilder: (_, __) => const Divider(height: 1),
-                  itemBuilder: (context, index) {
-                    final item = tab.items[index];
-                    return ListTile(
-                      title: Text(item.productName),
-                      subtitle: Text('${item.unitName} • ${item.quantity} × ${MoneyFormatter().format(item.unitPrice)}'),
-                      trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-                        Text(MoneyFormatter().format(item.lineTotal)),
-                        IconButton(
-                          onPressed: () => _changeUnit(index, item, provider),
-                          icon: const Icon(Icons.swap_horiz),
-                          tooltip: 'تغيير وحدة البيع',
-                        ),
-                        IconButton(
-                          onPressed: () => provider.removeItem(index),
-                          icon: const Icon(Icons.delete_outline, color: EnterpriseDarkTheme.danger),
-                        ),
+        return LayoutBuilder(builder: (context, constraints) {
+          final wide = constraints.maxWidth >= 900;
+          return Focus(
+            autofocus: true,
+            onKeyEvent: (node, event) {
+              if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.f4) {
+                provider.holdActiveTab();
+                return KeyEventResult.handled;
+              }
+              if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.f6) {
+                provider.createTab();
+                return KeyEventResult.handled;
+              }
+              if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.f8) {
+                _checkout();
+                return KeyEventResult.handled;
+              }
+              if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.f9) {
+                _printLastReceipt();
+                return KeyEventResult.handled;
+              }
+              return KeyEventResult.ignored;
+            },
+            child: Column(children: [
+              _buildTabs(provider),
+              Expanded(
+                child: wide
+                    ? Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Expanded(
+                            flex: 62,
+                            child: Column(children: [
+                              _buildBarcodeSearch(provider),
+                              _buildPriceSelector(tab, provider),
+                              _buildProductChips(provider),
+                              Expanded(child: _buildCart(tab, provider)),
+                            ]),
+                          ),
+                          const VerticalDivider(width: 1),
+                          Expanded(
+                            flex: 38,
+                            child: Padding(
+                              padding: const EdgeInsets.all(14),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  _buildCustomerSelector(tab, provider),
+                                  const Spacer(),
+                                  _buildCheckoutPanel(tab, provider, desktop: true),
+                                  const SizedBox(height: 12),
+                                  const Text(
+                                    'F4 تعليق  •  F6 فاتورة جديدة  •  F8 دفع  •  F9 طباعة آخر إيصال',
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      )
+                    : Column(children: [
+                        _buildBarcodeSearch(provider),
+                        _buildPriceSelector(tab, provider),
+                        Expanded(child: _buildCart(tab, provider)),
                       ]),
-                    );
-                  },
-                )),
-            SafeArea(
-              top: false,
-              child: Container(
-                padding: const EdgeInsets.all(14),
-                decoration: const BoxDecoration(
-                  color: EnterpriseDarkTheme.surface,
-                  border: Border(top: BorderSide(color: EnterpriseDarkTheme.outline)),
-                ),
-                child: Row(children: [
-                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    const Text('إجمالي الفاتورة'),
-                    Text(MoneyFormatter().format(provider.activeSubtotal),
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: EnterpriseDarkTheme.primary)),
-                  ])),
-                  FilledButton.icon(
-                    onPressed: _posting || tab == null || tab.items.isEmpty ? null : _checkout,
-                    icon: _posting
-                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                      : const Icon(Icons.payment),
-                    label: const Text('الدفع وطباعة الإيصال (F8)'),
-                  ),
-                ]),
               ),
+              if (!wide) _buildCheckoutPanel(tab, provider, desktop: false),
+            ]),
+          );
+        });
+      },
+    );
+  }
+
+  Widget _buildBarcodeSearch(PosAndCatalogProvider provider) => Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(children: [
+          Expanded(child: TextField(
+            controller: _barcodeController,
+            focusNode: _barcodeFocus,
+            autofocus: true,
+            textDirection: TextDirection.ltr,
+            decoration: const InputDecoration(
+              prefixIcon: Icon(Icons.qr_code_scanner),
+              labelText: 'امسح باركود الصنف أو باركود الميزان',
+              hintText: 'أدخل الرمز ثم اضغط Enter',
+            ),
+            onSubmitted: (_) => _scan(),
+          )),
+          const SizedBox(width: 8),
+          IconButton.filled(
+            onPressed: _scan,
+            icon: const Icon(Icons.add),
+            tooltip: 'إضافة الصنف',
+          ),
+          if (MediaQuery.sizeOf(context).width >= 600) ...[
+            const SizedBox(width: 6),
+            OutlinedButton.icon(
+              onPressed: () => provider.addBarcode('2010250125000'),
+              icon: const Icon(Icons.scale),
+              label: const Text('محاكاة باركود الميزان'),
+            ),
+          ],
+        ]),
+      );
+
+  Widget _buildPriceSelector(PosTabSession? tab, PosAndCatalogProvider provider) =>
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        child: Row(children: [
+          const Text('نوع السعر:'),
+          const SizedBox(width: 10),
+          SegmentedButton<String>(
+            segments: const [
+              ButtonSegment(value: 'RETAIL', label: Text('تجزئة')),
+              ButtonSegment(value: 'WHOLESALE', label: Text('جملة')),
+            ],
+            selected: {tab?.priceTier ?? 'RETAIL'},
+            onSelectionChanged: (value) => provider.setPriceTier(value.first),
+          ),
+        ]),
+      );
+
+  Widget _buildProductChips(PosAndCatalogProvider provider) {
+    if (provider.products.isEmpty) return const SizedBox.shrink();
+    return SizedBox(
+      height: 48,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        children: provider.products.take(8).map((product) => Padding(
+          padding: const EdgeInsetsDirectional.only(end: 7),
+          child: ActionChip(
+            avatar: Icon(
+              product.productType == 'WEIGHTED_SCALE' ? Icons.scale : Icons.inventory_2,
+              size: 17,
+            ),
+            label: Text(product.nameAr),
+            onPressed: () async {
+              final units = await provider.unitsFor(product.id);
+              if (units.isNotEmpty) await provider.addUnit(product, units.first);
+            },
+          ),
+        )).toList(),
+      ),
+    );
+  }
+
+  Widget _buildCustomerSelector(PosTabSession? tab, PosAndCatalogProvider provider) =>
+      Consumer<SupermarketErpProvider>(
+        builder: (context, erp, _) => DropdownButtonFormField<String?>(
+          initialValue: tab?.customerPartyId,
+          isExpanded: true,
+          decoration: const InputDecoration(
+            labelText: 'العميل (مطلوب عند البيع الآجل أو المختلط)',
+            prefixIcon: Icon(Icons.person_outline),
+          ),
+          items: [
+            const DropdownMenuItem<String?>(value: null, child: Text('عميل نقدي / بدون حساب')),
+            ...erp.parties.where((party) => party.partyType == 'CUSTOMER')
+                .map((party) => DropdownMenuItem<String?>(
+                  value: party.id,
+                  child: Text(party.nameAr),
+                )),
+          ],
+          onChanged: (value) => provider.setCustomer(value),
+        ),
+      );
+
+  Widget _buildCart(PosTabSession? tab, PosAndCatalogProvider provider) {
+    if (tab == null || tab.items.isEmpty) {
+      return const Center(child: Text('امسح باركود الصنف لبدء الفاتورة'));
+    }
+    return ListView.separated(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      itemCount: tab.items.length,
+      separatorBuilder: (_, __) => const Divider(height: 1),
+      itemBuilder: (context, index) {
+        final item = tab.items[index];
+        return ListTile(
+          title: Text(item.productName),
+          subtitle: Text(
+            item.unitName + ' • ' + item.quantity.toString() +
+            ' × ' + MoneyFormatter().format(item.unitPrice),
+          ),
+          trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+            Text(MoneyFormatter().format(item.lineTotal)),
+            IconButton(
+              onPressed: () => _changeUnit(index, item, provider),
+              icon: const Icon(Icons.swap_horiz),
+              tooltip: 'تغيير وحدة البيع',
+            ),
+            IconButton(
+              onPressed: () => provider.removeItem(index),
+              icon: const Icon(Icons.delete_outline, color: EnterpriseDarkTheme.danger),
             ),
           ]),
         );
       },
+    );
+  }
+
+  Widget _buildCheckoutPanel(
+    PosTabSession? tab,
+    PosAndCatalogProvider provider, {
+    required bool desktop,
+  }) {
+    final count = tab?.items.fold<double>(0, (sum, item) => sum + item.quantity) ?? 0;
+    return SafeArea(
+      top: false,
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: const BoxDecoration(
+          color: EnterpriseDarkTheme.surface,
+          border: Border(top: BorderSide(color: EnterpriseDarkTheme.outline)),
+        ),
+        child: Row(children: [
+          if (!desktop) ...[
+            Expanded(
+              child: Text(count.toStringAsFixed(0) + ' صنف',
+                style: Theme.of(context).textTheme.bodySmall),
+            ),
+          ],
+          Expanded(
+            flex: desktop ? 2 : 3,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('الإجمالي الصافي'),
+                Text(
+                  MoneyFormatter().format(provider.activeSubtotal),
+                  style: Theme.of(context).textTheme.headlineSmall
+                      ?.copyWith(color: EnterpriseDarkTheme.primary),
+                ),
+              ],
+            ),
+          ),
+          FilledButton.icon(
+            onPressed: _posting || tab == null || tab.items.isEmpty ? null : _checkout,
+            icon: _posting
+                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                : const Icon(Icons.payment),
+            label: Text(desktop ? 'الدفع (F8)' : 'الدفع وإتمام الفاتورة (F8)'),
+          ),
+        ]),
+      ),
     );
   }
 
