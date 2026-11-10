@@ -171,3 +171,28 @@ These findings mean the existing code is a useful POS/ledger foundation, but it 
 ## 10. Release gate
 
 Do not connect real stores or enable live financial synchronization until Phases A–E have been implemented and the full isolation test matrix, migration validation, backup restoration drill and end-to-end acceptance tests have passed. Existing single-store operation must remain available throughout the migration and rollback plan.
+
+
+## 11. Cross-platform data consistency (Windows, Android and Web)
+
+**Confirmed product requirement:** The same selected store must show the same business data on Windows, Android and Web after synchronization. A sale entered on one platform must become visible on the other platforms after the server accepts and commits its sync operation. This does not mean the three clients share a physical local database file.
+
+Platform storage strategy:
+- Windows: one SQLite file per provisioned store, stored in the application's supported local data directory.
+- Android: one SQLite file per provisioned store, stored in the application's private app data directory.
+- Web: browser-local storage must be implemented with a web-compatible persistence adapter (normally IndexedDB through a Flutter web-compatible database layer). Do not assume that native SQLite file APIs work in a browser.
+- All platforms must implement the same repository/domain contracts so POS, inventory, ledger, reports and sync semantics remain consistent. Platform-specific storage adapters may differ.
+- Each platform/device maintains its own per-store pending-operation queue. The queue is never shared across stores or devices.
+- The server-side store database is the synchronization authority for committed shared records. A device's unsynchronized offline changes remain local to that device until accepted by the server.
+
+Consistency and conflict rules:
+1. A successful local offline write is marked pending, not globally synchronized.
+2. The client marks an operation synchronized only after the API confirms the server transaction committed and acknowledges that operation UUID.
+3. Retries use stable operation UUIDs and store-scoped idempotency keys, preventing duplicate invoices or ledger postings after a timeout.
+4. Concurrent edits to financial records must not silently use last-write-wins. Use explicit server validation/version checks and return a conflict for user resolution or a domain-specific safe merge.
+5. Inventory and invoice numbering must be allocated/validated on the server when synchronizing concurrent devices; local offline numbering must use collision-safe temporary identifiers until confirmed.
+6. Reports must clearly distinguish locally pending data from server-confirmed shared data when offline.
+7. Browser storage can be cleared by the user/browser policy and is not a backup. Web clients must warn about unsynchronized local changes and require successful sync/backup policy before destructive cache reset or sign-out where feasible.
+8. Cross-platform acceptance tests must cover Windows ↔ Android, Windows ↔ Web and Android ↔ Web, including offline entry, reconnection, duplicate retry, concurrent updates, store switching and report totals.
+
+Important: "same data across platforms" means eventual shared consistency after successful synchronization, not instantaneous visibility while a device is offline. A device cannot receive another device's offline changes until those changes reach the server and the receiving device syncs.
