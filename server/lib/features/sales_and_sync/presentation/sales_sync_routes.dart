@@ -14,13 +14,13 @@ class SalesSyncRoutes {
     required this.postSale,
     required this.listSalesInvoices,
     required this.processBatch,
-    required this.apiToken,
+    required this.branchTokens,
   });
 
   final PostSaleInvoiceUseCase postSale;
   final ListSalesInvoicesUseCase listSalesInvoices;
   final ProcessSyncBatchUseCase processBatch;
-  final String apiToken;
+  final Map<String, String> branchTokens;
 
   /// Builds the supported sales and sync endpoints.
   Router get router {
