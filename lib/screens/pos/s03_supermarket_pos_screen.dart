@@ -499,6 +499,13 @@ class _PaymentDialogState extends State<_PaymentDialog> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final user = context.read<SupermarketErpProvider>().currentUser;
+      if (user != null) {
+        context.read<PosAndLedgerProvider>().refresh(user['branch_id'] as String);
+      }
+    });
     _amount.text = widget.total.toStringAsFixed(2);
     _customerPartyId = widget.initialCustomerId;
   }
