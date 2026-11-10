@@ -421,6 +421,10 @@ class PostgresLedgerRepository implements LedgerRepository {
     }
     final stored = record['responseBody'];
     if (stored is Map) return Map<String, Object?>.from(stored);
+    if (stored is String) {
+      final decoded = jsonDecode(stored);
+      if (decoded is Map<String, dynamic>) return Map<String, Object?>.from(decoded);
+    }
     return null;
   }
 
