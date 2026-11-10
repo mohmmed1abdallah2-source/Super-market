@@ -1,6 +1,6 @@
 FROM dart:stable AS build
 WORKDIR /src/server
-COPY server/pubspec.yaml server/pubspec.lock* ./
+COPY server/pubspec.yaml ./
 RUN dart pub get
 COPY server/ ./
 RUN dart compile exe bin/server.dart -o /out/supermarket-erp-server
