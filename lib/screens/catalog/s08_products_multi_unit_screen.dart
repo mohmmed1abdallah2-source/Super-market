@@ -127,6 +127,7 @@ class _S08ProductsMultiUnitScreenState extends State<S08ProductsMultiUnitScreen>
         await _insertUnit(txn, id, unit, now);
       }
     });
+    if (!mounted) return;
     await context.read<PosAndCatalogProvider>().loadCatalog();
   }
 
@@ -296,7 +297,9 @@ class _UnitEditor {
     final w = double.tryParse(wholesale.text);
     final m = double.tryParse(minSell.text);
     if (name.text.trim().isEmpty || f == null || f < 0.001 ||
-        c == null || r == null || w == null || m == null) return null;
+        c == null || r == null || w == null || m == null) {
+      return null;
+    }
     return _UnitDraft(name.text.trim(), f, barcode.text.trim(), c, r, w, m);
   }
   void dispose() {
