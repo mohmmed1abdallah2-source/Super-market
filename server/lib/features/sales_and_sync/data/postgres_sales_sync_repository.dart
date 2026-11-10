@@ -78,7 +78,7 @@ class PostgresSalesSyncRepository implements SalesSyncRepository {
   /// Posts one invoice and its inventory, payments, ledger and journal effects.
   @override
   Future<Map<String, Object?>> postSale(SaleInvoiceCommand command) =>
-      _connection.transaction((ctx) async {
+      _connection.transaction<Map<String, Object?>>((ctx) async {
         final replay = await _claimKey(
           ctx,
           command.branchId,
@@ -126,7 +126,7 @@ class PostgresSalesSyncRepository implements SalesSyncRepository {
   /// Applies a batch atomically; any invalid financial operation rolls back all items.
   @override
   Future<Map<String, Object?>> processBatch(SyncBatchCommand command) =>
-      _connection.transaction((ctx) async {
+      _connection.transaction<Map<String, Object?>>((ctx) async {
         final replay = await _claimKey(
           ctx,
           command.branchId,
