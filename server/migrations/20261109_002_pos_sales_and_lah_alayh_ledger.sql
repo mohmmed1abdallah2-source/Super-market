@@ -166,6 +166,16 @@ CREATE TABLE IF NOT EXISTS parties (
   UNIQUE (branch_id, code)
 );
 
+-- Development party fixtures use the same stable identifiers as the local seed data.
+INSERT INTO parties
+  (id, branch_id, party_type, code, name_ar, credit_limit, payment_terms_days, price_tier)
+VALUES
+  ('customer-retail', 'branch-main', 'CUSTOMER', 'C001', 'زبون الحارة', 50000, 30, 'RETAIL'),
+  ('customer-wholesale', 'branch-main', 'CUSTOMER', 'C002', 'تاجر الجملة', 0, 30, 'WHOLESALE'),
+  ('supplier-1', 'branch-main', 'SUPPLIER', 'S001', 'مورد المواد الغذائية', 0, 30, 'WHOLESALE'),
+  ('supplier-2', 'branch-main', 'SUPPLIER', 'S002', 'مورد الألبان', 0, 30, 'WHOLESALE')
+ON CONFLICT (id) DO NOTHING;
+
 CREATE TABLE IF NOT EXISTS lah_alayh_ledger (
   id TEXT PRIMARY KEY DEFAULT (gen_random_uuid()::text),
   branch_id TEXT NOT NULL REFERENCES branches(id),
