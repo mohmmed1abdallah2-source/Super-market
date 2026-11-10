@@ -1,0 +1,42 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-supermarket}
+      POSTGRES_USER: ${POSTGRES_USER:-supermarket}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.server}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - supermarket_postgres_data:/var/lib/postgresql/data
+      - ./server/migrations:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-supermarket} -d ${POSTGRES_DB:-supermarket}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  api:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - .env.server
+    environment:
+      PGHOST: postgres
+      PGPORT: 5432
+      PGDATABASE: ${POSTGRES_DB:-supermarket}
+      PGUSER: ${POSTGRES_USER:-supermarket}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      ERP_HOST: 0.0.0.0
+      PORT: 8080
+    ports:
+      - "${API_PORT:-8080}:8080"
+
+volumes:
+  supermarket_postgres_data:
