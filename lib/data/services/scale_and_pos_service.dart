@@ -151,7 +151,7 @@ class PostingAndSalesService {
         throw ArgumentError('يجب تحديد الصندوق أو المحفظة لكل دفعة');
       }
       if (payment.method == 'WALLET' &&
-          (payment.walletRefNo == null || payment.walletRefNo!.trim().isEmpty)) {
+          (payment.walletRefNo == null || payment.walletRefNo!.trim().length < 6)) {
         throw ArgumentError('رقم إشعار المحفظة مطلوب');
       }
     }
