@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:api_client/api_client.dart';
 import '../data/database/database_helper.dart';
 import '../data/models/erp_and_sync_models.dart';
 import '../data/services/scale_pos_and_ledger_service.dart';
@@ -71,6 +72,11 @@ class PosAndLedgerProvider extends ChangeNotifier {
 
   /// Current local synchronization state.
   String get syncState => _syncState;
+
+  /// Attaches an API client that obtains a valid session token from the auth layer.
+  void configureApiClient(ApiClient client) {
+    _engine.configureApiClient(client);
+  }
 
   /// Loads party balances, cash accounts and sync queue counters.
   Future<void> refresh(String branchId) async {
