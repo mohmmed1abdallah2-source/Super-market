@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'core/theme/enterprise_dark_theme.dart';
 import 'data/database/database_helper.dart';
 import 'providers/pos_and_catalog_provider.dart';
+import 'providers/pos_and_ledger_provider.dart';
 import 'providers/supermarket_erp_provider.dart';
 import 'screens/app_shell.dart';
 
@@ -22,6 +23,7 @@ class SupermarketErpApp extends StatelessWidget {
   Widget build(BuildContext context) => MultiProvider(
     providers: [
       ChangeNotifierProvider(create: (_) => SupermarketErpProvider()),
+      ChangeNotifierProvider(create: (_) => PosAndLedgerProvider()),
       ChangeNotifierProvider(create: (_) => PosAndCatalogProvider()..createTab()),
     ],
     child: MaterialApp(
