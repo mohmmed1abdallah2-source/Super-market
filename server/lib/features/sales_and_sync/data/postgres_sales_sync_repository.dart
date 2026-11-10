@@ -95,6 +95,7 @@ class PostgresSalesSyncRepository implements SalesSyncRepository {
           switch (operation.operationType) {
             case 'PARTY_CREATE':
               await _applyParty(ctx, command.branchId, operation.payload);
+              break;
             case 'SALE_INVOICE':
               await _applySale(
                 ctx,
@@ -102,8 +103,10 @@ class PostgresSalesSyncRepository implements SalesSyncRepository {
                 operationId: operation.operationId,
                 request: operation.payload,
               );
+              break;
             case 'VOUCHER':
               await _applyVoucher(ctx, command.branchId, operation.operationId, operation.payload);
+              break;
             default:
               throw FormatException('Unsupported operation type: ${operation.operationType}');
           }
