@@ -173,3 +173,46 @@ class FirebaseQuotaBadge extends StatelessWidget {
     );
   }
 }
+
+/// A keyboard-aware bottom-sheet container for forms on small screens.
+class KeyboardSafeModalSheet extends StatelessWidget {
+  /// Creates a scrollable sheet that stays above the on-screen keyboard.
+  const KeyboardSafeModalSheet({
+    super.key,
+    required this.child,
+    this.maxHeightFactor = 0.92,
+    this.padding = const EdgeInsets.all(12),
+  });
+
+  /// Sheet content.
+  final Widget child;
+
+  /// Maximum sheet height as a fraction of the available screen.
+  final double maxHeightFactor;
+
+  /// Inner sheet padding.
+  final EdgeInsetsGeometry padding;
+
+  @override
+  Widget build(BuildContext context) {
+    final media = MediaQuery.of(context);
+    final maxHeight = media.size.height * maxHeightFactor;
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.only(bottom: media.viewInsets.bottom),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: maxHeight),
+          child: Material(
+            color: Theme.of(context).colorScheme.surface,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+            clipBehavior: Clip.antiAlias,
+            child: SingleChildScrollView(
+              padding: padding,
+              child: child,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
