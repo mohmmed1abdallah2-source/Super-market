@@ -221,15 +221,14 @@ class ApiClient {
 
     late final http.Response response;
     try {
-      switch (method) {
-        case 'GET':
-          response = await _http.get(uri, headers: headers).timeout(timeout);
-        case 'POST':
-          response = await _http
-              .post(uri, headers: headers, body: jsonEncode(body))
-              .timeout(timeout);
-        default:
-          throw ArgumentError.value(method, 'method', 'Unsupported HTTP method');
+      if (method == 'GET') {
+        response = await _http.get(uri, headers: headers).timeout(timeout);
+      } else if (method == 'POST') {
+        response = await _http
+            .post(uri, headers: headers, body: jsonEncode(body))
+            .timeout(timeout);
+      } else {
+        throw ArgumentError.value(method, 'method', 'Unsupported HTTP method');
       }
     } on Exception {
       rethrow;
