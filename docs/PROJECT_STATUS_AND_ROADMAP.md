@@ -264,3 +264,12 @@
 - It covers positive same-branch journal/sale records and negative cross-branch references for journal accounts, invoice products, payment cash accounts and sync idempotency receipts; it also checks parent-derived branch values and rejection of an unbalanced posted journal.
 - **State: Implemented in repository / Not run.** It requires a disposable PostgreSQL database with migrations 001–003 applied. The file ends in `ROLLBACK`; run the whole file as a single script with autocommit disabled.
 - This does not validate API authentication/authorization, sale transaction atomicity in the Dart API, offline synchronization, or database-per-store isolation.
+
+
+## 2026-11-11 — إغلاق اختبار عزل الفروع 006
+- **مكتمل حسب نتيجة التنفيذ التي أرسلها المستخدم:** جميع التأكيدات العشرة في `docs/neon/006_branch_isolation_transactional_tests.sql` ظهرت بقيمة `true`.
+- شملت النتيجة فرعين مؤقتين، قيد يومية متوازنًا، اشتقاق branch_id من السجل الأب، رفض أربع حالات ربط عبر الفروع (حساب اليومية، المنتج، حساب الدفع، وإيصال idempotency)، قبول الدفع الصحيح داخل الفرع، ورفض قيد غير متوازن.
+- أوضحت النتيجة أن `ROLLBACK` يزيل جميع صفوف الاختبار المؤقتة.
+- التصنيف: **Owner-reported / test output supplied: PASS**، وليس تنفيذًا مستقلاً من المساعد.
+- لا يغيّر هذا نجاح اختبار SQL حالة البنود الأوسع: API auth، ذرية دورة البيع من خلال الخادم، المزامنة دون اتصال ومتعددة الأجهزة، أو database-per-store isolation. تبقى هذه بنودًا مستقلة في خارطة الطريق.
+- **قرار سير العمل:** إغلاق مرحلة اختبار 006 والانتقال إلى مراجعة توثيق تكامل API ودورة البيع دون مطالبة المستخدم بإعادة الاختبار.
