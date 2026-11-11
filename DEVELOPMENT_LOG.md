@@ -123,3 +123,12 @@
 - Accounting negative assertion expects an unbalanced posted journal entry to be rejected by the deferred balance constraint.
 - Safety: run the complete script as one transaction against a disposable database with migrations 001–003 applied; do not use autocommit-per-statement. It ends with `ROLLBACK` and is not intended to be run against a live business database.
 - Verification status: **prepared only**. The SQL has not been executed against PostgreSQL/Neon in this session. No database test pass is claimed. API authorization, actual sale atomicity, offline replay and multi-device synchronization remain separate tests.
+
+
+## 2026-11-11 — نتيجة اختبار عزل الفروع في Neon (006)
+- أرسل المستخدم نتيجة التنفيذ النهائية للملف `docs/neon/006_branch_isolation_transactional_tests.sql`.
+- جميع التأكيدات العشرة في صف النتيجة كانت `true`: إنشاء فرعين مؤقتين، ترحيل قيد متوازن، اشتقاق فرع القيد وبند الفاتورة من السجل الأب، رفض الحساب/المنتج/حساب الدفع/إيصال idempotency من فرع آخر، قبول الدفع داخل الفرع نفسه، ورفض قيد يومية غير متوازن.
+- أفادت النتيجة بأن جميع الصفوف مؤقتة وأن `ROLLBACK` التالي يزيلها.
+- سُجلت النتيجة كـ **Owner-reported / output supplied: PASS**. لم يتصل المساعد بحساب Neon ولم ينفذ SQL بنفسه.
+- يغطي الاختبار قيود قاعدة البيانات المحددة في الملف فقط؛ لا يثبت صحة مصادقة API أو ذرية دورة البيع عبر Dart API أو مزامنة الأجهزة أو عزل قاعدة بيانات مستقلة لكل متجر.
+- أُغلقت مرحلة اختبار 006 وانتقل العمل إلى مراجعة وتوثيق تكامل API ودورة البيع؛ لا حاجة لإعادة هذا الاختبار ما لم يتغير المخطط أو منطق القيود.
