@@ -111,3 +111,15 @@
 - المخرجات المرفقة سابقًا تُظهر 18 جدولًا فارغًا وما زالت تعرض أسماء المفاتيح الأجنبية القديمة أحادية العمود ومشغلي دفتر اليومية فقط. لذلك لا تثبت تلك اللقطة تنفيذ migration 003؛ وقد تكون سابقة لتنفيذ المستخدم اللاحق. يلزم تشغيل الاستعلام 005 للحصول على حالة حديثة.
 - بما أن لقطة الفحص تعرض صفر فروع، فإن migration 004 لم يكن ليضيف حسابات تأسيسية وقت التقاطها. لا تُعد تشغيل أي ترحيل قبل فحص الحالة الحالية.
 - أضيف الاستعلام إلى فرع `feature/multi-store-isolation-foundation`. لم ننفذه على Neon ولم نشغّل اختبارات PostgreSQL؛ لا ندعي نجاحًا غير موثق.
+
+
+## 2026-11-11 — Prepared rollback-only Neon integration tests
+
+- Added `docs/neon/006_branch_isolation_transactional_tests.sql` on `feature/multi-store-isolation-foundation`.
+- The script creates two temporary branches and their minimum dependent records inside one transaction, then rolls the entire transaction back.
+- Positive assertions cover a balanced posted journal entry and same-branch invoice item/payment creation.
+- Negative assertions expect PostgreSQL foreign-key rejection for cross-branch journal accounts, invoice products, payment cash accounts, and sync idempotency receipts.
+- Trigger assertions verify that `journal_lines.branch_id` and `sales_invoice_items.branch_id` are derived from their parent records rather than trusted from caller input.
+- Accounting negative assertion expects an unbalanced posted journal entry to be rejected by the deferred balance constraint.
+- Safety: run the complete script as one transaction against a disposable database with migrations 001–003 applied; do not use autocommit-per-statement. It ends with `ROLLBACK` and is not intended to be run against a live business database.
+- Verification status: **prepared only**. The SQL has not been executed against PostgreSQL/Neon in this session. No database test pass is claimed. API authorization, actual sale atomicity, offline replay and multi-device synchronization remain separate tests.
