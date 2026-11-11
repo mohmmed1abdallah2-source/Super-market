@@ -11,6 +11,7 @@ The format follows Keep a Changelog. Version numbers will be assigned when relea
 - Appended a dated entry to `DEVELOPMENT_LOG.md` recording the repository review, documentation-only scope of this update, owner-reported Neon results, and explicit unverified/pending items.
 
 ### Neon setup progress
+- Owner reported successful verification of Neon relationships, keys and indexes; detailed query outputs have not been independently reviewed.
 - Added schema-only Neon SQL scripts under `docs/neon/` without changing the original development/test migrations.
 - Added `docs/neon/NEON_SETUP_PROGRESS.md` to record the owner-reported Neon project setup, successful execution of both schema-only scripts, reported 18-table result, verification checklist, deployment dependencies and remaining multi-store implementation. Neon execution results are owner-reported and have not been independently inspected.
 
