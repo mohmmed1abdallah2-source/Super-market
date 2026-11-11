@@ -88,7 +88,8 @@ Do not insert production business data until these checks are reviewed.
 | Schema-only migration files | Added to feature branch |
 | Migration 001 and 002 execution | Owner-reported successful |
 | Public table count | Owner-reported: 18 |
-| Constraints, indexes, views, functions, triggers audit | Pending |
+| Constraints and indexes | Owner-reported complete; detailed output not reviewed |
+| Functions / triggers / views inventory | Owner-reported: 40 / 5 / 1; definitions not reviewed |
 | Production DB role and permissions | Pending |
 | Dart server Neon TLS connection | Pending |
 | API hosting and HTTPS | Pending |
@@ -97,4 +98,4 @@ Do not insert production business data until these checks are reviewed.
 | Database-per-store isolation | Not implemented |
 | Backup and restore drill | Pending |
 
-**Next safe action:** complete the read-only structural audit in section 3. Only after reviewing those results should we proceed to API connection changes or create any baseline accounting data.
+**Next safe action:** provide the names and definitions/results for the 40 functions, 5 triggers and 1 view so their behavior can be reviewed. The counts alone do not establish correctness. Only after reviewing the structural audit should we proceed to API connection changes or create any baseline accounting data.
