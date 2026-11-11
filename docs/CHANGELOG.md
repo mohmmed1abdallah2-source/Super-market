@@ -61,3 +61,11 @@ The format follows Keep a Changelog. Version numbers will be assigned when relea
 - Added `docs/neon/006_branch_isolation_transactional_tests.sql` with temporary two-branch fixtures, same-branch positive paths, cross-branch FK rejection checks, parent-derived branch trigger checks, and an unbalanced posted-journal rejection check.
 - The script is wrapped in a transaction and ends with `ROLLBACK`; it must be executed as one complete script against a disposable database with migrations 001–003 applied.
 - The SQL is prepared but has not been run against PostgreSQL/Neon. No test pass is claimed. API authorization, sale atomicity, offline retry and multi-device sync are outside this SQL test pack.
+
+
+### Neon — successful branch-isolation SQL test (owner-reported)
+- The owner supplied the execution result for `docs/neon/006_branch_isolation_transactional_tests.sql`; all ten machine-readable assertions were `true`.
+- Covered two temporary branches, balanced journal posting, parent-derived branch IDs, rejection of cross-branch journal accounts/products/payment accounts/idempotency receipts, valid same-branch payment, and rejection of an unbalanced posted journal.
+- The output states that the test rows are temporary and removed by the final `ROLLBACK`.
+- Status: **Owner-reported / output supplied: PASS**. The assistant did not execute the SQL or independently access Neon.
+- This is database-constraint coverage only; API authorization, end-to-end sale atomicity, offline/multi-device synchronization and database-per-store isolation remain unverified.
