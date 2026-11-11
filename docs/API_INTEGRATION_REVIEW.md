@@ -1,0 +1,71 @@
+# API integration review — current implementation and remaining work
+
+**Review date:** 2026-11-11  
+**Reviewed branch:** `feature/multi-store-isolation-foundation`  
+**Scope:** Dart Shelf API entry point, sales/sync routes and repository, ledger routes, local POS facade, and the approved multi-store architecture.
+
+> This is a source-code review, not a claim that the API was deployed or that runtime/integration tests passed. Findings below describe the files inspected on this branch.
+
+## 1. What is present in code
+
+### API process and database connection
+- `server/bin/server.dart` opens one PostgreSQL connection from `PGHOST`, `PGPORT`, `PGDATABASE`, `PGUSER`, and `PGPASSWORD`.
+- The same connection is passed to the ledger and sales/sync repositories.
+- `/health` returns a simple process-level status response.
+- Branch bearer tokens are loaded from `ERP_BRANCH_TOKENS`; `ERP_API_TOKEN` is retained as a single-branch fallback.
+- The server currently has no control-plane connection, store directory, membership lookup, per-store database router, or per-store connection pool.
+
+### Request authentication and scope
+- Sales/sync and ledger routes require both `Authorization: Bearer ...` and `X-Branch-Id`.
+- The supplied branch ID selects a token from the configured in-memory branch-token map.
+- Business queries generally scope reads and writes using `branch_id`.
+- This is branch-scoped bearer-token authentication, not account identity plus verified store membership. It does not implement the approved database-per-store tenant boundary.
+- The current API has no sign-in, refresh, sign-out, list-stores, activate-store, or provision-store endpoints.
+
+### Server-side sale posting
+- `PostgresSalesSyncRepository.postSale` runs the sale path inside a PostgreSQL transaction.
+- The transaction claims an idempotency key, checks an existing operation receipt/invoice path, applies the sale, completes the idempotency response, and records the operation receipt.
+- `_applySale` validates item quantities, looks up active products in the requested branch with row locking, checks stock, and updates stock.
+- It validates payment methods and totals, checks customer credit for credit sales, creates a draft journal, and writes financial records as part of the same transaction.
+- This is evidence of a transactional server-side sale implementation in source. It is not evidence of a successful live end-to-end sale against the owner's Neon database.
+
+### Batch synchronization
+- `processBatch` also runs within a PostgreSQL transaction and tracks accepted operation IDs.
+- Existing operation receipts are checked by branch and operation ID.
+- The route accepts a JSON operations array and builds a request hash/idempotency command.
+- The current repository implementation must still be validated against the client queue contract, especially retry behavior, duplicate operations, mixed valid/invalid batches, and whether every operation type is safely and completely handled.
+
+### Local Flutter POS
+- `LocalPosAndLedgerEngine.completeSale` calls the local posting service first, then starts best-effort synchronization after the local operation returns.
+- This preserves the intended offline-first ordering: local write first, network sync afterward.
+- The service currently defaults to `DatabaseHelper.instance`; it is not yet a per-store SQLite database provider.
+- A configured API client is optional and attached through `configureApiClient`; the repository documentation correctly notes that a real authenticated session source is still missing.
+
+## 2. Gaps and risks to close before production
+
+1. **Tenant authentication:** replace static branch tokens as the user-facing identity model with authenticated accounts, memberships, roles, and a verified active-store session.
+2. **Database-per-store routing:** introduce a control-plane database and route each authenticated request to a separate store database using server-held credentials and least-privilege roles. A branch header must never select a tenant database.
+3. **Local store context:** replace the process-wide single SQLite handle assumption with separate store-scoped database files and isolated queues, including a non-destructive adoption path for existing local data.
+4. **Financial precision:** inspect and remove binary floating-point arithmetic from financial calculations and persistence boundaries. PostgreSQL columns may be NUMERIC, but the reviewed sale implementation parses and accumulates amounts using Dart `double`; define decimal/currency precision and rounding explicitly.
+5. **Concurrency and stock correctness:** add concurrent-sale tests for the same product, duplicate item lines, and multiple cash accounts; verify row locks and stock updates remain correct under contention.
+6. **Idempotency contract:** test same key/same body replay, same key/different body conflict, operation UUID replay, duplicate operation IDs inside a batch, and retry after interrupted client response.
+7. **Batch failure semantics:** verify whether the documented/client-required behavior is atomic-all-or-nothing or partial acceptance. Keep API response, server transaction, and local queue acknowledgment semantics identical.
+8. **API hardening:** enforce request-size and batch-size limits at the route boundary, validate query limits and dates, add rate limiting/observability, and avoid leaking internal exception details.
+9. **Neon connection security:** verify the actual Dart PostgreSQL driver's TLS configuration and connection-pooler compatibility; use a dedicated least-privilege API role and secret manager.
+10. **Runtime evidence:** run Dart analysis, server unit tests, PostgreSQL integration tests, and controlled end-to-end acceptance tests in CI/staging. No result is asserted by this review.
+
+## 3. Recommended implementation order
+
+| Order | Work package | Exit evidence |
+|---|---|---|
+| 1 | Stabilize money/decimal model and transaction invariants | Unit + PostgreSQL tests for rounding, balance, stock and concurrent sales |
+| 2 | Formalize sync contract and replay behavior | Contract tests for retries, duplicates, failures and queue acknowledgment |
+| 3 | Implement control-plane identity, stores, memberships and roles | Auth tests proving unauthorized store selection is rejected |
+| 4 | Implement server-side per-store database routing | Integration tests proving Store A credentials cannot read/write Store B |
+| 5 | Implement per-store local database provider and safe adoption | Migration/adoption tests preserving existing data and isolating queues |
+| 6 | Configure deployment, TLS, secrets, backups and restore | Staging health check, TLS verification, and a successful restore drill |
+| 7 | End-to-end acceptance and release gate | Recorded sales, voucher, ledger, offline recovery and multi-device scenarios |
+
+## 4. Release status
+
+**Not production-ready.** The repository has a useful branch-scoped single-database API foundation and source-level transaction paths, but the approved multi-store isolation architecture is not implemented. No deployment, live Neon sale, complete sync acceptance, or production restore is claimed by this review.
