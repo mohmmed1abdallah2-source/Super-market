@@ -50,3 +50,8 @@ The format follows Keep a Changelog. Version numbers will be assigned when relea
 - Added supporting indexes and removed the duplicate `idx_journal_entries_doc` index that duplicates the journal document UNIQUE index.
 - Added `docs/neon/004_baseline_accounting_accounts.sql` for idempotent per-existing-branch chart-of-accounts and cash/wallet baseline rows; it intentionally creates no sample business entities or opening balances.
 - These are repository files only. They have not been executed against Neon; backup, constraint-name verification, SQL integration testing and post-migration checks remain mandatory.
+
+### Neon — corrected post-migration audit
+- Added `docs/neon/005_post_migration_deep_audit_read_only.sql`, a single read-only JSON audit for composite branch foreign keys (validated against actual ordered catalog column arrays), required unique keys, branch columns/triggers, exact core table counts, accounting baseline coverage, journal/ledger invariants, and current database-role flags.
+- Fixed the FK audit to compare catalog column arrays rather than formatted constraint text, and aligned journal checks with the schema's `dr_amount` / `cr_amount` columns.
+- The supplied earlier SQL Editor capture still showed the pre-003 single-column FK names and only two ledger triggers. It cannot establish whether the user's later migration execution succeeded; a fresh run of audit 005 is required. No live Neon execution is claimed.
