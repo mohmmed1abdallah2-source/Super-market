@@ -11,6 +11,7 @@ ALTER TABLE chart_of_accounts ADD CONSTRAINT chart_of_accounts_id_branch_key UNI
 ALTER TABLE journal_entries ADD CONSTRAINT journal_entries_id_branch_key UNIQUE (id, branch_id);
 ALTER TABLE parties ADD CONSTRAINT parties_id_branch_key UNIQUE (id, branch_id);
 ALTER TABLE cash_accounts ADD CONSTRAINT cash_accounts_id_branch_key UNIQUE (id, branch_id);
+ALTER TABLE sync_idempotency ADD CONSTRAINT sync_idempotency_key_branch_key UNIQUE (idempotency_key, branch_id);
 ALTER TABLE sales_invoices ADD CONSTRAINT sales_invoices_id_branch_key UNIQUE (id, branch_id);
 
 -- Child rows that previously had no branch_id receive it from their owning invoice/entry.
@@ -170,7 +171,14 @@ ALTER TABLE sales_payments
   ADD CONSTRAINT sales_payments_cash_branch_fkey
   FOREIGN KEY (cash_account_id, branch_id) REFERENCES cash_accounts(id, branch_id) ON DELETE RESTRICT;
 
--- Idempotency keys remain globally unique; their branch relationship is already explicit.
+ALTER TABLE sync_operation_receipts DROP CONSTRAINT sync_operation_receipts_idempotency_key_fkey;
+ALTER TABLE sync_operation_receipts
+  ADD CONSTRAINT sync_operation_receipts_idempotency_branch_fkey
+  FOREIGN KEY (idempotency_key, branch_id)
+  REFERENCES sync_idempotency(idempotency_key, branch_id) ON DELETE RESTRICT;
+
+-- Idempotency keys remain globally unique; the composite reference additionally
+-- proves that each receipt belongs to the same branch as its idempotency record.
 -- Add supporting indexes for the new composite child foreign keys.
 CREATE INDEX IF NOT EXISTS idx_product_units_product_branch ON product_units_barcodes(product_id, branch_id);
 CREATE INDEX IF NOT EXISTS idx_stock_movements_product_branch ON stock_movements(product_id, branch_id);
