@@ -29,6 +29,10 @@ actual_fk AS (
   SELECT c.conname, c.conrelid::regclass::text AS child_table,
          c.confrelid::regclass::text AS parent_table,
          pg_get_constraintdef(c.oid, true) AS definition,
+         ARRAY(SELECT a.attname::text FROM unnest(c.conkey) WITH ORDINALITY k(attnum,ord)
+               JOIN pg_attribute a ON a.attrelid=c.conrelid AND a.attnum=k.attnum ORDER BY k.ord) AS child_cols,
+         ARRAY(SELECT a.attname::text FROM unnest(c.confkey) WITH ORDINALITY k(attnum,ord)
+               JOIN pg_attribute a ON a.attrelid=c.confrelid AND a.attnum=k.attnum ORDER BY k.ord) AS parent_cols,
          c.convalidated
   FROM pg_constraint c
   JOIN pg_namespace n ON n.oid=c.connamespace
@@ -39,8 +43,7 @@ fk_audit AS (
          (a.conname IS NOT NULL) AS constraint_name_found,
          (a.conname IS NOT NULL AND a.child_table=e.child_table
           AND a.parent_table=e.parent_table
-          AND a.definition LIKE '%(' || array_to_string(e.child_cols, ', ') || ')%'
-          AND a.definition LIKE '%REFERENCES ' || e.parent_table || '(' || array_to_string(e.parent_cols, ', ') || ')%') AS definition_matches
+          AND a.child_cols=e.child_cols AND a.parent_cols=e.parent_cols) AS definition_matches
   FROM expected_fk e LEFT JOIN actual_fk a ON a.conname=e.name
 ),
 required_unique(name, table_name) AS (
@@ -114,8 +117,8 @@ journal_integrity AS (
       (SELECT count(*) FROM journal_entries je
        WHERE je.status='POSTED' AND
          ((SELECT count(*) FROM journal_lines jl WHERE jl.journal_entry_id=je.id) < 2
-          OR (SELECT COALESCE(sum(jl.debit),0) FROM journal_lines jl WHERE jl.journal_entry_id=je.id)
-             <> (SELECT COALESCE(sum(jl.credit),0) FROM journal_lines jl WHERE jl.journal_entry_id=je.id))),
+          OR (SELECT COALESCE(sum(jl.dr_amount),0) FROM journal_lines jl WHERE jl.journal_entry_id=je.id)
+             <> (SELECT COALESCE(sum(jl.cr_amount),0) FROM journal_lines jl WHERE jl.journal_entry_id=je.id))),
     'invalid_ledger_amounts',
       (SELECT count(*) FROM lah_alayh_ledger
        WHERE alayh_amount < 0 OR lah_amount < 0
