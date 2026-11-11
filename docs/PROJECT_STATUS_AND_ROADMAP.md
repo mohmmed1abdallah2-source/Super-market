@@ -257,3 +257,10 @@
 - اللقطة المرفقة من SQL Editor تُظهر أن الجداول الأساسية الـ18 كانت فارغة، كما تعرض أسماء العلاقات الأجنبية أحادية العمود السابقة للترحيل 003 ومشغلي توازن اليومية فقط. لا يمكن اعتبارها إثباتًا لتنفيذ 003؛ قد تكون لقطة قديمة قبل تنفيذ المستخدم اللاحق.
 - عدد الفروع صفر في تلك اللقطة، ولذلك لم يكن الترحيل 004 ليضيف حسابات تأسيسية وقتها. يجب فحص الوضع الحالي قبل أي إعادة تنفيذ.
 - الحالة الحالية: **Pending fresh verification**. لا يوجد اتصال مباشر من المساعد بحساب Neon، ولم يتم تنفيذ الاستعلام الجديد أو اختبارات PostgreSQL من هذه الجلسة.
+
+
+## 2026-11-11 — Neon integration test pack prepared
+- Added a rollback-only SQL test script at `docs/neon/006_branch_isolation_transactional_tests.sql`.
+- It covers positive same-branch journal/sale records and negative cross-branch references for journal accounts, invoice products, payment cash accounts and sync idempotency receipts; it also checks parent-derived branch values and rejection of an unbalanced posted journal.
+- **State: Implemented in repository / Not run.** It requires a disposable PostgreSQL database with migrations 001–003 applied. The file ends in `ROLLBACK`; run the whole file as a single script with autocommit disabled.
+- This does not validate API authentication/authorization, sale transaction atomicity in the Dart API, offline synchronization, or database-per-store isolation.
