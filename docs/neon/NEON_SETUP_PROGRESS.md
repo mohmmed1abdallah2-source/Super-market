@@ -143,3 +143,21 @@ Two new operator-run SQL migrations were added to the feature branch after revie
 - The test verifies that the database derives `branch_id` from journal/invoice parents for the three trigger-managed child tables (the script explicitly probes journal lines and invoice items).
 - The entire script must be run as one transaction in a disposable PostgreSQL database with migrations 001–003 applied. It ends with `ROLLBACK`; do not run with autocommit-per-statement.
 - **Status: prepared, not executed.** The assistant has no direct Neon session. Ask the database operator to run the file and share the complete output. Do not treat prepared assertions as passed tests.
+
+
+## 2026-11-11 — Owner-reported successful execution of test 006
+
+The owner ran `docs/neon/006_branch_isolation_transactional_tests.sql` and supplied the final machine-readable result. All ten assertion fields were `true`:
+
+- Two temporary branches created inside the test transaction.
+- A balanced journal entry was posted.
+- Journal-line and invoice-item branch IDs were derived from their parent records.
+- Cross-branch journal account, invoice product, payment cash account, and idempotency receipt references were rejected.
+- A valid same-branch payment was accepted.
+- An unbalanced posted journal entry was rejected.
+
+The result also states that all test rows are temporary and are removed by the following `ROLLBACK`. This is recorded as **Owner-reported / test output supplied: PASS**; the assistant did not connect directly to Neon or independently execute the SQL.
+
+**Scope limitation:** this validates the database constraints exercised by test 006 only. It does not validate API authentication/authorization, atomic sale handling through the Dart API, inventory movement consistency, offline queue recovery, multi-device synchronization, or database-per-store isolation. The earlier “prepared, not executed” status above is superseded by this owner-supplied execution result.
+
+**Next documentation/review stage:** move on to the application/API integration and transaction-flow documentation; do not ask the owner to repeat test 006.
