@@ -161,3 +161,17 @@ The result also states that all test rows are temporary and are removed by the f
 **Scope limitation:** this validates the database constraints exercised by test 006 only. It does not validate API authentication/authorization, atomic sale handling through the Dart API, inventory movement consistency, offline queue recovery, multi-device synchronization, or database-per-store isolation. The earlier “prepared, not executed” status above is superseded by this owner-supplied execution result.
 
 **Next documentation/review stage:** move on to the application/API integration and transaction-flow documentation; do not ask the owner to repeat test 006.
+ 
+
+## 2026-11-11 — API integration source review
+
+Added `docs/API_INTEGRATION_REVIEW.md` after inspecting the current Shelf API entry point, sales/sync repository and routes, ledger routes, and local POS facade.
+
+Key source-backed findings:
+- The API currently opens one PostgreSQL connection and shares it across repositories.
+- Request scope is selected using `X-Branch-Id` plus a static branch bearer-token map; this is not account membership or tenant authentication.
+- The server-side sale path and batch path are wrapped in PostgreSQL transactions and use idempotency/operation receipt logic.
+- The Flutter POS facade posts locally first and starts network synchronization afterward, but still defaults to the process-wide `DatabaseHelper.instance`.
+- The reviewed sale code uses Dart `double` for monetary parsing/accumulation, so decimal precision and rounding require explicit hardening before production.
+
+The review does not claim deployment or successful live Neon end-to-end tests. The approved control-plane, authenticated store membership, database-per-store routing, per-store SQLite context, TLS/least-privilege deployment, and end-to-end acceptance remain open.
