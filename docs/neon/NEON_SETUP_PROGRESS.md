@@ -98,4 +98,6 @@ Do not insert production business data until these checks are reviewed.
 | Database-per-store isolation | Not implemented |
 | Backup and restore drill | Pending |
 
-**Next safe action:** provide the names and definitions/results for the 40 functions, 5 triggers and 1 view so their behavior can be reviewed. The counts alone do not establish correctness. Only after reviewing the structural audit should we proceed to API connection changes or create any baseline accounting data.
+**Function inventory received:** the user supplied 40 routine-name rows. Three names appear project/ledger-specific: `assert_journal_entry_balanced`, `journal_entry_status_balance_constraint`, and `journal_lines_balance_constraint`. The remaining names appear to be `pgcrypto` extension routines; repeated names likely represent overloaded signatures. The final displayed row omits its routine_type cell in the pasted table. No signatures or function bodies have been reviewed yet.
+
+**Next safe action:** inspect the signatures and definitions of the three ledger-related functions, then review the five trigger definitions and the single view definition. Counts and names alone do not establish correctness. Do not proceed to API connection changes or baseline accounting data until this read-only review is complete.
