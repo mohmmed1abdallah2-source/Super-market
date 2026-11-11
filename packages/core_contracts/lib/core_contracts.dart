@@ -1,3 +1,5 @@
+export 'money_amount.dart';
+
 import 'dart:convert';
 
 /// The simplified balance direction returned by the party ledger.
