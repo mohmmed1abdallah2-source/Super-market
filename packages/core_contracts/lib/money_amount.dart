@@ -27,9 +27,7 @@ final class MoneyAmount implements Comparable<MoneyAmount> {
       throw FormatException('Money amount supports at most $scale decimal places.');
     }
     final whole = BigInt.parse(match.group(2)!);
-    final fractional = BigInt.parse(fraction.padRight(scale, '0').isEmpty
-        ? '0'
-        : fraction.padRight(scale, '0'));
+    final fractional = BigInt.parse(fraction.padRight(scale, '0'));
     final magnitude = whole * _factor + fractional;
     return MoneyAmount._(match.group(1) == '-' ? -magnitude : magnitude);
   }
@@ -62,7 +60,7 @@ final class MoneyAmount implements Comparable<MoneyAmount> {
     final absolute = product.abs();
     var quotient = absolute ~/ _factor;
     final remainder = absolute.remainder(_factor);
-    if (remainder * BigInt.two >= _factor) quotient += BigInt.one;
+    if (remainder * BigInt.from(2) >= _factor) quotient += BigInt.one;
     return MoneyAmount._(negative ? -quotient : quotient);
   }
 
