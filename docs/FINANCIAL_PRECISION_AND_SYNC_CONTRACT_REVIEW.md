@@ -57,3 +57,8 @@ The reviewed server voucher path validates voucher type, party type, positive am
 - **Neon modified:** no.
 - **Migration executed:** no.
 - **Production readiness:** not established.
+
+## Incremental implementation — fixed-scale primitive
+A shared `MoneyAmount` primitive was added at `packages/core_contracts/lib/money_amount.dart` and exported from the package barrel. It stores integer ten-thousandths, parses decimal strings exactly, rejects more than four fractional digits, and rounds multiplication half away from zero. Unit tests were added at `test/money_amount_test.dart` for parsing, addition/subtraction, multiplication, precision rejection and comparisons.
+
+**Important limitation:** the existing POS and server posting paths still use `double`; this primitive is not yet wired into sale, voucher, inventory-cost, or ledger posting. The tests have been authored but were not executed in this environment. Do not treat this incremental primitive as closure of the financial precision release blocker. The next implementation step is migrating calculations and wire serialization in a coordinated, backwards-compatible change, with SQLite compatibility and regression tests.
