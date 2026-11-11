@@ -124,3 +124,13 @@ Two new operator-run SQL migrations were added to the feature branch after revie
 **Index review:** `idx_journal_entries_doc` exactly duplicates the index created by UNIQUE `(branch_id, doc_type, doc_id)` and is dropped by migration 003. Other existing indexes are retained; supporting indexes for new composite foreign keys are added.
 
 **Remaining before execution:** inspect current `pg_constraint` names and all branch-owned table relationships on the target; take/confirm a restorable backup; apply migration 003 once; run post-migration FK and cross-branch negative tests; create the real branch through the approved onboarding process; then apply migration 004 and verify expected account/cash rows. Do not run migration 004 before a real branch exists.
+
+## 2026-11-11 — Corrected post-migration audit prepared
+
+- Added `docs/neon/005_post_migration_deep_audit_read_only.sql` as a single read-only Neon audit report. It checks the exact expected composite foreign-key column pairs from migration 003 using PostgreSQL catalog metadata (not fragile string matching), required composite unique keys, `branch_id` child columns, triggers, exact core row counts, baseline account coverage, journal balance and ledger amount invariants, and current-role flags.
+- Corrected the audit to use the actual journal amount columns `dr_amount` and `cr_amount`.
+- The previously supplied SQL Editor capture shows all 18 core tables empty and still lists the original single-column foreign keys and only the two ledger-balance triggers. That capture therefore does **not** prove migration 003 was applied; it may predate the owner's later execution. A fresh run of audit 005 is required to establish the current state.
+- Because the captured `branches` count is zero, migration 004 could not have inserted baseline chart/cash accounts at the time of that capture. After a real branch exists, rerun migration 004 only if its effects are absent; verify first and do not rerun blindly.
+- The audit script has been committed to the feature branch. It has not been executed against Neon by the assistant. No production-readiness or migration-success claim is made.
+
+**Next operator action:** run `docs/neon/005_post_migration_deep_audit_read_only.sql` in the intended Neon database and share its single JSON result. Do not run migration 003 again until the fresh report confirms it is absent. Do not create real production transactions until branch isolation, least-privilege role, TLS, backup/restore, and application integration are verified.
