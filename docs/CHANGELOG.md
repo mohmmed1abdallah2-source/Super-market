@@ -81,3 +81,8 @@ The format follows Keep a Changelog. Version numbers will be assigned when relea
 ### Financial precision and sync contract review
 - Added `docs/FINANCIAL_PRECISION_AND_SYNC_CONTRACT_REVIEW.md` documenting source findings for floating-point money calculations versus PostgreSQL fixed-scale numeric columns, sale change/payment reconciliation, idempotency scope, all-or-nothing batch transactions, and local queue acknowledgment/retry.
 - Documentation-only review: no application code or Neon database changes, and no runtime test pass is claimed.
+
+### Fixed-scale money primitive (incremental)
+- Added shared `MoneyAmount` using integer ten-thousandths, exact decimal-string parsing, explicit four-place precision rejection, and half-away-from-zero multiplication rounding.
+- Exported it through `core_contracts` and added unit tests.
+- Existing sale/voucher posting still uses `double`; migration is intentionally incomplete pending coordinated client/server integration and compatibility tests. Tests are authored, not yet run.
