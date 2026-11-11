@@ -42,3 +42,11 @@ The format follows Keep a Changelog. Version numbers will be assigned when relea
 - Implementation files have been added, but no PostgreSQL migration has yet been applied to a live database.
 - CI analysis and test results are pending; no test pass is claimed until GitHub Actions completes.
 - Full live integration verification still requires a PostgreSQL instance, branch-scoped credentials, a connected API client session and end-to-end test data.
+
+
+### Neon — branch isolation and accounting setup (prepared, not applied)
+- Added `docs/neon/003_branch_consistent_composite_constraints.sql` with branch-scoped composite keys/foreign keys across inventory, accounting, party ledger, vouchers, sales, payments and cashier references.
+- Added database triggers to derive `branch_id` for journal lines, invoice items and sales payments, allowing existing inserts to omit the new column.
+- Added supporting indexes and removed the duplicate `idx_journal_entries_doc` index that duplicates the journal document UNIQUE index.
+- Added `docs/neon/004_baseline_accounting_accounts.sql` for idempotent per-existing-branch chart-of-accounts and cash/wallet baseline rows; it intentionally creates no sample business entities or opening balances.
+- These are repository files only. They have not been executed against Neon; backup, constraint-name verification, SQL integration testing and post-migration checks remain mandatory.
