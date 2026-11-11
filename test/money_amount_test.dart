@@ -6,7 +6,7 @@ void main() {
     test('parses and serializes exact four-place values', () {
       expect(MoneyAmount.fromString('12.3400').toFixedString(), '12.3400');
       expect(MoneyAmount.fromString('-0.0001').toFixedString(), '-0.0001');
-      expect(MoneyAmount.fromString('.5').toString(), throwsFormatException);
+      expect(() => MoneyAmount.fromString('.5'), throwsFormatException);
     });
 
     test('adds and subtracts without binary floating point drift', () {
