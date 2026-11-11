@@ -55,3 +55,9 @@ The format follows Keep a Changelog. Version numbers will be assigned when relea
 - Added `docs/neon/005_post_migration_deep_audit_read_only.sql`, a single read-only JSON audit for composite branch foreign keys (validated against actual ordered catalog column arrays), required unique keys, branch columns/triggers, exact core table counts, accounting baseline coverage, journal/ledger invariants, and current database-role flags.
 - Fixed the FK audit to compare catalog column arrays rather than formatted constraint text, and aligned journal checks with the schema's `dr_amount` / `cr_amount` columns.
 - The supplied earlier SQL Editor capture still showed the pre-003 single-column FK names and only two ledger triggers. It cannot establish whether the user's later migration execution succeeded; a fresh run of audit 005 is required. No live Neon execution is claimed.
+
+
+### Neon — rollback-only integration test pack
+- Added `docs/neon/006_branch_isolation_transactional_tests.sql` with temporary two-branch fixtures, same-branch positive paths, cross-branch FK rejection checks, parent-derived branch trigger checks, and an unbalanced posted-journal rejection check.
+- The script is wrapped in a transaction and ends with `ROLLBACK`; it must be executed as one complete script against a disposable database with migrations 001–003 applied.
+- The SQL is prepared but has not been run against PostgreSQL/Neon. No test pass is claimed. API authorization, sale atomicity, offline retry and multi-device sync are outside this SQL test pack.
