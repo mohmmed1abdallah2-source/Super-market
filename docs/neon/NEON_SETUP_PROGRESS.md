@@ -101,3 +101,26 @@ Do not insert production business data until these checks are reviewed.
 **Function inventory received:** the user supplied 40 routine-name rows. Three names appear project/ledger-specific: `assert_journal_entry_balanced`, `journal_entry_status_balance_constraint`, and `journal_lines_balance_constraint`. The remaining names appear to be `pgcrypto` extension routines; repeated names likely represent overloaded signatures. The final displayed row omits its routine_type cell in the pasted table. No signatures or function bodies have been reviewed yet.
 
 **Next safe action:** inspect the signatures and definitions of the three ledger-related functions, then review the five trigger definitions and the single view definition. Counts and names alone do not establish correctness. Do not proceed to API connection changes or baseline accounting data until this read-only review is complete.
+
+
+## 2026-11-11 — Prepared branch-integrity and accounting baseline migrations
+
+Two new operator-run SQL migrations were added to the feature branch after reviewing the live-schema outputs supplied by the owner:
+
+- `docs/neon/003_branch_consistent_composite_constraints.sql`
+  - Adds candidate composite unique keys `(id, branch_id)` to branch-owned parent tables.
+  - Replaces single-column relationships with branch-aware composite foreign keys for products/units/stock, chart accounts, cash accounts, journal lines, party ledger, vouchers, sales invoices/items/payments, and cashier users.
+  - Adds `branch_id` to child tables that previously lacked it (`journal_lines`, `sales_invoice_items`, `sales_payments`); BEFORE triggers derive it from the owning journal entry/invoice so existing application INSERT statements can omit it.
+  - Adds supporting indexes and removes the exact duplicate non-unique index `idx_journal_entries_doc`, because the existing UNIQUE key already indexes the same columns.
+  - Uses a transaction and fails if pre-existing child rows cannot inherit a branch. It is intended to be applied once, after a backup and after confirming constraint names against the target.
+
+- `docs/neon/004_baseline_accounting_accounts.sql`
+  - Idempotently inserts the reviewed baseline chart-of-accounts rows and six cash/wallet accounts for branches that already exist.
+  - Does not create a demo branch, user, product, party, or opening balance.
+  - Must be run only after the real first branch has been created. If run while `branches` is empty, it correctly inserts zero rows; it does not auto-seed branches created later.
+
+**Important compatibility note:** Migration 003 adds database-managed `branch_id` columns to three child tables. The supplied INSERT patterns can continue omitting those columns because triggers populate them, but all application reads/updates and any code that assumes a fixed column list must be checked. This migration has been committed to GitHub only; it has NOT been run against Neon. No live database change is claimed.
+
+**Index review:** `idx_journal_entries_doc` exactly duplicates the index created by UNIQUE `(branch_id, doc_type, doc_id)` and is dropped by migration 003. Other existing indexes are retained; supporting indexes for new composite foreign keys are added.
+
+**Remaining before execution:** inspect current `pg_constraint` names and all branch-owned table relationships on the target; take/confirm a restorable backup; apply migration 003 once; run post-migration FK and cross-branch negative tests; create the real branch through the approved onboarding process; then apply migration 004 and verify expected account/cash rows. Do not run migration 004 before a real branch exists.
