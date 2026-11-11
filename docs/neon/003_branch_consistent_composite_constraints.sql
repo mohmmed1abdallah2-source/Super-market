@@ -172,6 +172,10 @@ ALTER TABLE sales_payments
 
 -- Idempotency keys remain globally unique; their branch relationship is already explicit.
 -- Add supporting indexes for the new composite child foreign keys.
+CREATE INDEX IF NOT EXISTS idx_product_units_product_branch ON product_units_barcodes(product_id, branch_id);
+CREATE INDEX IF NOT EXISTS idx_stock_movements_product_branch ON stock_movements(product_id, branch_id);
+CREATE INDEX IF NOT EXISTS idx_cash_accounts_gl_branch ON cash_accounts(gl_account_id, branch_id);
+CREATE INDEX IF NOT EXISTS idx_ledger_party_branch ON lah_alayh_ledger(party_id, branch_id);
 CREATE INDEX IF NOT EXISTS idx_journal_lines_entry_branch ON journal_lines(journal_entry_id, branch_id);
 CREATE INDEX IF NOT EXISTS idx_journal_lines_account_branch ON journal_lines(gl_account_id, branch_id);
 CREATE INDEX IF NOT EXISTS idx_sales_items_invoice_branch ON sales_invoice_items(invoice_id, branch_id);
