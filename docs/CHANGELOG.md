@@ -11,7 +11,7 @@ The format follows Keep a Changelog. Version numbers will be assigned when relea
 - Appended a dated entry to `DEVELOPMENT_LOG.md` recording the repository review, documentation-only scope of this update, owner-reported Neon results, and explicit unverified/pending items.
 
 ### Neon setup progress
-- Owner reported an inventory of 40 functions, 5 triggers and 1 view. Only counts were provided; names and definitions remain unreviewed, so this is not a functional correctness check.
+- User supplied the 40-row routine-name inventory. Three names are ledger-related (`assert_journal_entry_balanced`, `journal_entry_status_balance_constraint`, `journal_lines_balance_constraint`); the remaining names appear to be `pgcrypto` routines, with repeated names likely representing overloads. Signatures and definitions remain unreviewed.
 - Owner reported successful verification of Neon relationships, keys and indexes; detailed query outputs have not been independently reviewed.
 - Added schema-only Neon SQL scripts under `docs/neon/` without changing the original development/test migrations.
 - Added `docs/neon/NEON_SETUP_PROGRESS.md` to record the owner-reported Neon project setup, successful execution of both schema-only scripts, reported 18-table result, verification checklist, deployment dependencies and remaining multi-store implementation. Neon execution results are owner-reported and have not been independently inspected.
