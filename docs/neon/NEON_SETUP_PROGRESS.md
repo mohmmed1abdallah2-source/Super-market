@@ -31,6 +31,8 @@
 
 ## 3. Verification still required
 
+**Update 2026-11-11:** The owner reports that relationship, key and index checks succeeded. These checks are marked complete based on the owner's report; the raw query output was not supplied for independent review.
+
 Run these read-only checks in Neon SQL Editor and save the outputs in the deployment record:
 
 1. List all tables in schema `public`.
