@@ -134,3 +134,12 @@ Two new operator-run SQL migrations were added to the feature branch after revie
 - The audit script has been committed to the feature branch. It has not been executed against Neon by the assistant. No production-readiness or migration-success claim is made.
 
 **Next operator action:** run `docs/neon/005_post_migration_deep_audit_read_only.sql` in the intended Neon database and share its single JSON result. Do not run migration 003 again until the fresh report confirms it is absent. Do not create real production transactions until branch isolation, least-privilege role, TLS, backup/restore, and application integration are verified.
+
+
+## 2026-11-11 — Rollback-only integration test pack prepared
+- Added `docs/neon/006_branch_isolation_transactional_tests.sql` to exercise two-branch referential isolation and accounting constraints using temporary records.
+- Expected positive paths: balanced posted journal entry; same-branch invoice item and payment.
+- Expected rejection paths: cross-branch journal account, product on invoice, payment cash account, and idempotency receipt; plus an unbalanced posted journal entry.
+- The test verifies that the database derives `branch_id` from journal/invoice parents for the three trigger-managed child tables (the script explicitly probes journal lines and invoice items).
+- The entire script must be run as one transaction in a disposable PostgreSQL database with migrations 001–003 applied. It ends with `ROLLBACK`; do not run with autocommit-per-statement.
+- **Status: prepared, not executed.** The assistant has no direct Neon session. Ask the database operator to run the file and share the complete output. Do not treat prepared assertions as passed tests.
