@@ -77,3 +77,7 @@ The format follows Keep a Changelog. Version numbers will be assigned when relea
 - Recorded that the API uses one PostgreSQL connection and the Flutter service still defaults to a shared `DatabaseHelper.instance`.
 - Flagged Dart `double` monetary calculations for decimal/rounding hardening.
 - Documentation-only review; no deployment or runtime test pass is claimed.
+
+### Financial precision and sync contract review
+- Added `docs/FINANCIAL_PRECISION_AND_SYNC_CONTRACT_REVIEW.md` documenting source findings for floating-point money calculations versus PostgreSQL fixed-scale numeric columns, sale change/payment reconciliation, idempotency scope, all-or-nothing batch transactions, and local queue acknowledgment/retry.
+- Documentation-only review: no application code or Neon database changes, and no runtime test pass is claimed.
