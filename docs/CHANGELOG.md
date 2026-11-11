@@ -69,3 +69,11 @@ The format follows Keep a Changelog. Version numbers will be assigned when relea
 - The output states that the test rows are temporary and removed by the final `ROLLBACK`.
 - Status: **Owner-reported / output supplied: PASS**. The assistant did not execute the SQL or independently access Neon.
 - This is database-constraint coverage only; API authorization, end-to-end sale atomicity, offline/multi-device synchronization and database-per-store isolation remain unverified.
+
+
+### API integration source review
+- Added `docs/API_INTEGRATION_REVIEW.md` describing the current branch-scoped API, transactional sale/batch source paths, local-first POS flow, and remaining production gaps.
+- Recorded that current authentication is static branch-token plus `X-Branch-Id`, not verified account/store membership.
+- Recorded that the API uses one PostgreSQL connection and the Flutter service still defaults to a shared `DatabaseHelper.instance`.
+- Flagged Dart `double` monetary calculations for decimal/rounding hardening.
+- Documentation-only review; no deployment or runtime test pass is claimed.
