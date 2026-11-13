@@ -92,3 +92,8 @@ The format follows Keep a Changelog. Version numbers will be assigned when relea
 - Added the shared `core_contracts` path dependency to the server package.
 - Added server-side unit tests for exact arithmetic, scale-four serialization, rounding and invalid precision.
 - The repository's sale and voucher posting paths still use `double`; tests are authored but unrun. No Neon or SQLite changes.
+
+### 2026-11-13 — Exact sale calculation layer
+- Added isolated `SaleMoneyCalculator` helpers using shared `MoneyAmount` for line totals, base quantities, inventory cost, sums and invoice/payment validation.
+- Added server unit tests for exact arithmetic, reconciliation, discount bounds and precision rejection.
+- The helper is not yet wired into the live PostgreSQL sale-posting method; that path still uses `double`. Tests are authored but unrun; no Neon/SQLite changes.
