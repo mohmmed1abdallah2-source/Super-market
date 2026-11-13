@@ -105,3 +105,10 @@ The format follows Keep a Changelog. Version numbers will be assigned when relea
 - The `postgres ^2.6.4` named substitution API is present, but exact decimal-string-to-`NUMERIC` binding has not been demonstrated by a repository integration test.
 - No partial `_applySale` conversion was made. Next work must establish scale-aware decimal arithmetic and an actual PostgreSQL numeric binding test before the live sale transaction is changed.
 - Source/schema review only; no runtime tests, Neon/SQLite changes, or successful posting claim.
+
+### 2026-11-13 — Scale-aware decimal foundation
+- Added and exported `ScaledDecimal`, a `BigInt`-backed decimal type with explicit field scale, strict precision validation, same-scale arithmetic, and explicit-result-scale multiplication rounding.
+- Corrected `SaleMoneyCalculator` to use four-place sale quantities/unit prices, six-place conversion factors/base quantities/unit costs, and explicit four-place monetary result rounding.
+- Added shared-package tests and expanded server calculator coverage for six-place conversion and signed half-away-from-zero rounding.
+- This supersedes the earlier helper-only assumption that base quantities and inventory costs could be represented at scale four.
+- The live `_applySale` transaction still uses `double`; no API, SQLite, Neon, or migration changes were made. PostgreSQL exact NUMERIC binding is not yet proven by an integration test. Tests are authored but unrun; financial precision remains an open release blocker.
