@@ -1,4 +1,5 @@
 export 'money_amount.dart';
+export 'scaled_decimal.dart';
 
 import 'dart:convert';
 
