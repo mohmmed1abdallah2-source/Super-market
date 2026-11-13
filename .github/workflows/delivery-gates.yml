@@ -32,7 +32,7 @@ jobs:
         run: flutter pub get
       - name: Check formatting
         run: |
-          changed_dart_files="$(git diff --name-only HEAD^ HEAD -- '*.dart')"
+          changed_dart_files="$(git show --pretty='' --name-only HEAD -- '*.dart')"
           if [ -n "$changed_dart_files" ]; then
             printf '%s\n' "$changed_dart_files" | xargs dart format --output=none --set-exit-if-changed
           else
