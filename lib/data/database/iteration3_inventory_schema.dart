@@ -183,7 +183,7 @@ abstract final class Iteration3InventorySchema {
       effective_base_cost TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
       is_deleted INTEGER NOT NULL DEFAULT 0, sync_status TEXT NOT NULL DEFAULT 'LOCAL',
       sync_version INTEGER NOT NULL DEFAULT 1,
-      UNIQUE(branch_id, id),
+      UNIQUE(branch_id, id), UNIQUE(id, branch_id),
       FOREIGN KEY(branch_id, purchase_invoice_id) REFERENCES purchase_invoices(branch_id, id),
       FOREIGN KEY(product_id, branch_id) REFERENCES products(id, branch_id),
       FOREIGN KEY(unit_id, branch_id) REFERENCES product_units_barcodes(id, branch_id)
@@ -200,7 +200,7 @@ abstract final class Iteration3InventorySchema {
       created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
       is_deleted INTEGER NOT NULL DEFAULT 0, sync_status TEXT NOT NULL DEFAULT 'LOCAL',
       sync_version INTEGER NOT NULL DEFAULT 1,
-      UNIQUE(branch_id, id), UNIQUE(branch_id, product_id, warehouse_id, batch_no),
+      UNIQUE(branch_id, id), UNIQUE(id, branch_id), UNIQUE(branch_id, product_id, warehouse_id, batch_no),
       FOREIGN KEY(product_id, branch_id) REFERENCES products(id, branch_id),
       FOREIGN KEY(branch_id, warehouse_id) REFERENCES warehouses(branch_id, id),
       FOREIGN KEY(branch_id, location_id) REFERENCES aisle_shelf_locations(branch_id, id),
