@@ -127,6 +127,10 @@ CREATE TABLE IF NOT EXISTS purchase_invoices (
   discount_amount NUMERIC(20,4) NOT NULL DEFAULT 0 CHECK (discount_amount >= 0),
   net_total NUMERIC(20,4) NOT NULL DEFAULT 0 CHECK (net_total >= 0),
   paid_total NUMERIC(20,4) NOT NULL DEFAULT 0 CHECK (paid_total >= 0),
+  cash_account_id TEXT,
+  payment_method VARCHAR(16) NOT NULL DEFAULT 'CREDIT'
+    CHECK (payment_method IN ('CASH','WALLET','CREDIT','MIXED')),
+  wallet_ref_no VARCHAR(100),
   journal_entry_id TEXT,
   operation_id TEXT NOT NULL,
   notes TEXT NOT NULL DEFAULT '',
@@ -135,12 +139,17 @@ CREATE TABLE IF NOT EXISTS purchase_invoices (
   UNIQUE (id, branch_id),
   UNIQUE (branch_id, invoice_no),
   UNIQUE (branch_id, operation_id),
+  CHECK (payment_method <> 'WALLET' OR length(trim(COALESCE(wallet_ref_no, ''))) >= 6),
+  CHECK ((paid_total = 0 AND cash_account_id IS NULL) OR
+         (paid_total > 0 AND cash_account_id IS NOT NULL)),
   FOREIGN KEY (supplier_party_id, branch_id)
     REFERENCES parties(id, branch_id) ON DELETE RESTRICT,
   FOREIGN KEY (warehouse_id, branch_id)
     REFERENCES warehouses(id, branch_id) ON DELETE RESTRICT,
   FOREIGN KEY (purchase_order_id, branch_id)
     REFERENCES purchase_orders(id, branch_id) ON DELETE RESTRICT,
+  FOREIGN KEY (cash_account_id, branch_id)
+    REFERENCES cash_accounts(id, branch_id) ON DELETE RESTRICT,
   FOREIGN KEY (journal_entry_id, branch_id)
     REFERENCES journal_entries(id, branch_id) ON DELETE RESTRICT
 );
