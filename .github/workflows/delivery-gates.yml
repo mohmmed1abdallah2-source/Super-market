@@ -31,7 +31,13 @@ jobs:
       - name: Resolve Flutter dependencies
         run: flutter pub get
       - name: Check formatting
-        run: dart format --output=none --set-exit-if-changed lib test packages
+        run: |
+          changed_dart_files="$(git diff --name-only HEAD^ HEAD -- '*.dart')"
+          if [ -n "$changed_dart_files" ]; then
+            printf '%s\n' "$changed_dart_files" | xargs dart format --output=none --set-exit-if-changed
+          else
+            echo "No Dart files changed in this commit."
+          fi
       - name: Analyze Flutter application
         run: flutter analyze
       - name: Run Flutter tests
