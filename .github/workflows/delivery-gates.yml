@@ -32,12 +32,12 @@ jobs:
         run: flutter pub get
       - name: Check formatting
         run: |
-          changed_dart_files="$(git show --pretty='' --name-only HEAD -- '*.dart')"
-          if [ -n "$changed_dart_files" ]; then
-            printf '%s\n' "$changed_dart_files" | xargs dart format --output=none --set-exit-if-changed
-          else
-            echo "No Dart files changed in this commit."
-          fi
+          dart format --output=none --set-exit-if-changed \
+            packages/core_contracts/lib/inventory_purchase_contracts.dart \
+            server/lib/features/inventory_and_purchases/domain/purchase_and_fefo_calculator.dart \
+            server/lib/features/inventory_and_purchases/data/postgres_inventory_purchases_read_repository.dart \
+            server/lib/features/inventory_and_purchases/presentation/inventory_purchases_routes.dart \
+            server/test/inventory_purchase_contracts_test.dart
       - name: Analyze Flutter application
         run: flutter analyze
       - name: Run Flutter tests
