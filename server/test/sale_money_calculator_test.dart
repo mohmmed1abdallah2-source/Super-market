@@ -13,9 +13,9 @@ void main() {
       expect(
         SaleMoneyCalculator.baseQuantity(
           quantity: '1.2500',
-          conversionFactor: '12',
+          conversionFactor: '12.000001',
         ).toFixedString(),
-        '15.0000',
+        '15.000001',
       );
     });
 
