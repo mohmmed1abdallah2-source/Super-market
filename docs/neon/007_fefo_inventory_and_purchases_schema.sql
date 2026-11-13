@@ -212,12 +212,12 @@ ALTER TABLE stock_movements
 
 -- sales_invoice_items is an existing child table; add its composite parent key
 -- before the first Iteration 3 table attempts to reference it.
-DO $
+DO $migration$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'sales_invoice_items_id_branch_key') THEN
     ALTER TABLE sales_invoice_items ADD CONSTRAINT sales_invoice_items_id_branch_key UNIQUE (id, branch_id);
   END IF;
-END $;
+END $migration$;
 
 CREATE TABLE IF NOT EXISTS sales_invoice_item_batches (
   id TEXT PRIMARY KEY DEFAULT (gen_random_uuid()::text),
