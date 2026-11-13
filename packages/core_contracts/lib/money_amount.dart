@@ -14,7 +14,7 @@ final class MoneyAmount implements Comparable<MoneyAmount> {
   /// The exact amount in ten-thousandths of the currency unit.
   final BigInt units;
 
-  static const MoneyAmount zero = MoneyAmount._(BigInt.zero);
+  static final MoneyAmount zero = MoneyAmount._(BigInt.zero);
 
   factory MoneyAmount.fromString(String value) {
     final input = value.trim();
