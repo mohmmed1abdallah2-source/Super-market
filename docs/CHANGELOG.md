@@ -86,3 +86,9 @@ The format follows Keep a Changelog. Version numbers will be assigned when relea
 - Added shared `MoneyAmount` using integer ten-thousandths, exact decimal-string parsing, explicit four-place precision rejection, and half-away-from-zero multiplication rounding.
 - Exported it through `core_contracts` and added unit tests.
 - Existing sale/voucher posting still uses `double`; migration is intentionally incomplete pending coordinated client/server integration and compatibility tests. Tests are authored, not yet run.
+
+### 2026-11-13 — Fixed-scale money parser and server test wiring
+- Corrected the `MoneyAmount` decimal regex so ordinary digit sequences are parsed correctly.
+- Added the shared `core_contracts` path dependency to the server package.
+- Added server-side unit tests for exact arithmetic, scale-four serialization, rounding and invalid precision.
+- The repository's sale and voucher posting paths still use `double`; tests are authored but unrun. No Neon or SQLite changes.
