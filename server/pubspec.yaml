@@ -5,6 +5,8 @@ publish_to: none
 environment:
   sdk: ">=3.3.0 <4.0.0"
 dependencies:
+  core_contracts:
+    path: ../packages/core_contracts
   crypto: ^3.0.6
   postgres: ^2.6.4
   shelf: ^1.4.2
