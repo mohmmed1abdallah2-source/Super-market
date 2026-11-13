@@ -201,3 +201,14 @@
 - **حدود هذه الدفعة:** الحاسبة pure domain فقط ولم توصل إلى SQL أو معاملة البيع الحية أو SQLite أو API أو المزامنة. لم تنشأ migrations 007/008 ولا واجهات أو تقارير الدورة الثالثة. كما أن نص البرومبت يذكر 14 جدولًا بينما يسرد 19 كيانًا ويتضمن stock_movements الموجود أصلًا في migration 001؛ يجب حل ذلك في تصميم migration 007 دون إنشاء جدول مكرر. مسارات Flutter الفعلية في المستودع تبدأ بـ `lib/` وليس `app/lib/`.
 - **التحقق:** تمت مراجعة المصدر فقط. لا يتوفر Dart أو Flutter في بيئة التنفيذ، لذلك لم تُشغل الاختبارات أو analyzer أو formatter. لم يتم تعديل Neon أو SQLite. لا ندعي نجاح CI أو جاهزية الإنتاج.
 - **Commits:** `0f72fdb37f4ab098c89b00aa2f85c4a0d0413ea0`, `de99bc28d4590ccf87b85c801d3e760a260bfc49`, `6072925e462007adc459c2f2ff587a573c8c6b9e`, `04aab46aa256b0aa6d69dc6c8b1f6799c6a3be07`, `041cecf4553442f0624e3c3375d0525c4dd91be8`.
+
+
+## 2026-11-13 — Iteration 3 schema milestone (source-only)
+
+- Added `docs/neon/007_fefo_inventory_and_purchases_schema.sql` and `docs/neon/008_inventory_branch_isolation_tests.sql` to `feature/multi-store-isolation-foundation`.
+- Migration 007 adds 18 new tables across warehouses, locations, fridge logs, FEFO batches, sale-batch allocations, stocktaking, disposals, transfers, purchase orders/invoices/returns and cost history. The listed movement ledger already exists from migration 001, so 007 extends it with optional warehouse/batch references and an append-only trigger instead of creating a duplicate.
+- Added composite branch-aware foreign keys and supporting indexes. Existing movement rows remain valid because the new references are nullable.
+- Added rollback-only SQL assertions for FEFO quantity, branch isolation, negative carton balance, and append-only movement enforcement.
+- **Not verified:** PostgreSQL syntax/execution, migration application, SQL assertions, or live Neon behavior. No Neon/production database was connected or modified. The SQL script must first be reviewed and run against a disposable PostgreSQL 18 database.
+- Server routes, purchase posting, sale FEFO transaction integration, sync operation extension, SQLite migration/engine, DTO/API client, Flutter UI, reports, and integration tests remain outstanding.
+- Commit: `6d3f2d4589753cf6dcc3500cd6b5d6bdec462104` — `fix(iteration-3): complete composite keys and cross-branch SQL assertions`.

@@ -127,3 +127,12 @@ The format follows Keep a Changelog. Version numbers will be assigned when relea
 - Added `docs/ITERATION_03_HANDOVER_AND_STATE.md` documenting the inspected baseline, implementation boundaries, test status, and exact next developer entry point.
 - This milestone does not add schema migrations, API routes, SQLite tables, UI, or sync operation types. The live sale transaction is not yet wired to FEFO.
 - Tests and analysis are authored/pending execution; no Neon or SQLite database was changed.
+
+
+## 2026-11-13 — Iteration 3 schema milestone
+
+- Added additive Neon migration `007_fefo_inventory_and_purchases_schema.sql` for warehouses, locations, FEFO batches, inventory operations, purchasing, and cost history.
+- Extended the existing `stock_movements` table rather than creating a parallel ledger; added append-only UPDATE/DELETE protection.
+- Added rollback-only SQL isolation test script `008_inventory_branch_isolation_tests.sql`.
+- Added branch-aware composite references and fixed the new parent-key order so referenced composite keys exist.
+- Verification: SQL files added to the work branch only. They have not been executed against PostgreSQL/Neon. No production data was changed. Runtime validation is pending PostgreSQL 18 / disposable database execution.

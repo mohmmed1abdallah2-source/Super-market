@@ -115,3 +115,8 @@ Added `server/lib/features/inventory_and_purchases/domain/purchase_and_fefo_calc
 - FEFO planning sorts by expiry date, creation time and ID; excludes expired/inactive batches; opens the minimum whole cartons needed; and reports any unallocated quantity rather than creating negative stock.
 
 The new helper is pure and is not connected to SQL, the live sale transaction, SQLite, or sync. It does not prove exact PostgreSQL NUMERIC string binding. Tests were authored in `server/test/purchase_and_fefo_calculator_test.dart` but were not executed because Dart/Flutter are not installed in the execution environment. Existing live sale and voucher paths still require their separately documented financial-precision migration.
+
+
+## Iteration 3 decimal persistence contract (schema source only, 2026-11-13)
+
+Migration 007 uses `NUMERIC(20,4)` for monetary totals/prices and `NUMERIC(20,6)` for base quantities, conversion factors, and unit costs, aligned with the currently documented scales of `MoneyAmount` and `ScaledDecimal`. JSON DTOs, API parsing, and PostgreSQL text round-trip behavior have not yet been implemented or verified for Iteration 3. The live sale path's existing `double` usage remains an independent open issue; adding this schema does not resolve it. Do not pass monetary/quantity JSON through a binary floating-point conversion when implementing the new routes.

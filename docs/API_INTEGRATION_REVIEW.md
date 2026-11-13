@@ -80,3 +80,8 @@
 - The actual Flutter paths are rooted at `lib/`, not `app/lib/`. The existing `OfficialReportTemplate.preview` is available at `lib/core/pdf/official_report_template.dart`.
 - Verification: source inspection completed; Dart/Flutter tools are unavailable in this execution environment, so new tests, analysis, and formatting were not run. No Neon/SQLite schema or data changed.
 - Iteration 3 remains in progress and is not production-ready. See `docs/ITERATION_03_HANDOVER_AND_STATE.md` for exact next steps and unimplemented scope.
+
+
+## Iteration 3 schema status (2026-11-13)
+
+Migration `docs/neon/007_fefo_inventory_and_purchases_schema.sql` and rollback-only verification script `docs/neon/008_inventory_branch_isolation_tests.sql` have been added to the work branch. They are source artifacts only; neither was executed against PostgreSQL/Neon. The existing API process, branch bearer-token middleware, PostgreSQL connection, sales repository, and all-or-nothing sync batch remain unchanged. Inventory/purchase routes and repository operations are still not implemented. Migration 007 extends the existing `stock_movements` ledger and must be reviewed on PostgreSQL 18 before use.

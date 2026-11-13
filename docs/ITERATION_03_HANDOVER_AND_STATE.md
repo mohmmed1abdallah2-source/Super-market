@@ -71,7 +71,7 @@ Added unit tests for bonus quantity arithmetic, line discount validation, weight
 
 ## 4. Not implemented yet — do not represent as complete
 
-- Neon migration `007` and rollback-only SQL isolation tests `008`.
+- Created additive Neon migration `007` and rollback-only SQL isolation tests `008` on the work branch. They have **not** been executed against PostgreSQL/Neon; review and disposable-database execution remain required.
 - Warehouse, aisle/shelf, fridge temperature, FEFO batch, stocktaking, disposal, transfer, purchase order/invoice/return, and cost-history persistence.
 - Immutable append-only enforcement for PostgreSQL and SQLite stock movements.
 - Server repositories, use cases, and inventory/purchase routes.
@@ -94,7 +94,7 @@ Added unit tests for bonus quantity arithmetic, line discount validation, weight
 | New Dart tests authored | Yes |
 | New Dart tests executed | No |
 | Dart analyzer / formatter | Not run |
-| PostgreSQL migration 007 / SQL tests 008 | Not created or run |
+| PostgreSQL migration 007 / SQL tests 008 | Created in source; not executed |
 | Neon database modified | No |
 | SQLite schema/data modified | No |
 | Server API or live sale transaction modified | No |
@@ -123,3 +123,13 @@ Do not change any of these statuses without new execution evidence.
 - `04aab46aa256b0aa6d69dc6c8b1f6799c6a3be07` — tightened FEFO batch bounds and scale validation.
 
 These commits are on `feature/multi-store-isolation-foundation`. No changes were made to `main`.
+
+
+## 8. Iteration 3 schema milestone — 2026-11-13
+
+- Added `docs/neon/007_fefo_inventory_and_purchases_schema.sql` on `feature/multi-store-isolation-foundation`.
+- Added `docs/neon/008_inventory_branch_isolation_tests.sql` with rollback-only assertions for generated FEFO quantity, cross-branch warehouse/supplier/batch references, negative carton balance, and append-only stock movements.
+- Migration 007 creates warehouses, aisle/shelf locations, fridge temperature logs, FEFO batches, sales-item batch allocations, stocktaking sessions/lines, disposals/items, transfers/items, purchase orders/items, purchase invoices/items, purchase returns/items, and cost history. It extends the existing `stock_movements` table; it does not create a duplicate movement table.
+- Composite branch-aware keys are added for the new relationships. Existing `stock_movements` receives nullable warehouse/batch references to preserve all historical rows.
+- No production database was contacted or changed. SQL 008 has not been executed. CI workflow run 16 was observed as in progress at handover time; no result is claimed here.
+- **Next:** inspect SQL syntax and constraints with PostgreSQL 18, execute 008 on a disposable database, then implement server repositories/use cases/routes and the transactional FEFO integration. Do not begin UI wiring until server and local persistence contracts are stable.
