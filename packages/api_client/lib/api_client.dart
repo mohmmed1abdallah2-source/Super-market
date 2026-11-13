@@ -352,7 +352,7 @@ class ApiClient {
     _requireIdempotencyKey(idempotencyKey);
     final json = await _send(
       'POST',
-      '/v1/inventory/stocktaking/' + Uri.encodeComponent(sessionId) + '/approve',
+      '/v1/inventory/stocktaking/${Uri.encodeComponent(sessionId)}/approve',
       body: request,
       idempotencyKey: idempotencyKey,
       expectedStatuses: const {200, 201},

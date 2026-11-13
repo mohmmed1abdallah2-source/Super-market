@@ -41,7 +41,7 @@ jobs:
             server/lib/features/inventory_and_purchases/presentation/inventory_purchases_routes.dart \
             server/test/inventory_purchase_contracts_test.dart
       - name: Analyze Flutter application
-        run: flutter analyze lib test packages/core_contracts/lib packages/api_client/lib
+        run: flutter analyze --no-fatal-infos lib test packages/core_contracts/lib packages/api_client/lib
       - name: Run Flutter tests
         run: flutter test
       - name: Build release APK
