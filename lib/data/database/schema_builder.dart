@@ -1,7 +1,7 @@
 import 'package:sqflite/sqflite.dart';
 import 'iteration3_inventory_schema.dart';
 
-/// Owns the version-one SQLite schema, indexes and derived balance view.
+/// Owns the versioned SQLite schema, indexes and derived balance view.
 class SchemaBuilder {
   SchemaBuilder._();
 
