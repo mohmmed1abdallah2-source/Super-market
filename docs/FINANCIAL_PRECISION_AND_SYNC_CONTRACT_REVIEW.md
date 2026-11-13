@@ -103,3 +103,15 @@ Added `packages/core_contracts/test/scaled_decimal_test.dart` for six-place conv
 **Integration status:** `ScaledDecimal` and the corrected calculator remain domain/test foundations; `PostgresSalesSyncRepository._applySale` still uses `double`. The current API JSON numeric decoding may already have converted numeric literals to `double`; string decimal inputs are needed to preserve their original decimal digits. The driver documentation shows named substitution parameters but does not establish exact numeric-string binding for this code path. Do not wire the live transaction until an actual PostgreSQL integration test proves NUMERIC parameter binding and round-trip behavior, and the API amount contract is explicitly settled.
 
 **Verification:** tests were authored but not run in this environment; no CI pass is claimed. No Neon, SQLite, migration, or live transaction changes were made. The financial precision release blocker remains open.
+
+
+## 2026-11-13 — Iteration 3 pure purchase/FEFO calculations
+
+Added `server/lib/features/inventory_and_purchases/domain/purchase_and_fefo_calculator.dart`:
+
+- Purchase paid/bonus quantities use scale 4, conversion factors and base quantities use scale 6, and money uses scale 4.
+- Purchase line calculation excludes bonus packs from the paid amount while including them in received stock; it calculates effective pack/base costs and validates discounts.
+- Weighted average base-unit cost uses six-place stock/cost representation and explicit four-place extended-money rounding before division.
+- FEFO planning sorts by expiry date, creation time and ID; excludes expired/inactive batches; opens the minimum whole cartons needed; and reports any unallocated quantity rather than creating negative stock.
+
+The new helper is pure and is not connected to SQL, the live sale transaction, SQLite, or sync. It does not prove exact PostgreSQL NUMERIC string binding. Tests were authored in `server/test/purchase_and_fefo_calculator_test.dart` but were not executed because Dart/Flutter are not installed in the execution environment. Existing live sale and voucher paths still require their separately documented financial-precision migration.
