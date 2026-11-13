@@ -69,3 +69,14 @@
 ## 4. Release status
 
 **Not production-ready.** The repository has a useful branch-scoped single-database API foundation and source-level transaction paths, but the approved multi-store isolation architecture is not implemented. No deployment, live Neon sale, complete sync acceptance, or production restore is claimed by this review.
+
+
+## 2026-11-13 — Iteration 3 inventory/purchase foundation review
+
+- Added a pure server-domain calculation layer at `server/lib/features/inventory_and_purchases/domain/purchase_and_fefo_calculator.dart` for purchase bonus arithmetic, weighted-average base cost, FEFO ordering, and carton-opening plans.
+- The FEFO planner is deliberately not wired into `PostgresSalesSyncRepository._applySale`. It produces an allocation plan only; callers must lock batch rows and apply movements within the existing sale transaction.
+- Existing `processBatch` still supports only `PARTY_CREATE`, `SALE_INVOICE`, and `VOUCHER`. Inventory/purchase operation types, routes, repositories, and queue mappings are not implemented in this milestone.
+- No parallel server, PostgreSQL connection, auth scheme, or sync endpoint was introduced. No existing sync semantics were changed.
+- The actual Flutter paths are rooted at `lib/`, not `app/lib/`. The existing `OfficialReportTemplate.preview` is available at `lib/core/pdf/official_report_template.dart`.
+- Verification: source inspection completed; Dart/Flutter tools are unavailable in this execution environment, so new tests, analysis, and formatting were not run. No Neon/SQLite schema or data changed.
+- Iteration 3 remains in progress and is not production-ready. See `docs/ITERATION_03_HANDOVER_AND_STATE.md` for exact next steps and unimplemented scope.
