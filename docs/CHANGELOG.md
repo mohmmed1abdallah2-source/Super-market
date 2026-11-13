@@ -112,3 +112,10 @@ The format follows Keep a Changelog. Version numbers will be assigned when relea
 - Added shared-package tests and expanded server calculator coverage for six-place conversion and signed half-away-from-zero rounding.
 - This supersedes the earlier helper-only assumption that base quantities and inventory costs could be represented at scale four.
 - The live `_applySale` transaction still uses `double`; no API, SQLite, Neon, or migration changes were made. PostgreSQL exact NUMERIC binding is not yet proven by an integration test. Tests are authored but unrun; financial precision remains an open release blocker.
+
+ 
+### 2026-11-13 — Delivery gates
+- Added `.github/workflows/delivery-gates.yml` for Flutter Android dependency resolution, formatting, analysis, tests, release APK artifact, and Dart API analysis/tests.
+- Workflow targets only `feature/multi-store-isolation-foundation` pushes and pull requests, plus manual dispatch.
+- Workflow has been added but has not run yet; no CI pass or APK artifact is claimed.
+- Recorded a three-day delivery closeout plan and retained existing owner-reported Neon SQL test results without rerunning them.
