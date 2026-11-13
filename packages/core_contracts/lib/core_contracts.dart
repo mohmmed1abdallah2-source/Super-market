@@ -1,5 +1,6 @@
 export 'money_amount.dart';
 export 'scaled_decimal.dart';
+export 'inventory_purchase_contracts.dart';
 
 import 'dart:convert';
 
