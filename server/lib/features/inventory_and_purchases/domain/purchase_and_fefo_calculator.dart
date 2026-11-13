@@ -68,7 +68,6 @@ abstract final class PurchaseMoneyCalculator {
       effectivePackCost: _divideMoneyByQuantity(
         lineTotal,
         paid + bonus,
-        quantityScale,
       ),
       effectiveBaseCost: _divideMoneyByQuantityAsDecimal(
         lineTotal,
@@ -224,14 +223,21 @@ abstract final class FefoAllocationPlanner {
       throw const FormatException('Required sale quantity must be positive.');
     }
 
-    final eligible = batches.where((batch) =>
+    final allBatches = batches.toList(growable: false);
+    for (final batch in allBatches) {
+      if (batch.packConversionFactor.scale != requiredBaseQuantity.scale ||
+          batch.looseBaseQuantity.scale != requiredBaseQuantity.scale) {
+        throw ArgumentError('FEFO quantities and pack factors must use the same scale.');
+      }
+      if (batch.sealedCartons < 0 || batch.packConversionFactor.isNegative ||
+          batch.packConversionFactor.isZero || batch.looseBaseQuantity.isNegative ||
+          batch.looseBaseQuantity.compareTo(batch.packConversionFactor) >= 0) {
+        throw const FormatException('FEFO batch balance is invalid.');
+      }
+    }
+    final eligible = allBatches.where((batch) =>
         batch.active &&
         !batch.expiryDate.isBefore(DateTime(businessDate.year, businessDate.month, businessDate.day)) &&
-        batch.sealedCartons >= 0 &&
-        !batch.looseBaseQuantity.isNegative &&
-        batch.looseBaseQuantity.compareTo(batch.packConversionFactor) < 0 &&
-        !batch.packConversionFactor.isNegative &&
-        !batch.packConversionFactor.isZero &&
         !batch.totalBaseQuantity.isZero).toList()
       ..sort((a, b) {
         final expiry = a.expiryDate.compareTo(b.expiryDate);
