@@ -210,6 +210,15 @@ ALTER TABLE stock_movements
   ADD COLUMN IF NOT EXISTS reference_no VARCHAR(100),
   ADD COLUMN IF NOT EXISTS notes TEXT NOT NULL DEFAULT '';
 
+-- sales_invoice_items is an existing child table; add its composite parent key
+-- before the first Iteration 3 table attempts to reference it.
+DO $
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'sales_invoice_items_id_branch_key') THEN
+    ALTER TABLE sales_invoice_items ADD CONSTRAINT sales_invoice_items_id_branch_key UNIQUE (id, branch_id);
+  END IF;
+END $;
+
 CREATE TABLE IF NOT EXISTS sales_invoice_item_batches (
   id TEXT PRIMARY KEY DEFAULT (gen_random_uuid()::text),
   branch_id TEXT NOT NULL REFERENCES branches(id) ON DELETE RESTRICT,
