@@ -98,3 +98,8 @@ Added `PostgresInventoryPurchasesReadRepository` and `InventoryPurchasesRoutes`.
 - `GET /v1/purchases/shortages`
 
 They reuse the existing branch bearer-token map and require `X-Branch-Id`; repository SQL filters on that branch. Matching typed client reads and DTOs have been added. Purchase/return/stocktake/disposal/transfer client write methods are contracts only at this point: server write handlers, posting transactions, sync-batch integration, and SQLite local-first persistence remain outstanding. Do not treat these write methods as production-ready.
+
+
+## Local SQLite status (2026-11-13)
+
+The app schema is now version 2 with an additive v1→v2 migration in `Iteration3InventorySchema`. New local inventory/purchase tables and exact decimal TEXT fields are present in source; the old REAL columns remain for backward compatibility. Local purchase/stocktake/disposal/transfer transaction services, queue payload creation and sync acknowledgment behavior are not implemented yet. The local schema test is added; its Flutter test run is pending final CI result.

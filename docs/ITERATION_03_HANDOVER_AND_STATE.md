@@ -165,3 +165,14 @@ These commits are on `feature/multi-store-isolation-foundation`. No changes were
 - Flutter providers, screens, app navigation, POS batch/expiry warnings, purchase workflows, shortage-to-order workflow.
 - Official PDF reports using `OfficialReportTemplate`.
 - Full end-to-end tests, Flutter test suite and APK build.
+
+
+## 10. SQLite local schema milestone — 2026-11-13
+
+- Added `lib/data/database/iteration3_inventory_schema.dart`.
+- Increased `SchemaBuilder.version` from 1 to 2 and wired `DatabaseHelper.onUpgrade` to an additive v1→v2 migration.
+- Added local tables for warehouses, locations, fridge temperature logs, purchase orders/invoices/returns, FEFO batches, sales-item batch allocations, stocktaking, disposals, transfers and cost history.
+- Extended existing local `stock_movements` with optional warehouse/batch/reference/note columns; no replacement movement table was introduced.
+- Added exact TEXT snapshot columns to products for new inventory quantity/cost handling while retaining legacy REAL columns for existing POS compatibility. These exact columns are not yet maintained by the legacy sale path; do not treat them as fully authoritative until sale integration is completed.
+- Added `test/iteration3_inventory_schema_test.dart` to verify fresh schema creation and the new columns.
+- The Dart server and shared-contract analyzer/tests pass in CI on the latest validation run. Flutter analyze/test/Android build for the SQLite schema commit are still running or have not yet produced a final result; do not claim success until the run concludes.

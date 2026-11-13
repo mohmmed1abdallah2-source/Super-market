@@ -224,3 +224,14 @@
 - Added read-only branch-scoped server endpoints and matching client reads for warehouses, locations, batches, stock movements, stocktaking sessions and shortage suggestions.
 - CI: server `dart analyze` and `dart test` passed after the shared-contract/calculator fixes and again with the read repository/routes. PostgreSQL schema workflow passed. Flutter formatting gate was failing on pre-existing and newly added file formatting; it was narrowed to Iteration 3 files and made non-blocking so Flutter analyze/tests/build can run in the next CI attempt. No Flutter analyze/test/build result is claimed here.
 - Still pending: purchase posting and returns, FEFO integration into live sale transaction, sync-batch operations, SQLite upgrade/local engine, write APIs, providers/screens, POS alerts, fridge logs, official reports and end-to-end tests.
+
+
+## 2026-11-13 — SQLite Iteration 3 schema
+
+- Added `lib/data/database/iteration3_inventory_schema.dart` and wired it into `SchemaBuilder.version = 2` and `DatabaseHelper.onUpgrade`.
+- Added branch-aware local tables for warehouse/location, fridge log, FEFO batch, purchase order/invoice/return, stocktaking, disposal, transfer, sale-item batch allocation and cost history.
+- Added local TEXT decimal columns for exact stock and unit-cost snapshots while retaining existing REAL fields to preserve backward compatibility.
+- Extended existing local `stock_movements` columns in place; did not create a parallel ledger.
+- Added `test/iteration3_inventory_schema_test.dart`.
+- CI on the current branch reports server analyze/tests and shared contract tests successful. Flutter analyze/test/build for the SQLite schema change has not yet returned a final result at log time.
+- Important limitation: the existing sale path still mutates legacy REAL stock and has not been integrated with FEFO batches or the exact TEXT snapshots. Do not use the new local inventory schema as a complete operational feature until the transaction engine and queue integration are implemented.

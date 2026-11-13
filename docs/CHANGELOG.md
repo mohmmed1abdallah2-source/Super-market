@@ -146,3 +146,11 @@ The format follows Keep a Changelog. Version numbers will be assigned when relea
 - Fixed the malformed duplicate source tail in `MoneyAmount`, the zero-value constant evaluation, and purchase-line money arithmetic type mismatch.
 - Added branch-scoped read repository/routes for warehouses, locations, batches, movements, stocktaking sessions and shortage suggestions.
 - Added corresponding API client methods. Write methods currently have client contracts only; server writes, sync integration and SQLite integration are pending.
+
+
+## 2026-11-13 — SQLite Iteration 3 schema
+
+- Added additive SQLite schema v2 for local warehouses, locations, FEFO batches, purchase documents, stocktaking, disposals, transfers, fridge logs and cost history.
+- Added exact TEXT quantity/cost columns while preserving the legacy REAL columns and existing data.
+- Added an additive v1→v2 upgrade path and a fresh-schema test.
+- Validation: server and shared-contract CI tests passed; final Flutter analyze/test/build result for this commit is pending.

@@ -335,3 +335,20 @@
 - اليوم 3: إعادة تشغيل الاختبارات المتأثرة فقط، بناء artifact نهائي، وتسجيل قائمة ما اجتاز وما لم يُختبر وما يمنع الإطلاق.
 - مخاطر تسليم معروفة لا يجوز إخفاؤها: لا يوجد حتى الآن إثبات أن تعدد المتاجر بقاعدة مستقلة لكل متجر منفذ runtime؛ API ما زال موثقًا كاتصال branch-scoped بقاعدة واحدة؛ الحسابات المالية الحية في `_applySale` ما زالت تستخدم `double`؛ اختبارات `ScaledDecimal` والحاسبة أُضيفت ولم يثبت تشغيلها بعد؛ إعداد Firebase الفعلي ونشر قواعده لم يثبتا؛ Web يحتاج تحققًا مستقلًا من التخزين والبناء.
 - لن تُجرى تغييرات على قاعدة بيانات Neon أو قاعدة SQLite الحية ضمن بوابات CI.
+
+
+## Iteration 3 status update — 2026-11-13
+
+Completed foundations:
+- PostgreSQL migration 007 and rollback-only SQL verification 008 pass in disposable PostgreSQL 18.7 CI.
+- Decimal-safe inventory/purchase DTOs and server purchase/FEFO calculator tests pass in Dart CI.
+- Branch-scoped read API exists for warehouses, locations, batches, stock movements, stocktaking sessions and shortage suggestions.
+- SQLite schema v2 and additive v1→v2 upgrade path have been added; Flutter test/build validation is pending.
+
+Still outstanding before Iteration 3 can be called complete:
+- Transactional purchase invoice/return posting and supplier accounting.
+- FEFO batch locking/allocation in the live sale transaction and sales item batch records.
+- Sync-batch operation support, stable local operation IDs and retry/ack handling for new inventory operations.
+- Local-first purchase/stocktake/disposal/transfer services.
+- Write APIs, providers, screens, POS warnings, fridge temperature workflow and official PDF reports.
+- Full integration and concurrency tests, Flutter tests and Android release build.

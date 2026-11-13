@@ -125,3 +125,8 @@ Migration 007 uses `NUMERIC(20,4)` for monetary totals/prices and `NUMERIC(20,6)
 ## Iteration 3 contracts update (2026-11-13)
 
 The new inventory/purchase DTO layer serializes money and measured quantities as decimal strings and rejects floating-point JSON values. Purchase-line calculation now multiplies paid quantity using `MoneyAmount` at scale 4 and computes stock quantities/costs with `ScaledDecimal` at scale 6. Server analyzer/tests passed after this correction. The existing live sales `_applySale` still uses `double`; the Iteration 3 calculator and DTO work do not migrate that path or resolve the earlier sales precision release blocker.
+
+
+## SQLite decimal storage update (2026-11-13)
+
+Iteration 3 adds exact decimal TEXT columns for product stock/cost snapshots and stores new batch, purchase and inventory quantities/costs as TEXT. Existing REAL columns are retained to avoid a destructive rewrite and preserve the current POS contract. At present the existing sale engine still updates the legacy REAL stock field only; the exact columns must be maintained as part of the upcoming unified local transaction/FEFO integration. No claim is made that the full application has switched to exact arithmetic.
