@@ -10,6 +10,10 @@ DECLARE
   w1 TEXT := 'it3-test-warehouse-a-' || gen_random_uuid()::text;
   w2 TEXT := 'it3-test-warehouse-b-' || gen_random_uuid()::text;
   p1 TEXT := 'it3-test-product-a-' || gen_random_uuid()::text;
+  p2 TEXT := 'it3-test-product-b-' || gen_random_uuid()::text;
+  w3 TEXT := 'it3-test-warehouse-a2-' || gen_random_uuid()::text;
+  batch2 TEXT := 'it3-test-batch-b-' || gen_random_uuid()::text;
+  transfer1 TEXT := 'it3-test-transfer-a-' || gen_random_uuid()::text;
   party1 TEXT := 'it3-test-supplier-a-' || gen_random_uuid()::text;
   party2 TEXT := 'it3-test-supplier-b-' || gen_random_uuid()::text;
   po1 TEXT := 'it3-test-po-a-' || gen_random_uuid()::text;
@@ -23,10 +27,12 @@ BEGIN
 
   INSERT INTO warehouses(id, branch_id, code, name_ar, warehouse_type)
   VALUES (w1, b1, 'WH-A', 'مخزن A', 'BACKROOM'),
-         (w2, b2, 'WH-B', 'مخزن B', 'BACKROOM');
+         (w2, b2, 'WH-B', 'مخزن B', 'BACKROOM'),
+         (w3, b1, 'WH-A2', 'صالة A', 'SALES_FLOOR');
 
   INSERT INTO products(id, branch_id, sku_code, name_ar, base_unit_name)
-  VALUES (p1, b1, 'SKU-' || substr(md5(p1),1,8), 'صنف اختبار', 'حبة');
+  VALUES (p1, b1, 'SKU-' || substr(md5(p1),1,8), 'صنف اختبار A', 'حبة'),
+         (p2, b2, 'SKU-' || substr(md5(p2),1,8), 'صنف اختبار B', 'حبة');
 
   INSERT INTO parties(id, branch_id, party_type, code, name_ar)
   VALUES (party1, b1, 'SUPPLIER', 'SUP-' || substr(md5(party1),1,8), 'مورد A'),
@@ -40,6 +46,14 @@ BEGIN
     id, branch_id, product_id, warehouse_id, batch_no, expiry_date,
     pack_conversion_factor, sealed_cartons, loose_base_qty
   ) VALUES (batch1, b1, p1, w1, 'LOT-OK', CURRENT_DATE + 30, 24, 2, 0);
+
+  INSERT INTO product_batches_fefo(
+    id, branch_id, product_id, warehouse_id, batch_no, expiry_date,
+    pack_conversion_factor, sealed_cartons, loose_base_qty
+  ) VALUES (batch2, b2, p2, w2, 'LOT-B', CURRENT_DATE + 30, 24, 1, 0);
+
+  INSERT INTO stock_transfers(id, branch_id, transfer_no, source_warehouse_id, destination_warehouse_id)
+  VALUES (transfer1, b1, 'TR-' || substr(md5(transfer1),1,8), w1, w3);
 
   INSERT INTO stock_movements(
     id, branch_id, product_id, movement_type, quantity_base, unit_cost_base, doc_type, doc_id, warehouse_id, product_batch_id
@@ -98,10 +112,10 @@ BEGIN
     NULL;
   END;
 
-  -- Ensure no branch-scoped child can be linked to another branch's batch.
+  -- A branch-A transfer cannot consume a branch-B batch.
   BEGIN
     INSERT INTO stock_transfer_items(id, branch_id, transfer_id, product_batch_id, qty_base)
-    VALUES ('cross-item-' || gen_random_uuid()::text, b1, 'missing-transfer', 'missing-batch', 1);
+    VALUES ('cross-item-' || gen_random_uuid()::text, b1, transfer1, batch2, 1);
     RAISE EXCEPTION 'FAIL: invalid transfer item was accepted';
   EXCEPTION WHEN foreign_key_violation THEN
     NULL;

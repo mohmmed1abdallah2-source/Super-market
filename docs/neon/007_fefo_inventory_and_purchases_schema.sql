@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS warehouses (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (branch_id, id),
+  UNIQUE (id, branch_id),
   UNIQUE (branch_id, code)
 );
 
@@ -45,6 +46,7 @@ CREATE TABLE IF NOT EXISTS aisle_shelf_locations (
   is_active BOOLEAN NOT NULL DEFAULT TRUE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (branch_id, id),
+  UNIQUE (id, branch_id),
   UNIQUE (branch_id, warehouse_id, code),
   FOREIGN KEY (warehouse_id, branch_id)
     REFERENCES warehouses(id, branch_id) ON DELETE RESTRICT
@@ -61,6 +63,7 @@ CREATE TABLE IF NOT EXISTS fridge_temp_logs (
   note TEXT NOT NULL DEFAULT '',
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (branch_id, id),
+  UNIQUE (id, branch_id),
   FOREIGN KEY (warehouse_id, branch_id)
     REFERENCES warehouses(id, branch_id) ON DELETE RESTRICT,
   FOREIGN KEY (location_id, branch_id)
@@ -82,6 +85,7 @@ CREATE TABLE IF NOT EXISTS purchase_orders (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (branch_id, id),
+  UNIQUE (id, branch_id),
   UNIQUE (branch_id, order_no),
   FOREIGN KEY (supplier_party_id, branch_id)
     REFERENCES parties(id, branch_id) ON DELETE RESTRICT
@@ -99,6 +103,7 @@ CREATE TABLE IF NOT EXISTS purchase_order_items (
   notes TEXT NOT NULL DEFAULT '',
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (branch_id, id),
+  UNIQUE (id, branch_id),
   FOREIGN KEY (purchase_order_id, branch_id)
     REFERENCES purchase_orders(id, branch_id) ON DELETE RESTRICT,
   FOREIGN KEY (product_id, branch_id)
@@ -127,6 +132,7 @@ CREATE TABLE IF NOT EXISTS purchase_invoices (
   notes TEXT NOT NULL DEFAULT '',
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (branch_id, id),
+  UNIQUE (id, branch_id),
   UNIQUE (branch_id, invoice_no),
   UNIQUE (branch_id, operation_id),
   FOREIGN KEY (supplier_party_id, branch_id)
@@ -156,6 +162,7 @@ CREATE TABLE IF NOT EXISTS purchase_invoice_items (
   effective_base_cost NUMERIC(20,6) NOT NULL CHECK (effective_base_cost >= 0),
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (branch_id, id),
+  UNIQUE (id, branch_id),
   FOREIGN KEY (purchase_invoice_id, branch_id)
     REFERENCES purchase_invoices(id, branch_id) ON DELETE RESTRICT,
   FOREIGN KEY (product_id, branch_id)
@@ -184,6 +191,7 @@ CREATE TABLE IF NOT EXISTS product_batches_fefo (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (branch_id, id),
+  UNIQUE (id, branch_id),
   UNIQUE (branch_id, product_id, warehouse_id, batch_no),
   FOREIGN KEY (product_id, branch_id)
     REFERENCES products(id, branch_id) ON DELETE RESTRICT,
@@ -211,6 +219,7 @@ CREATE TABLE IF NOT EXISTS sales_invoice_item_batches (
   cartons_opened INTEGER NOT NULL DEFAULT 0 CHECK (cartons_opened >= 0),
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (branch_id, id),
+  UNIQUE (id, branch_id),
   FOREIGN KEY (sales_invoice_item_id, branch_id)
     REFERENCES sales_invoice_items(id, branch_id) ON DELETE RESTRICT,
   FOREIGN KEY (product_batch_id, branch_id)
@@ -231,6 +240,7 @@ CREATE TABLE IF NOT EXISTS stocktaking_sessions (
   approved_by_user_id TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (branch_id, id),
+  UNIQUE (id, branch_id),
   UNIQUE (branch_id, session_no),
   FOREIGN KEY (warehouse_id, branch_id)
     REFERENCES warehouses(id, branch_id) ON DELETE RESTRICT,
@@ -255,6 +265,7 @@ CREATE TABLE IF NOT EXISTS stocktaking_lines (
   counted_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (branch_id, id),
+  UNIQUE (id, branch_id),
   FOREIGN KEY (session_id, branch_id)
     REFERENCES stocktaking_sessions(id, branch_id) ON DELETE RESTRICT,
   FOREIGN KEY (product_id, branch_id)
@@ -277,6 +288,7 @@ CREATE TABLE IF NOT EXISTS disposals (
   journal_entry_id TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (branch_id, id),
+  UNIQUE (id, branch_id),
   UNIQUE (branch_id, disposal_no),
   FOREIGN KEY (warehouse_id, branch_id)
     REFERENCES warehouses(id, branch_id) ON DELETE RESTRICT,
@@ -296,6 +308,7 @@ CREATE TABLE IF NOT EXISTS disposal_items (
   reason_note TEXT NOT NULL DEFAULT '',
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (branch_id, id),
+  UNIQUE (id, branch_id),
   FOREIGN KEY (disposal_id, branch_id)
     REFERENCES disposals(id, branch_id) ON DELETE RESTRICT,
   FOREIGN KEY (product_batch_id, branch_id)
@@ -314,6 +327,7 @@ CREATE TABLE IF NOT EXISTS stock_transfers (
   notes TEXT NOT NULL DEFAULT '',
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (branch_id, id),
+  UNIQUE (id, branch_id),
   UNIQUE (branch_id, transfer_no),
   CHECK (source_warehouse_id <> destination_warehouse_id),
   FOREIGN KEY (source_warehouse_id, branch_id)
@@ -331,6 +345,7 @@ CREATE TABLE IF NOT EXISTS stock_transfer_items (
   cartons_moved INTEGER NOT NULL DEFAULT 0 CHECK (cartons_moved >= 0),
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (branch_id, id),
+  UNIQUE (id, branch_id),
   FOREIGN KEY (transfer_id, branch_id)
     REFERENCES stock_transfers(id, branch_id) ON DELETE RESTRICT,
   FOREIGN KEY (product_batch_id, branch_id)
@@ -352,6 +367,7 @@ CREATE TABLE IF NOT EXISTS purchase_returns (
   notes TEXT NOT NULL DEFAULT '',
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (branch_id, id),
+  UNIQUE (id, branch_id),
   UNIQUE (branch_id, return_no),
   UNIQUE (branch_id, operation_id),
   FOREIGN KEY (purchase_invoice_id, branch_id)
@@ -372,6 +388,7 @@ CREATE TABLE IF NOT EXISTS purchase_return_items (
   line_total NUMERIC(20,4) NOT NULL CHECK (line_total >= 0),
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (branch_id, id),
+  UNIQUE (id, branch_id),
   FOREIGN KEY (purchase_return_id, branch_id)
     REFERENCES purchase_returns(id, branch_id) ON DELETE RESTRICT,
   FOREIGN KEY (purchase_invoice_item_id, branch_id)
@@ -393,6 +410,7 @@ CREATE TABLE IF NOT EXISTS price_cost_history (
   effective_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (branch_id, id),
+  UNIQUE (id, branch_id),
   FOREIGN KEY (product_id, branch_id)
     REFERENCES products(id, branch_id) ON DELETE RESTRICT,
   FOREIGN KEY (unit_id, branch_id)
