@@ -1,10 +1,11 @@
 import 'package:core_contracts/core_contracts.dart';
 
-/// Exact fixed-scale calculations used by the server's sale-posting path.
+/// Exact field-scale calculations for the server's sale-posting domain.
 ///
-/// Quantities and conversion factors are represented at scale four, matching
-/// the current PostgreSQL numeric columns. Monetary values never pass through
-/// binary floating-point arithmetic in these helpers.
+/// Monetary values use scale four. Sale quantities use scale four, while
+/// conversion factors and base inventory quantities use scale six, matching
+/// migrations 001 and 002. This helper is not yet wired into the repository's
+/// live SQL transaction.
 final class SaleMoneyCalculator {
   const SaleMoneyCalculator._();
 
@@ -14,20 +15,33 @@ final class SaleMoneyCalculator {
   static MoneyAmount lineTotal({
     required Object? quantity,
     required Object? unitPrice,
-  }) =>
-      amount(quantity).multiply(amount(unitPrice));
+  }) {
+    final qty = ScaledDecimal.parse(quantity, scale: 4);
+    final price = ScaledDecimal.parse(unitPrice, scale: 4);
+    final total = qty.multiply(price, resultScale: 4);
+    return MoneyAmount.parse(total.toFixedString());
+  }
 
-  static MoneyAmount baseQuantity({
+  static ScaledDecimal baseQuantity({
     required Object? quantity,
     required Object? conversionFactor,
-  }) =>
-      amount(quantity).multiply(amount(conversionFactor));
+  }) {
+    final qty = ScaledDecimal.parse(quantity, scale: 4);
+    final factor = ScaledDecimal.parse(conversionFactor, scale: 6);
+    return qty.multiply(factor, resultScale: 6);
+  }
 
   static MoneyAmount inventoryCost({
     required Object? baseQuantity,
     required Object? averageUnitCost,
-  }) =>
-      amount(baseQuantity).multiply(amount(averageUnitCost));
+  }) {
+    final quantity = baseQuantity is ScaledDecimal
+        ? baseQuantity
+        : ScaledDecimal.parse(baseQuantity, scale: 6);
+    final unitCost = ScaledDecimal.parse(averageUnitCost, scale: 6);
+    final cost = quantity.multiply(unitCost, resultScale: 4);
+    return MoneyAmount.parse(cost.toFixedString());
+  }
 
   static MoneyAmount sum(Iterable<MoneyAmount> values) =>
       values.fold(MoneyAmount.zero, (total, value) => total + value);
