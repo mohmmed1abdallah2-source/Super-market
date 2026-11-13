@@ -90,3 +90,16 @@ A follow-up source/schema inspection was completed before wiring the helper into
 **Decision:** do not partially wire `MoneyAmount` into `_applySale`. First introduce a scale-aware decimal representation for six-place quantities/conversion and four-place money, define the rounding boundary for quantity×conversion and base-cost×unit-cost, and verify exact `NUMERIC` parameter binding against PostgreSQL. Preserve the current API shape and schema until those tests pass.
 
 **Verification:** source/schema inspection only; no Dart tests, PostgreSQL integration tests, Neon SQL, SQLite changes, or runtime posting were performed. The financial precision release blocker remains open.
+
+
+## 2026-11-13 — Scale-aware decimal foundation
+
+Added `ScaledDecimal` to `packages/core_contracts/lib/scaled_decimal.dart` and exported it from the package barrel. It stores decimal values as `BigInt` units with an explicit scale, rejects excess fractional digits, requires matching scales for addition/subtraction/comparison, and requires callers to specify the multiplication result scale. Multiplication uses explicit half-away-from-zero rounding.
+
+The server-side `SaleMoneyCalculator` was corrected to follow the actual migration scales: sale quantity and unit price are parsed at scale four; conversion factors and base quantities at scale six; line totals at scale four; inventory cost is rounded explicitly to scale four after multiplying six-place base quantity by six-place average unit cost. This corrects the earlier helper-only assumption that all quantity and cost inputs could use scale four.
+
+Added `packages/core_contracts/test/scaled_decimal_test.dart` for six-place conversion, four-place line totals, positive/negative half-unit rounding, precision rejection, mixed-scale rejection, and JSON numeric parsing. Updated `server/test/sale_money_calculator_test.dart` to cover six-place conversion factors.
+
+**Integration status:** `ScaledDecimal` and the corrected calculator remain domain/test foundations; `PostgresSalesSyncRepository._applySale` still uses `double`. The current API JSON numeric decoding may already have converted numeric literals to `double`; string decimal inputs are needed to preserve their original decimal digits. The driver documentation shows named substitution parameters but does not establish exact numeric-string binding for this code path. Do not wire the live transaction until an actual PostgreSQL integration test proves NUMERIC parameter binding and round-trip behavior, and the API amount contract is explicitly settled.
+
+**Verification:** tests were authored but not run in this environment; no CI pass is claimed. No Neon, SQLite, migration, or live transaction changes were made. The financial precision release blocker remains open.
