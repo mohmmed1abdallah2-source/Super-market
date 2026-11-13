@@ -18,7 +18,7 @@ final class MoneyAmount implements Comparable<MoneyAmount> {
 
   factory MoneyAmount.fromString(String value) {
     final input = value.trim();
-    final match = RegExp(r'^([+-]?)(\d+)(?:\.(\d+))?.firstMatch(input);
+    final match = RegExp(r'^([+-]?)(\d+)(?:\.(\d+))?$').firstMatch(input);
     if (match == null) {
       throw FormatException('Invalid money amount: $value');
     }
