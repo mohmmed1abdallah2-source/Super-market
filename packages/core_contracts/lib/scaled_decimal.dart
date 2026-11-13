@@ -66,7 +66,6 @@ final class ScaledDecimal implements Comparable<ScaledDecimal> {
     ScaledDecimal other, {
     required int resultScale,
   }) {
-    final targetFactor = _factor(resultScale);
     final product = units * other.units;
     final sourceScale = scale + other.scale;
     if (sourceScale <= resultScale) {
@@ -103,7 +102,6 @@ final class ScaledDecimal implements Comparable<ScaledDecimal> {
   }
 
   String toFixedString() {
-    final factor = _factor(scale);
     final negative = units.isNegative;
     final digits = units.abs().toString().padLeft(scale + 1, '0');
     if (scale == 0) return '${negative ? '-' : ''}${units.abs()}';
