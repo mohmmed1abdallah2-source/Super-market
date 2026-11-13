@@ -49,10 +49,7 @@ abstract final class PurchaseMoneyCalculator {
 
     final totalPacks = paid + bonus;
     final baseUnits = totalPacks.multiply(factor, resultScale: stockScale);
-    final gross = paid.multiply(
-      ScaledDecimal.fromString(unitPrice.toFixedString(), scale: moneyScale),
-      resultScale: moneyScale,
-    );
+    final gross = MoneyAmount.fromString(paid.toFixedString()).multiply(unitPrice);
     final lineTotal = gross - discount;
     if (lineTotal.isNegative) {
       throw const FormatException('Line discount cannot exceed the paid line value.');
