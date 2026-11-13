@@ -68,3 +68,9 @@ A shared `MoneyAmount` primitive was added at `packages/core_contracts/lib/money
 A source inspection found that the decimal parser's regular-expression literal had an incorrectly escaped digit pattern, which would reject ordinary numeric strings. The pattern was corrected to match decimal digits. The server package now declares the shared `core_contracts` package as a local path dependency, and `server/test/money_amount_test.dart` adds server-side contract coverage for exact addition, fixed-scale serialization, multiplication rounding and invalid precision.
 
 **Not yet integrated:** `PostgresSalesSyncRepository._applySale`, `_applyVoucher`, and the journal/payment aggregation still use `double`. The new server tests are authored but have not been run; dependency resolution and compilation have not been verified. No PostgreSQL or SQLite data/schema was changed. The financial release blocker remains open.
+
+## Server sale arithmetic — isolated calculation layer added
+
+Added `server/lib/features/sales_and_sync/domain/sale_money_calculator.dart`. It provides exact scale-four helpers for line totals, converted base quantities, inventory cost, summation, discount bounds, and exact payment-to-net-total reconciliation using the shared `MoneyAmount` type. Added `server/test/sale_money_calculator_test.dart` for representative decimal cases, payment balance, invalid discounts, and precision rejection.
+
+**Integration status:** this helper is not yet called by `PostgresSalesSyncRepository._applySale`. The live posting method continues to use `double` for subtotal, cost, payments, credit checks, and cash-account aggregation. This deliberate separation avoids claiming that production calculations have been migrated before SQL parameter serialization and end-to-end transactional behavior are verified. The new tests have not been executed. No database schema or stored data changed.
