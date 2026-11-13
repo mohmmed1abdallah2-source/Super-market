@@ -16,9 +16,9 @@ void main() {
     });
 
     test('uses explicit half-away-from-zero rounding', () {
-      final positive = ScaledDecimal.fromString('0.000001', scale: 6);
+      final positive = ScaledDecimal.fromString('0.000100', scale: 6);
       final half = ScaledDecimal.fromString('0.500000', scale: 6);
-      final negative = ScaledDecimal.fromString('-0.000001', scale: 6);
+      final negative = ScaledDecimal.fromString('-0.000100', scale: 6);
       expect(positive.multiply(half, resultScale: 4).toFixedString(), '0.0001');
       expect(negative.multiply(half, resultScale: 4).toFixedString(), '-0.0001');
     });
