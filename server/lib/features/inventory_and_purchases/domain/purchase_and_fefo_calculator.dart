@@ -176,7 +176,7 @@ final class FefoBatchBalance {
   final bool active;
 
   ScaledDecimal get totalBaseQuantity =>
-      ScaledDecimal.fromString(sealedCartons.toString(), scale: 0)
+      ScaledDecimal.fromString(sealedCartons.toString(), scale: packConversionFactor.scale)
           .multiply(packConversionFactor, resultScale: packConversionFactor.scale) +
       looseBaseQuantity;
 }
@@ -265,7 +265,7 @@ abstract final class FefoAllocationPlanner {
         }
         cartons -= opened;
         loose = loose +
-            ScaledDecimal.fromString((opened * BigInt.from(1)).toString(), scale: 0)
+            ScaledDecimal.fromString(opened.toString(), scale: scale)
                 .multiply(factor, resultScale: scale);
       }
       loose = loose - deduction;
