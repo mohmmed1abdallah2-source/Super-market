@@ -106,7 +106,6 @@ abstract final class PurchaseMoneyCalculator {
   static MoneyAmount _divideMoneyByQuantity(
     MoneyAmount amount,
     ScaledDecimal quantity,
-    int quantityScale,
   ) {
     final result = _divideMoneyByQuantityAsDecimal(
       ScaledDecimal.fromString(amount.toFixedString(), scale: moneyScale),
@@ -230,6 +229,7 @@ abstract final class FefoAllocationPlanner {
         !batch.expiryDate.isBefore(DateTime(businessDate.year, businessDate.month, businessDate.day)) &&
         batch.sealedCartons >= 0 &&
         !batch.looseBaseQuantity.isNegative &&
+        batch.looseBaseQuantity.compareTo(batch.packConversionFactor) < 0 &&
         !batch.packConversionFactor.isNegative &&
         !batch.packConversionFactor.isZero &&
         !batch.totalBaseQuantity.isZero).toList()
@@ -245,13 +245,12 @@ abstract final class FefoAllocationPlanner {
     for (final batch in eligible) {
       if (remaining.isZero) break;
       final scale = remaining.scale;
+      if (batch.packConversionFactor.scale != scale || batch.looseBaseQuantity.scale != scale) {
+        throw ArgumentError('FEFO quantities and pack factors must use the same scale.');
+      }
       var loose = batch.looseBaseQuantity;
       var cartons = batch.sealedCartons;
       final factor = batch.packConversionFactor;
-      if (loose.scale != scale || factor.scale != scale) {
-        throw ArgumentError('FEFO quantities and pack factors must use the same scale.');
-      }
-
       final available = batch.totalBaseQuantity;
       final deduction = available.compareTo(remaining) <= 0 ? available : remaining;
       var opened = 0;
