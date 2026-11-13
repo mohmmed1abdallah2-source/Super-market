@@ -1,0 +1,50 @@
+name: Iteration 3 PostgreSQL schema validation
+
+on:
+  push:
+    branches:
+      - feature/multi-store-isolation-foundation
+    paths:
+      - 'docs/neon/**'
+      - '.github/workflows/iteration3-postgres-validation.yml'
+  workflow_dispatch:
+
+jobs:
+  postgres-18-migrations:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_DB: neondb
+          POSTGRES_USER: erp_test
+          POSTGRES_PASSWORD: disposable_test_only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U erp_test -d neondb"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      PGHOST: localhost
+      PGPORT: 5432
+      PGDATABASE: neondb
+      PGUSER: erp_test
+      PGPASSWORD: disposable_test_only
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes postgresql-client
+      - name: Apply schema migrations to disposable PostgreSQL 18
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -f docs/neon/001_erp_core_schema_only.sql
+          psql -v ON_ERROR_STOP=1 -f docs/neon/002_pos_ledger_schema_only.sql
+          psql -v ON_ERROR_STOP=1 -f docs/neon/003_branch_consistent_composite_constraints.sql
+          psql -v ON_ERROR_STOP=1 -f docs/neon/004_baseline_accounting_accounts.sql
+          psql -v ON_ERROR_STOP=1 -f docs/neon/007_fefo_inventory_and_purchases_schema.sql
+      - name: Run rollback-only Iteration 3 branch isolation assertions
+        run: psql -v ON_ERROR_STOP=1 -f docs/neon/008_inventory_branch_isolation_tests.sql
