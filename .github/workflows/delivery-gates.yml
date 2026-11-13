@@ -70,3 +70,9 @@ jobs:
       - name: Run server tests
         working-directory: server
         run: dart test
+      - name: Resolve shared contract test dependencies
+        working-directory: packages/core_contracts
+        run: dart pub get
+      - name: Run shared contract tests
+        working-directory: packages/core_contracts
+        run: dart test

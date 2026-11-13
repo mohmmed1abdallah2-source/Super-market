@@ -4,3 +4,4 @@ analyzer:
   exclude:
     - build/**
     - server/**
+    - packages/core_contracts/test/**
