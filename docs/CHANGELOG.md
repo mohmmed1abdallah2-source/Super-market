@@ -119,3 +119,11 @@ The format follows Keep a Changelog. Version numbers will be assigned when relea
 - Workflow targets only `feature/multi-store-isolation-foundation` pushes and pull requests, plus manual dispatch.
 - Workflow has been added but has not run yet; no CI pass or APK artifact is claimed.
 - Recorded a three-day delivery closeout plan and retained existing owner-reported Neon SQL test results without rerunning them.
+
+
+### 2026-11-13 — Iteration 3: purchase and FEFO domain foundation
+- Added a pure server calculator for purchase quantities with bonus, effective pack/base cost, weighted-average base-unit cost, and FEFO carton-unpack planning.
+- Added unit tests for bonus arithmetic, discount bounds, weighted average, FEFO ordering, expiry exclusion, and insufficient stock.
+- Added `docs/ITERATION_03_HANDOVER_AND_STATE.md` documenting the inspected baseline, implementation boundaries, test status, and exact next developer entry point.
+- This milestone does not add schema migrations, API routes, SQLite tables, UI, or sync operation types. The live sale transaction is not yet wired to FEFO.
+- Tests and analysis are authored/pending execution; no Neon or SQLite database was changed.
