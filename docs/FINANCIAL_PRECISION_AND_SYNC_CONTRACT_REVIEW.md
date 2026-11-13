@@ -62,3 +62,9 @@ The reviewed server voucher path validates voucher type, party type, positive am
 A shared `MoneyAmount` primitive was added at `packages/core_contracts/lib/money_amount.dart` and exported from the package barrel. It stores integer ten-thousandths, parses decimal strings exactly, rejects more than four fractional digits, and rounds multiplication half away from zero. Unit tests were added at `test/money_amount_test.dart` for parsing, addition/subtraction, multiplication, precision rejection and comparisons.
 
 **Important limitation:** the existing POS and server posting paths still use `double`; this primitive is not yet wired into sale, voucher, inventory-cost, or ledger posting. The tests have been authored but were not executed in this environment. Do not treat this incremental primitive as closure of the financial precision release blocker. The next implementation step is migrating calculations and wire serialization in a coordinated, backwards-compatible change, with SQLite compatibility and regression tests.
+
+## Follow-up hardening — shared parser and server test wiring
+
+A source inspection found that the decimal parser's regular-expression literal had an incorrectly escaped digit pattern, which would reject ordinary numeric strings. The pattern was corrected to match decimal digits. The server package now declares the shared `core_contracts` package as a local path dependency, and `server/test/money_amount_test.dart` adds server-side contract coverage for exact addition, fixed-scale serialization, multiplication rounding and invalid precision.
+
+**Not yet integrated:** `PostgresSalesSyncRepository._applySale`, `_applyVoucher`, and the journal/payment aggregation still use `double`. The new server tests are authored but have not been run; dependency resolution and compilation have not been verified. No PostgreSQL or SQLite data/schema was changed. The financial release blocker remains open.
