@@ -1,10 +1,11 @@
 import 'package:sqflite/sqflite.dart';
+import 'iteration3_inventory_schema.dart';
 
 /// Owns the version-one SQLite schema, indexes and derived balance view.
 class SchemaBuilder {
   SchemaBuilder._();
 
-  static const int version = 1;
+  static const int version = 2;
 
   /// Creates all tables in dependency order inside the caller's database transaction.
   static Future<void> createAll(DatabaseExecutor database) async {
@@ -15,6 +16,7 @@ class SchemaBuilder {
       await database.execute(sql);
     }
     await database.execute(_partyBalanceView);
+    await Iteration3InventorySchema.createAll(database);
   }
 
   static const List<String> _tables = [

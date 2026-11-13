@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'schema_builder.dart';
+import 'iteration3_inventory_schema.dart';
 import 'seed_data.dart';
 
 /// Provides the single configured SQLite database for Android and Windows.
@@ -46,9 +47,8 @@ class DatabaseHelper {
         await SeedData.seed(db);
       },
       onUpgrade: (db, oldVersion, newVersion) async {
-        if (oldVersion < 1) {
-          await SchemaBuilder.createAll(db);
-          await SeedData.seed(db);
+        if (oldVersion < 2) {
+          await Iteration3InventorySchema.upgrade(db);
         }
       },
     );
