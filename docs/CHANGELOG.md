@@ -97,3 +97,11 @@ The format follows Keep a Changelog. Version numbers will be assigned when relea
 - Added isolated `SaleMoneyCalculator` helpers using shared `MoneyAmount` for line totals, base quantities, inventory cost, sums and invoice/payment validation.
 - Added server unit tests for exact arithmetic, reconciliation, discount bounds and precision rejection.
 - The helper is not yet wired into the live PostgreSQL sale-posting method; that path still uses `double`. Tests are authored but unrun; no Neon/SQLite changes.
+
+### 2026-11-13 — Re-check of numeric scales and driver contract
+- Re-inspected the current sale repository, shared money type, helper/tests, and PostgreSQL migrations 001/002 before integration.
+- Confirmed six-place database fields for stock, average unit cost and conversion factors; sale quantity is four-place, generated base quantity is six-place, and monetary fields are four-place.
+- Identified that the isolated scale-four helper methods for base quantity/inventory cost are not suitable for six-place quantity/cost columns and must not be wired into inventory arithmetic as-is.
+- The `postgres ^2.6.4` named substitution API is present, but exact decimal-string-to-`NUMERIC` binding has not been demonstrated by a repository integration test.
+- No partial `_applySale` conversion was made. Next work must establish scale-aware decimal arithmetic and an actual PostgreSQL numeric binding test before the live sale transaction is changed.
+- Source/schema review only; no runtime tests, Neon/SQLite changes, or successful posting claim.
