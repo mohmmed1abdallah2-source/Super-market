@@ -35,12 +35,13 @@ jobs:
         run: |
           dart format --output=none --set-exit-if-changed \
             packages/core_contracts/lib/inventory_purchase_contracts.dart \
+            lib/data/database/iteration3_inventory_schema.dart \
             server/lib/features/inventory_and_purchases/domain/purchase_and_fefo_calculator.dart \
             server/lib/features/inventory_and_purchases/data/postgres_inventory_purchases_read_repository.dart \
             server/lib/features/inventory_and_purchases/presentation/inventory_purchases_routes.dart \
             server/test/inventory_purchase_contracts_test.dart
       - name: Analyze Flutter application
-        run: flutter analyze
+        run: flutter analyze lib test packages/core_contracts/lib packages/api_client/lib
       - name: Run Flutter tests
         run: flutter test
       - name: Build release APK

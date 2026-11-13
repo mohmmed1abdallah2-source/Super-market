@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
-import '../lib/data/database/schema_builder.dart';
+import 'package:supermarket_erp/data/database/schema_builder.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
