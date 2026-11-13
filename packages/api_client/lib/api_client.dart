@@ -204,6 +204,194 @@ class ApiClient {
     return SyncBatchResponseDto.fromJson(json);
   }
 
+  /// Lists active warehouses in the authenticated branch.
+  Future<List<WarehouseDto>> listWarehouses() async {
+    final json = await _send('GET', '/v1/inventory/warehouses');
+    final items = json['items'] as List<dynamic>? ?? const [];
+    return items
+        .map((item) => WarehouseDto.fromJson(item as Map<String, dynamic>))
+        .toList(growable: false);
+  }
+
+  /// Lists aisle, shelf and cold-storage locations for one branch warehouse.
+  Future<List<AisleShelfDto>> listAisleShelfLocations({
+    String? warehouseId,
+  }) async {
+    final query = <String, String>{};
+    if (warehouseId != null && warehouseId.isNotEmpty) {
+      query['warehouseId'] = warehouseId;
+    }
+    final json = await _send(
+      'GET',
+      '/v1/inventory/locations',
+      query: query.isEmpty ? null : query,
+    );
+    final items = json['items'] as List<dynamic>? ?? const [];
+    return items
+        .map((item) => AisleShelfDto.fromJson(item as Map<String, dynamic>))
+        .toList(growable: false);
+  }
+
+  /// Lists FEFO batches. The server remains authoritative for branch scope.
+  Future<List<ProductBatchFefoDto>> listInventoryBatches({
+    String? productId,
+    String? warehouseId,
+    bool includeInactive = false,
+  }) async {
+    final query = <String, String>{
+      'includeInactive': includeInactive ? 'true' : 'false',
+    };
+    if (productId != null && productId.isNotEmpty) query['productId'] = productId;
+    if (warehouseId != null && warehouseId.isNotEmpty) {
+      query['warehouseId'] = warehouseId;
+    }
+    final json = await _send('GET', '/v1/inventory/batches', query: query);
+    final items = json['items'] as List<dynamic>? ?? const [];
+    return items
+        .map((item) => ProductBatchFefoDto.fromJson(item as Map<String, dynamic>))
+        .toList(growable: false);
+  }
+
+  /// Lists immutable stock movement entries.
+  Future<List<StockMovementDto>> listStockMovements({
+    String? productId,
+    String? warehouseId,
+    DateTime? from,
+    DateTime? to,
+  }) async {
+    final query = <String, String>{};
+    if (productId != null && productId.isNotEmpty) query['productId'] = productId;
+    if (warehouseId != null && warehouseId.isNotEmpty) {
+      query['warehouseId'] = warehouseId;
+    }
+    if (from != null) query['from'] = from.toUtc().toIso8601String();
+    if (to != null) query['to'] = to.toUtc().toIso8601String();
+    final json = await _send(
+      'GET',
+      '/v1/inventory/movements',
+      query: query.isEmpty ? null : query,
+    );
+    final items = json['items'] as List<dynamic>? ?? const [];
+    return items
+        .map((item) => StockMovementDto.fromJson(item as Map<String, dynamic>))
+        .toList(growable: false);
+  }
+
+  /// Creates and posts a purchase invoice. Reuse the same idempotency key on retry.
+  Future<PurchaseInvoiceDto> postPurchaseInvoice({
+    required Map<String, dynamic> request,
+    required String idempotencyKey,
+  }) async {
+    _requireIdempotencyKey(idempotencyKey);
+    final json = await _send(
+      'POST',
+      '/v1/purchases/invoices',
+      body: request,
+      idempotencyKey: idempotencyKey,
+      expectedStatuses: const {200, 201},
+    );
+    return PurchaseInvoiceDto.fromJson(json);
+  }
+
+  /// Posts a supplier return with a stable idempotency key.
+  Future<PurchaseReturnDto> postPurchaseReturn({
+    required Map<String, dynamic> request,
+    required String idempotencyKey,
+  }) async {
+    _requireIdempotencyKey(idempotencyKey);
+    final json = await _send(
+      'POST',
+      '/v1/purchases/returns',
+      body: request,
+      idempotencyKey: idempotencyKey,
+      expectedStatuses: const {200, 201},
+    );
+    return PurchaseReturnDto.fromJson(json);
+  }
+
+  /// Loads branch-scoped shortage suggestions from current stock thresholds.
+  Future<List<ShortageOrderSuggestionDto>> listShortageSuggestions() async {
+    final json = await _send('GET', '/v1/purchases/shortages');
+    final items = json['items'] as List<dynamic>? ?? const [];
+    return items
+        .map((item) => ShortageOrderSuggestionDto.fromJson(item as Map<String, dynamic>))
+        .toList(growable: false);
+  }
+
+  /// Lists stocktaking sessions in the active branch.
+  Future<List<StocktakingSessionDto>> listStocktakingSessions() async {
+    final json = await _send('GET', '/v1/inventory/stocktaking');
+    final items = json['items'] as List<dynamic>? ?? const [];
+    return items
+        .map((item) => StocktakingSessionDto.fromJson(item as Map<String, dynamic>))
+        .toList(growable: false);
+  }
+
+  /// Creates a stocktaking session. Persist and reuse the idempotency key on retry.
+  Future<StocktakingSessionDto> createStocktakingSession({
+    required Map<String, dynamic> request,
+    required String idempotencyKey,
+  }) async {
+    _requireIdempotencyKey(idempotencyKey);
+    final json = await _send(
+      'POST',
+      '/v1/inventory/stocktaking',
+      body: request,
+      idempotencyKey: idempotencyKey,
+      expectedStatuses: const {200, 201},
+    );
+    return StocktakingSessionDto.fromJson(json);
+  }
+
+  /// Approves a fully counted session after manager authorization.
+  Future<StocktakingSessionDto> approveStocktaking({
+    required String sessionId,
+    required Map<String, dynamic> request,
+    required String idempotencyKey,
+  }) async {
+    _requireIdempotencyKey(idempotencyKey);
+    final json = await _send(
+      'POST',
+      '/v1/inventory/stocktaking/\${Uri.encodeComponent(sessionId)}/approve',
+      body: request,
+      idempotencyKey: idempotencyKey,
+      expectedStatuses: const {200, 201},
+    );
+    return StocktakingSessionDto.fromJson(json);
+  }
+
+  /// Posts an approved disposal report.
+  Future<DisposalDto> postDisposal({
+    required Map<String, dynamic> request,
+    required String idempotencyKey,
+  }) async {
+    _requireIdempotencyKey(idempotencyKey);
+    final json = await _send(
+      'POST',
+      '/v1/inventory/disposals',
+      body: request,
+      idempotencyKey: idempotencyKey,
+      expectedStatuses: const {200, 201},
+    );
+    return DisposalDto.fromJson(json);
+  }
+
+  /// Executes a transfer between two warehouses belonging to the same branch.
+  Future<StockTransferDto> executeStockTransfer({
+    required Map<String, dynamic> request,
+    required String idempotencyKey,
+  }) async {
+    _requireIdempotencyKey(idempotencyKey);
+    final json = await _send(
+      'POST',
+      '/v1/inventory/transfers',
+      body: request,
+      idempotencyKey: idempotencyKey,
+      expectedStatuses: const {200, 201},
+    );
+    return StockTransferDto.fromJson(json);
+  }
+
   /// Sends one HTTP request and decodes a JSON object response.
   Future<Map<String, dynamic>> _send(
     String method,
