@@ -94,7 +94,7 @@ Added unit tests for bonus quantity arithmetic, line discount validation, weight
 | New Dart tests authored | Yes |
 | New Dart tests executed | No |
 | Dart analyzer / formatter | Not run |
-| PostgreSQL migration 007 / SQL tests 008 | Created in source; not executed |
+| PostgreSQL migration 007 / SQL tests 008 | Passed on disposable PostgreSQL 18.7 in CI; not applied to Neon production |
 | Neon database modified | No |
 | SQLite schema/data modified | No |
 | Server API or live sale transaction modified | No |
@@ -133,3 +133,35 @@ These commits are on `feature/multi-store-isolation-foundation`. No changes were
 - Composite branch-aware keys are added for the new relationships. Existing `stock_movements` receives nullable warehouse/batch references to preserve all historical rows.
 - No production database was contacted or changed. SQL 008 has not been executed. CI workflow run 16 was observed as in progress at handover time; no result is claimed here.
 - **Next:** inspect SQL syntax and constraints with PostgreSQL 18, execute 008 on a disposable database, then implement server repositories/use cases/routes and the transactional FEFO integration. Do not begin UI wiring until server and local persistence contracts are stable.
+
+
+## 9. Additional implementation completed — 2026-11-13
+
+### Database
+- Migration 007 and rollback-only tests 008 were executed by GitHub Actions against a disposable PostgreSQL 18.7 service after applying migrations 001–004.
+- Result: migration application succeeded; SQL 008 completed successfully; the fixture transaction ended with ROLLBACK.
+- This is not a Neon production migration and does not authorize running 007 on the production branch.
+- Purchase invoice schema now also carries branch-scoped cash-account reference, payment method and wallet reference validation.
+
+### Shared contracts and calculations
+- Added `packages/core_contracts/lib/inventory_purchase_contracts.dart` and exported it from `core_contracts.dart`.
+- Added decimal-string DTOs for warehouses, locations, FEFO batches, stock movements, stocktaking sessions/lines, disposals, transfers, purchase invoice headers/lines, returns and shortage suggestions.
+- Added tests for scale-preserving JSON round-trip and rejection of floating-point JSON decimals.
+- Fixed a duplicated trailing source block in `money_amount.dart`, changed its zero constant to a runtime static final value, and corrected purchase line multiplication to use `MoneyAmount` rather than mixing `MoneyAmount` and `ScaledDecimal`.
+- Dart server analyze and tests passed in CI after these fixes.
+
+### API read layer
+- Added branch-scoped read repository and Shelf routes for warehouses, locations, FEFO batches, stock movements, stocktaking sessions and shortage suggestions.
+- Existing bearer-token and `X-Branch-Id` verification is reused; each query filters by the authenticated branch.
+- Added matching API client read methods.
+- The API client currently also contains write method contracts, but the corresponding server write handlers are not yet implemented. Do not call those methods in production until the server posting use cases are completed.
+
+### Remaining work — not complete
+- Transactional purchase invoice/return posting, supplier ledger and journal effects.
+- FEFO allocation inside the live `_applySale` transaction, including row locks, stock movement rows and sales-item batch allocations.
+- Sync batch support for purchase, stocktake, disposal and transfer operations with existing idempotency/receipt behavior.
+- SQLite version upgrade, exact local inventory persistence, local-first operation queue integration and recovery/retry behavior.
+- Stocktaking count/approval writes, disposal posting, transfer dispatch/receipt, fridge temperature write flow.
+- Flutter providers, screens, app navigation, POS batch/expiry warnings, purchase workflows, shortage-to-order workflow.
+- Official PDF reports using `OfficialReportTemplate`.
+- Full end-to-end tests, Flutter test suite and APK build.

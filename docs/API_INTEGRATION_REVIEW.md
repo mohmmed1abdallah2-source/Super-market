@@ -85,3 +85,16 @@
 ## Iteration 3 schema status (2026-11-13)
 
 Migration `docs/neon/007_fefo_inventory_and_purchases_schema.sql` and rollback-only verification script `docs/neon/008_inventory_branch_isolation_tests.sql` have been added to the work branch. They are source artifacts only; neither was executed against PostgreSQL/Neon. The existing API process, branch bearer-token middleware, PostgreSQL connection, sales repository, and all-or-nothing sync batch remain unchanged. Inventory/purchase routes and repository operations are still not implemented. Migration 007 extends the existing `stock_movements` ledger and must be reviewed on PostgreSQL 18 before use.
+
+
+## Iteration 3 API implementation update (2026-11-13)
+
+Added `PostgresInventoryPurchasesReadRepository` and `InventoryPurchasesRoutes`. Read endpoints are:
+- `GET /v1/inventory/warehouses`
+- `GET /v1/inventory/locations`
+- `GET /v1/inventory/batches`
+- `GET /v1/inventory/movements`
+- `GET /v1/inventory/stocktaking`
+- `GET /v1/purchases/shortages`
+
+They reuse the existing branch bearer-token map and require `X-Branch-Id`; repository SQL filters on that branch. Matching typed client reads and DTOs have been added. Purchase/return/stocktake/disposal/transfer client write methods are contracts only at this point: server write handlers, posting transactions, sync-batch integration, and SQLite local-first persistence remain outstanding. Do not treat these write methods as production-ready.

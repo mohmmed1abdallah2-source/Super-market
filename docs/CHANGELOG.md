@@ -136,3 +136,13 @@ The format follows Keep a Changelog. Version numbers will be assigned when relea
 - Added rollback-only SQL isolation test script `008_inventory_branch_isolation_tests.sql`.
 - Added branch-aware composite references and fixed the new parent-key order so referenced composite keys exist.
 - Verification: SQL files added to the work branch only. They have not been executed against PostgreSQL/Neon. No production data was changed. Runtime validation is pending PostgreSQL 18 / disposable database execution.
+
+
+## 2026-11-13 — Iteration 3 database, contracts and read API
+
+- Added and successfully validated migration 007 plus rollback-only SQL assertions 008 against disposable PostgreSQL 18.7 in GitHub Actions. No Neon production database was changed.
+- Added branch-scoped purchase payment fields and cash-account composite FK to the new purchase invoice schema.
+- Added decimal-safe inventory/purchase DTOs and JSON round-trip tests.
+- Fixed the malformed duplicate source tail in `MoneyAmount`, the zero-value constant evaluation, and purchase-line money arithmetic type mismatch.
+- Added branch-scoped read repository/routes for warehouses, locations, batches, movements, stocktaking sessions and shortage suggestions.
+- Added corresponding API client methods. Write methods currently have client contracts only; server writes, sync integration and SQLite integration are pending.

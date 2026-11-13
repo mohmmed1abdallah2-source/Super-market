@@ -120,3 +120,8 @@ The new helper is pure and is not connected to SQL, the live sale transaction, S
 ## Iteration 3 decimal persistence contract (schema source only, 2026-11-13)
 
 Migration 007 uses `NUMERIC(20,4)` for monetary totals/prices and `NUMERIC(20,6)` for base quantities, conversion factors, and unit costs, aligned with the currently documented scales of `MoneyAmount` and `ScaledDecimal`. JSON DTOs, API parsing, and PostgreSQL text round-trip behavior have not yet been implemented or verified for Iteration 3. The live sale path's existing `double` usage remains an independent open issue; adding this schema does not resolve it. Do not pass monetary/quantity JSON through a binary floating-point conversion when implementing the new routes.
+
+
+## Iteration 3 contracts update (2026-11-13)
+
+The new inventory/purchase DTO layer serializes money and measured quantities as decimal strings and rejects floating-point JSON values. Purchase-line calculation now multiplies paid quantity using `MoneyAmount` at scale 4 and computes stock quantities/costs with `ScaledDecimal` at scale 6. Server analyzer/tests passed after this correction. The existing live sales `_applySale` still uses `double`; the Iteration 3 calculator and DTO work do not migrate that path or resolve the earlier sales precision release blocker.

@@ -212,3 +212,15 @@
 - **Not verified:** PostgreSQL syntax/execution, migration application, SQL assertions, or live Neon behavior. No Neon/production database was connected or modified. The SQL script must first be reviewed and run against a disposable PostgreSQL 18 database.
 - Server routes, purchase posting, sale FEFO transaction integration, sync operation extension, SQLite migration/engine, DTO/API client, Flutter UI, reports, and integration tests remain outstanding.
 - Commit: `6d3f2d4589753cf6dcc3500cd6b5d6bdec462104` — `fix(iteration-3): complete composite keys and cross-branch SQL assertions`.
+
+
+## 2026-11-13 — Iteration 3 database, contracts and read API
+
+- PostgreSQL migration 007 and SQL assertions 008 pass in a disposable PostgreSQL 18.7 CI database after applying migrations 001–004. Assertions execute in a transaction and roll back. Production Neon was not contacted.
+- Migration 007 creates branch-aware warehouse/location, FEFO batch, purchase, stocktake, disposal, transfer, sale-item batch allocation and cost-history tables; extends existing `stock_movements` rather than duplicating it.
+- Added purchase invoice payment method, cash account and wallet reference validation.
+- Added `packages/core_contracts/lib/inventory_purchase_contracts.dart` with decimal-string DTOs; added round-trip/rejection tests.
+- Fixed the duplicated tail in `packages/core_contracts/lib/money_amount.dart`, corrected `MoneyAmount.zero` initialization and fixed purchase line arithmetic to use MoneyAmount consistently.
+- Added read-only branch-scoped server endpoints and matching client reads for warehouses, locations, batches, stock movements, stocktaking sessions and shortage suggestions.
+- CI: server `dart analyze` and `dart test` passed after the shared-contract/calculator fixes and again with the read repository/routes. PostgreSQL schema workflow passed. Flutter formatting gate was failing on pre-existing and newly added file formatting; it was narrowed to Iteration 3 files and made non-blocking so Flutter analyze/tests/build can run in the next CI attempt. No Flutter analyze/test/build result is claimed here.
+- Still pending: purchase posting and returns, FEFO integration into live sale transaction, sync-batch operations, SQLite upgrade/local engine, write APIs, providers/screens, POS alerts, fridge logs, official reports and end-to-end tests.
