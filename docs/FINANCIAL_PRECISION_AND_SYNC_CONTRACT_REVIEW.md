@@ -74,3 +74,19 @@ A source inspection found that the decimal parser's regular-expression literal h
 Added `server/lib/features/sales_and_sync/domain/sale_money_calculator.dart`. It provides exact scale-four helpers for line totals, converted base quantities, inventory cost, summation, discount bounds, and exact payment-to-net-total reconciliation using the shared `MoneyAmount` type. Added `server/test/sale_money_calculator_test.dart` for representative decimal cases, payment balance, invalid discounts, and precision rejection.
 
 **Integration status:** this helper is not yet called by `PostgresSalesSyncRepository._applySale`. The live posting method continues to use `double` for subtotal, cost, payments, credit checks, and cash-account aggregation. This deliberate separation avoids claiming that production calculations have been migrated before SQL parameter serialization and end-to-end transactional behavior are verified. The new tests have not been executed. No database schema or stored data changed.
+
+
+## 2026-11-13 — Precision and PostgreSQL binding re-check
+
+A follow-up source/schema inspection was completed before wiring the helper into the live transaction:
+
+- `products.stock_base_qty`, `products.avg_cost_base_unit`, `products.last_cost_base_unit`, and product conversion factors use `NUMERIC(20,6)` in migration `20261109_001_erp_core.sql`.
+- `sales_invoice_items.qty_sold` uses `NUMERIC(20,4)`, `conversion_factor` uses `NUMERIC(20,6)`, and `qty_base` is generated as `NUMERIC(20,6)` in migration `20261109_002_pos_sales_and_lah_alayh_ledger.sql`.
+- Financial totals, payment amounts, journal amounts, cash balances, and party credit limits use `NUMERIC(20,4)`.
+- The existing `SaleMoneyCalculator.baseQuantity` and `inventoryCost` helpers use scale-four `MoneyAmount`; they must not be used for six-place conversion factors or base-quantity/cost calculations. Their existence is not evidence that those fields are safely represented.
+- The live `_applySale` path still performs quantity conversion, inventory costing, money aggregation, credit checks, and SQL parameter binding with `double`. No production call site was changed in this review.
+- The `postgres: ^2.6.4` package documentation confirms named substitution parameters and typed SQL parameter syntax, but the reviewed repository source does not yet establish a tested exact-decimal binding contract for this specific legacy API. A string-to-`NUMERIC` integration test is required before relying on it.
+
+**Decision:** do not partially wire `MoneyAmount` into `_applySale`. First introduce a scale-aware decimal representation for six-place quantities/conversion and four-place money, define the rounding boundary for quantity×conversion and base-cost×unit-cost, and verify exact `NUMERIC` parameter binding against PostgreSQL. Preserve the current API shape and schema until those tests pass.
+
+**Verification:** source/schema inspection only; no Dart tests, PostgreSQL integration tests, Neon SQL, SQLite changes, or runtime posting were performed. The financial precision release blocker remains open.
