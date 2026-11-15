@@ -13,8 +13,10 @@ import '../lib/features/sales_and_sync/application/sales_sync_use_cases.dart';
 import '../lib/features/sales_and_sync/data/postgres_sales_sync_repository.dart';
 import '../lib/features/sales_and_sync/presentation/sales_sync_routes.dart';
 import '../lib/features/inventory_and_purchases/application/purchase_invoice_posting.dart';
+import '../lib/features/inventory_and_purchases/application/purchase_return_posting.dart';
 import '../lib/features/inventory_and_purchases/data/postgres_inventory_purchases_read_repository.dart';
 import '../lib/features/inventory_and_purchases/data/postgres_purchase_invoice_posting_repository.dart';
+import '../lib/features/inventory_and_purchases/data/postgres_purchase_return_posting_repository.dart';
 import '../lib/features/inventory_and_purchases/presentation/inventory_purchases_routes.dart';
 
 /// Starts the Supermarket ERP HTTP API.
@@ -36,6 +38,8 @@ Future<void> main(List<String> arguments) async {
   final inventoryRepository = PostgresInventoryPurchasesReadRepository(database);
   final purchasePostingRepository =
       PostgresPurchaseInvoicePostingRepository(database);
+  final purchaseReturnPostingRepository =
+      PostgresPurchaseReturnPostingRepository(database);
 
   final ledgerRouter = LedgerRoutes(
     createParty: CreatePartyUseCase(ledgerRepository),
@@ -57,6 +61,8 @@ Future<void> main(List<String> arguments) async {
   final inventoryRouter = InventoryPurchasesRoutes(
     repository: inventoryRepository,
     postPurchaseInvoice: PostPurchaseInvoiceUseCase(purchasePostingRepository),
+    postPurchaseReturn:
+        PostPurchaseReturnUseCase(purchaseReturnPostingRepository),
     branchTokens: branchTokens,
   );
 
