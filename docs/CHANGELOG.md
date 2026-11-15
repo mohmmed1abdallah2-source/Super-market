@@ -154,3 +154,10 @@ The format follows Keep a Changelog. Version numbers will be assigned when relea
 - Added exact TEXT quantity/cost columns while preserving the legacy REAL columns and existing data.
 - Added an additive v1→v2 upgrade path and a fresh-schema test.
 - Validation: server and shared-contract CI tests passed; final Flutter analyze/test/build result for this commit is pending.
+
+
+## 2026-11-15
+
+- Tightened PostgreSQL FEFO batch and stocktaking constraints so loose base quantities remain below one pack conversion factor.
+- Expanded rollback-only SQL test 008 with negative loose quantity and full-pack overflow regression cases.
+- Recorded the verified migration table inventory and current execution limitations in the Iteration 3 handover.
