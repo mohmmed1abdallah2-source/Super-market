@@ -750,7 +750,10 @@ final class PostgresPurchaseInvoicePostingRepository
   }
 
   Map<String, Object?> _flatten(Map<String, Map<String, dynamic>> row) =>
-      Map<String, Object?>.from(row.values.first);
+      row.values.fold<Map<String, Object?>>(
+        <String, Object?>{},
+        (result, values) => result..addAll(values),
+      );
 
   String _decimalText(Object? value, String field) {
     if (value is String) return value;
