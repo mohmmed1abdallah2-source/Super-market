@@ -122,3 +122,28 @@ The post-restore endpoint audit returned:
 If the deployed application still uses the original endpoint host, it may now connect to the rehearsal branch. The application environment was not inspected, so actual runtime routing remains unknown.
 
 **Do not claim application connectivity is restored.** No endpoint was deleted, moved, suspended or restarted. To reattach the original endpoint to production, Neon requires the production branch to have no existing read-write endpoint. The proposed correction is to remove the newly created endpoint `ep-floral-term-badqa5er`, then move `ep-young-scene-bab6kmsp` back to `br-empty-brook-bab988pu`. This will interrupt active database connections briefly and requires explicit approval before execution.
+
+
+## 9. Endpoint association correction — completed 2026-11-15
+
+The pending endpoint correction in section 8 was executed only after explicit user approval.
+
+| Item | Final verified state |
+|---|---|
+| Original production branch | `br-empty-brook-bab988pu`, name `production`, ready, primary, default |
+| Original read-write endpoint | `ep-young-scene-bab6kmsp` attached to `br-empty-brook-bab988pu` |
+| Original endpoint host | `ep-young-scene-bab6kmsp.c-8.eu-central-1.aws.neon.tech` |
+| Temporary endpoint created by restore finalization | `ep-floral-term-badqa5er`, deleted |
+| Restore rehearsal branch | `br-summer-violet-baexllh2`, retained, non-default |
+| Audit branch | `br-odd-term-ba2iavg0`, retained, non-default |
+
+### Execution and verification
+
+1. Re-read the project's endpoint list before changing anything; it confirmed the temporary endpoint was on production and the original endpoint was on the restore rehearsal branch.
+2. Deleted `ep-floral-term-badqa5er` to leave production without a read-write endpoint.
+3. Updated `ep-young-scene-bab6kmsp` to target `br-empty-brook-bab988pu`.
+4. Re-read all endpoints, branches, and the project's default branch. The original endpoint now targets production; the production branch remains ready, primary, and default.
+
+The endpoint was reported idle/suspended at the pre-change inspection. The operation can interrupt active connections; no application outage was independently observed or measured. The original hostname was preserved, but deployment environment variables and application-level database connectivity were not inspected or tested. Therefore this verifies Neon control-plane endpoint association only, not end-to-end application connectivity.
+
+No SQL statement, production migration, or production row-data change was performed during this correction. Sections 8's pending action is superseded by this completed record. Production remains unprotected due to the plan limit, automatic snapshot scheduling remains unavailable, and PITR retention remains six hours.
