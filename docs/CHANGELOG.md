@@ -178,3 +178,10 @@ The format follows Keep a Changelog. Version numbers will be assigned when relea
 ### 2026-11-15 — Post-restore endpoint review
 - Found that Neon restore finalization moved the original read-write endpoint to the rehearsal branch and created a new endpoint on production. Application routing via the old endpoint is therefore potentially affected; application environment was not inspected.
 - No endpoint was moved or deleted. Endpoint reassociation is documented as pending explicit approval because it causes a brief connection interruption.
+
+
+### 2026-11-15 — Neon production endpoint reassociation
+- Removed the temporary read-write endpoint created on production during snapshot restore finalization.
+- Reattached the original endpoint `ep-young-scene-bab6kmsp` to the original production branch `br-empty-brook-bab988pu` after explicit user approval.
+- Read-back verification confirms the original endpoint-to-production association and confirms production remains ready, primary, and default. The audit and restore-rehearsal branches were retained.
+- No production SQL, schema migration, or row data was changed. Application environment variables and end-to-end connectivity were not inspected or tested; application connectivity must not be marked verified from this control-plane correction alone.
