@@ -130,3 +130,10 @@ The new inventory/purchase DTO layer serializes money and measured quantities as
 ## SQLite decimal storage update (2026-11-13)
 
 Iteration 3 adds exact decimal TEXT columns for product stock/cost snapshots and stores new batch, purchase and inventory quantities/costs as TEXT. Existing REAL columns are retained to avoid a destructive rewrite and preserve the current POS contract. At present the existing sale engine still updates the legacy REAL stock field only; the exact columns must be maintained as part of the upcoming unified local transaction/FEFO integration. No claim is made that the full application has switched to exact arithmetic.
+
+
+## 2026-11-15 — FEFO quantity invariant audit
+
+Migration 007's stock quantity representation is `NUMERIC(20,6)`, with carton count stored as an integer and conversion factor/loose/base quantities at six decimal places. The schema now rejects a loose quantity greater than or equal to one pack conversion factor for both FEFO batches and stocktaking counts, matching the carton-unpack representation used by the domain planner. SQL regression cases were added to test 008.
+
+This is a schema-level invariant only; it does not integrate the pure FEFO planner into live sale posting, SQLite transactions, or sync. The new SQL checks have not yet been executed by this audit session. Existing live sale and voucher arithmetic still requires the previously documented migration away from `double`.
