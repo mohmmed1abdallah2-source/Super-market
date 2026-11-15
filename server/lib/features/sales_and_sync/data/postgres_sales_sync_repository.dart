@@ -143,7 +143,7 @@ class PostgresSalesSyncRepository implements SalesSyncRepository {
         final accepted = <String>[];
         for (final operation in command.operations) {
           final alreadyApplied = await ctx.mappedResultsQuery(
-            '''SELECT operation_id::text AS operationId
+            '''SELECT operation_id::text AS "operationId"
                FROM sync_operation_receipts
                WHERE branch_id = @branch AND operation_id = @operation''',
             substitutionValues: {
@@ -413,7 +413,7 @@ class PostgresSalesSyncRepository implements SalesSyncRepository {
       final lineTotal = qty * price;
       final productRows = await ctx.mappedResultsQuery(
         '''SELECT stock_base_qty::text AS stock,
-                  avg_cost_base_unit::text AS unitCost
+                  avg_cost_base_unit::text AS "unitCost"
            FROM products WHERE id = @id AND branch_id = @branch AND is_active = TRUE FOR UPDATE''',
         substitutionValues: {'id': productId, 'branch': branchId},
       );
