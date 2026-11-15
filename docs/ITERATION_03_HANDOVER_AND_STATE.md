@@ -236,3 +236,11 @@ These commits are on `feature/multi-store-isolation-foundation`. No changes were
 - Verified both branches are ready. Read-only counts for branches, products, parties, sales invoices, journal entries, journal lines, stock movements and users were all zero on both branches. Neon returned 18 public tables/views for the restored branch. These checks are limited and do not prove full application recovery or byte-identical data.
 - The restored rehearsal branch remains available and has not been deleted. Do not delete without separate approval.
 - Production remains unprotected, automated snapshots remain unavailable, and PITR remains 6 hours. No production migration was applied.
+
+
+## Post-restore endpoint mapping — approval required
+
+- Verified endpoint `ep-young-scene-bab6kmsp` (original endpoint, created 2026-11-11) is currently attached to restored rehearsal branch `br-summer-violet-baexllh2`.
+- Production branch ID `br-empty-brook-bab988pu` currently has newly created endpoint `ep-floral-term-badqa5er` from the restore operation.
+- Thus the original app connection string may now target the rehearsal branch if it uses the old endpoint host. Actual application configuration was not inspected.
+- No endpoint changes were made. Restoring the original endpoint association requires removing/moving the new endpoint and reattaching the old endpoint, which drops active DB connections briefly. Explicit user approval is required before this corrective action.
