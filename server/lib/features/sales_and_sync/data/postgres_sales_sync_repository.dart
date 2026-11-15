@@ -432,7 +432,16 @@ class PostgresSalesSyncRepository implements SalesSyncRepository {
         substitutionValues: {'qty': qtyBase, 'id': productId, 'branch': branchId},
       );
       subtotal += lineTotal;
-      costTotal += qtyBase * _decimal(product['unitCost']);
+      final itemCost = batchAllocations.isEmpty
+          ? qtyBase * _decimal(product['unitCost'])
+          : batchAllocations.fold<double>(
+              0,
+              (total, allocation) =>
+                  total +
+                  _decimal(allocation['quantityDeducted']) *
+                      _decimal(allocation['unitCostBase']),
+            );
+      costTotal += itemCost;
       parsedItems.add({
         'id': _uuid.v4(),
         'productId': productId,
