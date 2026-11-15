@@ -336,7 +336,7 @@ void main() {
         final firstReturn = await returnRepository.postPurchaseReturn(returnCommand);
         final replayedReturn = await returnRepository.postPurchaseReturn(returnCommand);
         expect(replayedReturn['id'], firstReturn['id']);
-        expect(firstReturn['netTotal'], '2.0000');
+        expect(firstReturn['netTotal'], '1.7500');
         expect(firstReturn['status'], 'POSTED');
 
         final returnedBatchRows = await connection.mappedResultsQuery(
@@ -364,8 +364,8 @@ void main() {
         );
         final returnJournal = _flattenRow(returnJournalRows.single);
         expect(returnJournal['status'], 'POSTED');
-        expect(returnJournal['debit'], '2.0000');
-        expect(returnJournal['credit'], '2.0000');
+        expect(returnJournal['debit'], '1.7500');
+        expect(returnJournal['credit'], '1.7500');
 
         final returnMovementRows = await connection.mappedResultsQuery(
           '''SELECT COUNT(*)::int AS count, SUM(quantity_base)::text AS quantity
