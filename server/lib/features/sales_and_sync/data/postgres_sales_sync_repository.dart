@@ -780,9 +780,23 @@ class PostgresSalesSyncRepository implements SalesSyncRepository {
     required String? warehouseId,
     required ScaledDecimal requiredBaseQuantity,
   }) async {
+    if (warehouseId != null) {
+      final warehouseRows = await ctx.mappedResultsQuery(
+        '''SELECT id FROM warehouses
+           WHERE id = @warehouse AND branch_id = @branch
+             AND is_active = TRUE AND is_sellable = TRUE
+           FOR SHARE''',
+        substitutionValues: {'warehouse': warehouseId, 'branch': branchId},
+      );
+      if (warehouseRows.isEmpty) {
+        throw StateError('Sellable warehouse not found: $warehouseId.');
+      }
+    }
+
     // Lock every batch for this product before planning. If the product has
-    // never been batch-tracked, preserve the legacy stock path; once batches
-    // exist, expired/held/insufficient or non-sellable stock must not be bypassed.
+    // never been batch-tracked, preserve the legacy stock path only when no
+    // warehouse was explicitly selected; selected-warehouse sales require
+    // batch tracking so stock cannot be deducted from an unknown location.
     final rows = await ctx.mappedResultsQuery(
       '''SELECT b.id::text AS id, b.warehouse_id::text AS "warehouseId",
                 w.is_sellable AS "isSellable",
@@ -798,7 +812,14 @@ class PostgresSalesSyncRepository implements SalesSyncRepository {
          FOR UPDATE OF b''',
       substitutionValues: {'branch': branchId, 'product': productId},
     );
-    if (rows.isEmpty) return <Map<String, Object?>>[];
+    if (rows.isEmpty) {
+      if (warehouseId != null) {
+        throw StateError(
+          'FEFO batch tracking is not configured for product $productId in warehouse $warehouseId.',
+        );
+      }
+      return <Map<String, Object?>>[];
+    }
 
     final flattened = rows.map(_flatten).toList(growable: false);
     DateTime asDate(Object? value) {
