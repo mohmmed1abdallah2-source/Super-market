@@ -216,3 +216,14 @@ These commits are on `feature/multi-store-isolation-foundation`. No changes were
 2. Then implement transactional purchase invoice/return posting and supplier ledger/journal effects in the existing server transaction architecture.
 3. Integrate FEFO batch row-locking, allocation, carton-unpack movements and sales-item batch allocations into the existing `PostgresSalesSyncRepository._applySale`; do not create a second sale path.
 4. Only after server transaction tests pass, extend the existing all-or-nothing sync batch and local-first SQLite engine.
+
+
+## Neon production protection and recovery — 2026-11-15
+
+- Production Neon branch: `production` / `br-empty-brook-bab988pu`, PostgreSQL 18, default and primary.
+- Baseline snapshot created successfully: `pre-iteration3-migration-baseline-2026-11-15` (`snap-hidden-shadow-bagbpujg`, 2026-11-15 12:41:20 UTC).
+- Protection could not be enabled: Neon returned HTTP 422 because the current plan is at its protected-branch limit. The production branch remains unprotected.
+- Automatic daily snapshot schedule could not be enabled: Neon returned HTTP 404 because backup schedule creation is not enabled for this project. The existing schedule remains empty.
+- PITR history retention remains 6 hours (`21600` seconds). This is not a substitute for a longer retention policy or an independently stored backup.
+- No production schema/data migration or SQL write was performed. Snapshot creation succeeded; a restore rehearsal has not yet been performed.
+- Follow the exact restore procedure and approval gates in `docs/NEON_PRODUCTION_PROTECTION_AND_RECOVERY.md`.
