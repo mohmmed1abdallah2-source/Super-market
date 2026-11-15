@@ -37,9 +37,15 @@ jobs:
             packages/core_contracts/lib/inventory_purchase_contracts.dart \
             lib/data/database/iteration3_inventory_schema.dart \
             server/lib/features/inventory_and_purchases/domain/purchase_and_fefo_calculator.dart \
+            server/lib/features/inventory_and_purchases/application/purchase_invoice_posting.dart \
             server/lib/features/inventory_and_purchases/data/postgres_inventory_purchases_read_repository.dart \
+            server/lib/features/inventory_and_purchases/data/postgres_purchase_invoice_posting_repository.dart \
+            server/lib/features/inventory_and_purchases/domain/purchase_and_fefo_calculator.dart \
             server/lib/features/inventory_and_purchases/presentation/inventory_purchases_routes.dart \
-            server/test/inventory_purchase_contracts_test.dart
+            server/lib/features/sales_and_sync/data/postgres_sales_sync_repository.dart \
+            server/bin/server.dart \
+            server/test/inventory_purchase_contracts_test.dart \
+            server/test/postgres_purchase_invoice_posting_test.dart
       - name: Analyze Flutter application
         run: flutter analyze --no-fatal-infos lib test packages/core_contracts/lib packages/api_client/lib
       - name: Run Flutter tests
