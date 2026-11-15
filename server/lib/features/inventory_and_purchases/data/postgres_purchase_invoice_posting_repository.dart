@@ -507,7 +507,7 @@ final class PostgresPurchaseInvoicePostingRepository
 
         final inventoryAccount = await _accountId(ctx, command.branchId, '1200');
         final supplierAccount = await _accountId(ctx, command.branchId, '2000');
-        final journalNo = 'P-$invoiceNo';
+        final journalNo = invoiceNo;
         await ctx.execute(
           '''INSERT INTO journal_entries
             (id, branch_id, entry_no, entry_date, doc_type, doc_id,
