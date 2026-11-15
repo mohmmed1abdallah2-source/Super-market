@@ -404,12 +404,13 @@ class PostgresSalesSyncRepository implements SalesSyncRepository {
       if (qty <= 0 || factor <= 0 || price < 0) {
         throw const FormatException('Invalid item quantity, conversion factor or price.');
       }
+      final qtyExact = ScaledDecimal.parse(raw['qtySold'], scale: 4);
+      final factorExact = ScaledDecimal.parse(raw['conversionFactor'], scale: 6);
       final qtyBase = qty * factor;
-      final qtyBaseExact = ScaledDecimal.parse(raw['qtySold'], scale: 4)
-          .multiply(
-            ScaledDecimal.parse(raw['conversionFactor'], scale: 6),
-            resultScale: 6,
-          );
+      final qtyBaseExact = qtyExact.multiply(
+        factorExact,
+        resultScale: 6,
+      );
       final lineTotal = qty * price;
       final productRows = await ctx.mappedResultsQuery(
         '''SELECT stock_base_qty::text AS stock,
@@ -419,7 +420,11 @@ class PostgresSalesSyncRepository implements SalesSyncRepository {
       );
       if (productRows.isEmpty) throw StateError('Product not found: $productId');
       final product = _flatten(productRows.single);
-      if (_decimal(product['stock']) < qtyBase) {
+      final availableBaseStock = ScaledDecimal.parse(
+        product['stock'],
+        scale: 6,
+      );
+      if (availableBaseStock.compareTo(qtyBaseExact) < 0) {
         throw StateError('Insufficient stock for product $productId.');
       }
       final requestedWarehouse = request['warehouseId'];
@@ -435,7 +440,11 @@ class PostgresSalesSyncRepository implements SalesSyncRepository {
       );
       await ctx.execute(
         'UPDATE products SET stock_base_qty = stock_base_qty - @qty WHERE id = @id AND branch_id = @branch',
-        substitutionValues: {'qty': qtyBase, 'id': productId, 'branch': branchId},
+        substitutionValues: {
+          'qty': qtyBaseExact.toFixedString(),
+          'id': productId,
+          'branch': branchId,
+        },
       );
       subtotal += lineTotal;
       final itemCost = batchAllocations.isEmpty
@@ -453,8 +462,8 @@ class PostgresSalesSyncRepository implements SalesSyncRepository {
         'productId': productId,
         'barcode': raw['barcode'],
         'unitName': _text(raw, 'unitName'),
-        'qtySold': qty,
-        'factor': factor,
+        'qtySold': qtyExact.toFixedString(),
+        'factor': factorExact.toFixedString(),
         'qtyBaseExact': qtyBaseExact.toFixedString(),
         'unitCostBase': product['unitCost'],
         'batchAllocations': batchAllocations,
