@@ -131,7 +131,7 @@ void main() {
              FROM products WHERE id = @id AND branch_id = @branch''',
           substitutionValues: {'id': productId, 'branch': branchId},
         );
-        final product = productRows.single.values.single;
+        final product = _flattenRow(productRows.single);
         expect(product['stock'], '72.000000');
         expect(product['averageCost'], '0.277778');
 
@@ -143,7 +143,7 @@ void main() {
           substitutionValues: {'branch': branchId, 'product': productId},
         );
         expect(batchRows, hasLength(1));
-        final batch = batchRows.single.values.single;
+        final batch = _flattenRow(batchRows.single);
         expect(batch['sealed_cartons'], 3);
         expect(batch['loose'], '0.000000');
         expect(batch['total'], '72.000000');
@@ -155,7 +155,7 @@ void main() {
                AND movement_type = 'PURCHASE_IN' ''',
           substitutionValues: {'branch': branchId, 'invoice': first['id']},
         );
-        expect(movementRows.single.values.single['count'], 1);
+        expect(_flattenRow(movementRows.single)['count'], 1);
 
         final journalRows = await connection.mappedResultsQuery(
           '''SELECT j.status, SUM(l.dr_amount)::text AS debit,
@@ -169,9 +169,9 @@ void main() {
             'branch': branchId,
           },
         );
-        expect(journalRows.single.values.single['status'], 'POSTED');
-        expect(journalRows.single.values.single['debit'], '20.0000');
-        expect(journalRows.single.values.single['credit'], '20.0000');
+        expect(_flattenRow(journalRows.single)['status'], 'POSTED');
+        expect(_flattenRow(journalRows.single)['debit'], '20.0000');
+        expect(_flattenRow(journalRows.single)['credit'], '20.0000');
 
         final ledgerRows = await connection.mappedResultsQuery(
           '''SELECT alayh_amount::text AS alayh, lah_amount::text AS lah
@@ -179,8 +179,8 @@ void main() {
              WHERE branch_id = @branch AND doc_id = @invoice''',
           substitutionValues: {'branch': branchId, 'invoice': first['id']},
         );
-        expect(ledgerRows.single.values.single['alayh'], '0.0000');
-        expect(ledgerRows.single.values.single['lah'], '20.0000');
+        expect(_flattenRow(ledgerRows.single)['alayh'], '0.0000');
+        expect(_flattenRow(ledgerRows.single)['lah'], '20.0000');
 
         // A half-pack receipt must be represented as loose base units, not lost
         // by truncating the integer sealed-carton column.
@@ -230,7 +230,7 @@ void main() {
           },
         );
         expect(fractionalBatchRows, hasLength(1));
-        final fractionalBatch = fractionalBatchRows.single.values.single;
+        final fractionalBatch = _flattenRow(fractionalBatchRows.single);
         expect(fractionalBatch['sealed_cartons'], 0);
         expect(fractionalBatch['loose'], '12.000000');
         expect(fractionalBatch['total'], '12.000000');
@@ -300,14 +300,14 @@ void main() {
              WHERE id = @id AND branch_id = @branch''',
           substitutionValues: {'id': purchaseOrderId, 'branch': branchId},
         );
-        expect(orderRows.single.values.single['status'], 'RECEIVED');
+        expect(_flattenRow(orderRows.single)['status'], 'RECEIVED');
         final orderItemRows = await connection.mappedResultsQuery(
           '''SELECT qty_received::text AS received
              FROM purchase_order_items
              WHERE purchase_order_id = @order AND branch_id = @branch''',
           substitutionValues: {'order': purchaseOrderId, 'branch': branchId},
         );
-        expect(orderItemRows.single.values.single['received'], '1.5000');
+        expect(_flattenRow(orderItemRows.single)['received'], '1.5000');
       } finally {
         await connection.close();
       }
@@ -315,3 +315,9 @@ void main() {
     skip: enabled ? false : 'PGTEST_HOST is not configured; PostgreSQL integration test skipped.',
   );
 }
+
+Map<String, Object?> _flattenRow(Map<String, Map<String, dynamic>> row) =>
+    row.values.fold<Map<String, Object?>>(
+      <String, Object?>{},
+      (result, values) => result..addAll(values),
+    );
