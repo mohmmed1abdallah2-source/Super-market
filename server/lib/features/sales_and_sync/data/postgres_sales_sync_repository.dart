@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:core_contracts/core_contracts.dart';
 import 'package:postgres/postgres.dart';
 import 'package:uuid/uuid.dart';
 
@@ -403,6 +404,11 @@ class PostgresSalesSyncRepository implements SalesSyncRepository {
         throw const FormatException('Invalid item quantity, conversion factor or price.');
       }
       final qtyBase = qty * factor;
+      final qtyBaseExact = ScaledDecimal.parse(raw['qtySold'], scale: 4)
+          .multiply(
+            ScaledDecimal.parse(raw['conversionFactor'], scale: 6),
+            resultScale: 6,
+          );
       final lineTotal = qty * price;
       final productRows = await ctx.mappedResultsQuery(
         '''SELECT stock_base_qty::text AS stock,
@@ -415,6 +421,12 @@ class PostgresSalesSyncRepository implements SalesSyncRepository {
       if (_decimal(product['stock']) < qtyBase) {
         throw StateError('Insufficient stock for product $productId.');
       }
+      final batchAllocations = await _allocateFefoBatches(
+        ctx,
+        branchId: branchId,
+        productId: productId,
+        requiredBaseQuantity: qtyBaseExact,
+      );
       await ctx.execute(
         'UPDATE products SET stock_base_qty = stock_base_qty - @qty WHERE id = @id AND branch_id = @branch',
         substitutionValues: {'qty': qtyBase, 'id': productId, 'branch': branchId},
@@ -428,6 +440,9 @@ class PostgresSalesSyncRepository implements SalesSyncRepository {
         'unitName': _text(raw, 'unitName'),
         'qtySold': qty,
         'factor': factor,
+        'qtyBaseExact': qtyBaseExact.toFixedString(),
+        'unitCostBase': product['unitCost'],
+        'batchAllocations': batchAllocations,
         'unitPrice': price,
         'lineTotal': lineTotal,
       });
@@ -631,6 +646,49 @@ class PostgresSalesSyncRepository implements SalesSyncRepository {
           'total': item['lineTotal'],
         },
       );
+
+      final allocations =
+          item['batchAllocations'] as List<Map<String, Object?>>;
+      if (allocations.isEmpty) {
+        await _insertSaleStockMovement(
+          ctx,
+          branchId: branchId,
+          productId: item['productId'] as String,
+          invoiceId: invoiceId,
+          invoiceNo: invoiceNo,
+          quantityBase: '-${item['qtyBaseExact']}',
+          unitCostBase: item['unitCostBase'].toString(),
+        );
+      } else {
+        for (final allocation in allocations) {
+          await ctx.execute(
+            '''INSERT INTO sales_invoice_item_batches
+              (id, branch_id, sales_invoice_item_id, product_batch_id,
+               qty_base, cartons_opened)
+             VALUES (@id, @branch, @item, @batch, @quantity, @cartons)''',
+            substitutionValues: {
+              'id': _uuid.v4(),
+              'branch': branchId,
+              'item': item['id'],
+              'batch': allocation['batchId'],
+              'quantity': allocation['quantityDeducted'],
+              'cartons': allocation['cartonsOpened'],
+            },
+          );
+          await _insertSaleStockMovement(
+            ctx,
+            branchId: branchId,
+            productId: item['productId'] as String,
+            invoiceId: invoiceId,
+            invoiceNo: invoiceNo,
+            quantityBase: '-${allocation['quantityDeducted']}',
+            unitCostBase: allocation['unitCostBase'].toString(),
+            warehouseId: allocation['warehouseId'] as String,
+            productBatchId: allocation['batchId'] as String,
+            notes: 'FEFO allocation; cartons opened: ${allocation['cartonsOpened']}',
+          );
+        }
+      }
     }
 
     for (final payment in parsedPayments) {
@@ -699,6 +757,127 @@ class PostgresSalesSyncRepository implements SalesSyncRepository {
       'remainingAlayh': remaining.toStringAsFixed(4),
       'createdAt': now.toIso8601String(),
     };
+  }
+
+  Future<List<Map<String, Object?>>> _allocateFefoBatches(
+    PostgreSQLExecutionContext ctx, {
+    required String branchId,
+    required String productId,
+    required ScaledDecimal requiredBaseQuantity,
+  }) async {
+    // Lock every batch for this product before planning. If the product has
+    // never been batch-tracked, preserve the legacy stock path; once batches
+    // exist, expired/held/insufficient batch stock must not be bypassed.
+    final rows = await ctx.mappedResultsQuery(
+      '''SELECT id::text AS id, warehouse_id::text AS "warehouseId",
+                expiry_date AS "expiryDate", created_at AS "createdAt",
+                pack_conversion_factor::text AS "packConversionFactor",
+                sealed_cartons AS "sealedCartons",
+                loose_base_qty::text AS "looseBaseQty",
+                status, unit_cost_base::text AS "unitCostBase"
+         FROM product_batches_fefo
+         WHERE branch_id = @branch AND product_id = @product
+         ORDER BY expiry_date, created_at, id
+         FOR UPDATE''',
+      substitutionValues: {'branch': branchId, 'product': productId},
+    );
+    if (rows.isEmpty) return <Map<String, Object?>>[];
+
+    final flattened = rows.map(_flatten).toList(growable: false);
+    DateTime asDate(Object? value) {
+      final parsed = value is DateTime ? value : DateTime.parse(value.toString());
+      return DateTime.utc(parsed.year, parsed.month, parsed.day);
+    }
+
+    final batches = flattened.map((row) => FefoBatchBalance(
+          id: row['id'] as String,
+          expiryDate: asDate(row['expiryDate']),
+          createdAt: row['createdAt'] is DateTime
+              ? row['createdAt'] as DateTime
+              : DateTime.parse(row['createdAt'].toString()),
+          sealedCartons: (row['sealedCartons'] as num).toInt(),
+          looseBaseQuantity: ScaledDecimal.parse(row['looseBaseQty'], scale: 6),
+          packConversionFactor:
+              ScaledDecimal.parse(row['packConversionFactor'], scale: 6),
+          active: row['status'] == 'ACTIVE',
+        )).toList(growable: false);
+
+    final plan = FefoAllocationPlanner.plan(
+      batches: batches,
+      requiredBaseQuantity: requiredBaseQuantity,
+      businessDate: DateTime.now().toUtc(),
+    );
+    if (!plan.isFullyAllocated) {
+      throw StateError(
+        'Insufficient unexpired FEFO batch stock for product $productId.',
+      );
+    }
+
+    final byId = {for (final row in flattened) row['id'] as String: row};
+    final result = <Map<String, Object?>>[];
+    for (final allocation in plan.allocations) {
+      final original = byId[allocation.batchId]!;
+      final depleted = allocation.remainingSealedCartons == 0 &&
+          allocation.remainingLooseBaseQuantity.isZero;
+      await ctx.execute(
+        '''UPDATE product_batches_fefo
+           SET sealed_cartons = @cartons, loose_base_qty = @loose,
+               status = @status, updated_at = @now
+           WHERE id = @id AND branch_id = @branch''',
+        substitutionValues: {
+          'cartons': allocation.remainingSealedCartons,
+          'loose': allocation.remainingLooseBaseQuantity.toFixedString(),
+          'status': depleted ? 'DEPLETED' : 'ACTIVE',
+          'now': DateTime.now().toUtc(),
+          'id': allocation.batchId,
+          'branch': branchId,
+        },
+      );
+      result.add({
+        'batchId': allocation.batchId,
+        'warehouseId': original['warehouseId'],
+        'unitCostBase': original['unitCostBase'],
+        'quantityDeducted': allocation.quantityDeducted.toFixedString(),
+        'cartonsOpened': allocation.cartonsOpened,
+      });
+    }
+    return result;
+  }
+
+  Future<void> _insertSaleStockMovement(
+    PostgreSQLExecutionContext ctx, {
+    required String branchId,
+    required String productId,
+    required String invoiceId,
+    required String invoiceNo,
+    required String quantityBase,
+    required String unitCostBase,
+    String? warehouseId,
+    String? productBatchId,
+    String notes = '',
+  }) async {
+    await ctx.execute(
+      '''INSERT INTO stock_movements
+        (id, branch_id, product_id, movement_date, movement_type,
+         quantity_base, unit_cost_base, doc_type, doc_id, warehouse_id,
+         product_batch_id, reference_no, notes)
+       VALUES (@id, @branch, @product, @date, 'SALE_OUT',
+               @quantity, @cost, 'SALE', @doc, @warehouse,
+               @batch, @reference, @notes)''',
+      substitutionValues: {
+        'id': _uuid.v4(),
+        'branch': branchId,
+        'product': productId,
+        'date': DateTime.now().toUtc(),
+        'quantity': quantityBase,
+        'cost': unitCostBase,
+        'doc': invoiceId,
+        'warehouse': warehouseId,
+        'batch': productBatchId,
+        'reference': invoiceNo,
+        'notes': notes,
+      },
+    );
   }
 
   Future<String> _accountId(
