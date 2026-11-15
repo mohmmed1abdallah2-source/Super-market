@@ -1,0 +1,652 @@
+import 'dart:convert';
+
+import 'package:core_contracts/core_contracts.dart';
+import 'package:postgres/postgres.dart';
+import 'package:uuid/uuid.dart';
+
+import '../application/purchase_invoice_posting.dart';
+import '../domain/purchase_and_fefo_calculator.dart';
+
+/// Transactional PostgreSQL writer for supplier purchase invoices.
+final class PostgresPurchaseInvoicePostingRepository
+    implements PurchaseInvoicePostingRepository {
+  PostgresPurchaseInvoicePostingRepository(this._connection);
+
+  final PostgreSQLConnection _connection;
+  static const Uuid _uuid = Uuid();
+
+  @override
+  Future<Map<String, Object?>> postPurchaseInvoice(
+    PurchaseInvoiceCommand command,
+  ) =>
+      _connection.transaction((ctx) async {
+        final replay = await _claimKey(
+          ctx,
+          command.branchId,
+          command.idempotencyKey,
+          command.requestHash,
+        );
+        if (replay != null) return replay;
+
+        final previous = await ctx.mappedResultsQuery(
+          '''SELECT id::text AS id, invoice_no AS "invoiceNo",
+                    net_total::text AS "netTotal", paid_total::text AS "paidTotal",
+                    journal_entry_id::text AS "journalEntryId",
+                    created_at AS "createdAt"
+             FROM purchase_invoices
+             WHERE branch_id = @branch AND operation_id = @operation''',
+          substitutionValues: {
+            'branch': command.branchId,
+            'operation': command.operationId,
+          },
+        );
+        if (previous.isNotEmpty) {
+          final result = _flatten(previous.single);
+          result['createdAt'] = _iso(result['createdAt']);
+          await _completeKey(ctx, command.idempotencyKey, 201, result);
+          return result;
+        }
+
+        final request = command.request;
+        final supplierId = _requiredText(request, 'supplierPartyId');
+        final warehouseId = _requiredText(request, 'warehouseId');
+        final invoiceNo = _requiredText(request, 'invoiceNo');
+        final supplierInvoiceNo = _optionalText(request['supplierInvoiceNo']);
+        final purchaseOrderId = _optionalText(request['purchaseOrderId']);
+        final notes = _optionalText(request['notes']) ?? '';
+        final now = DateTime.now().toUtc();
+        final invoiceDate = request['invoiceDate'] == null
+            ? now
+            : DateTime.parse(_requiredText(request, 'invoiceDate')).toUtc();
+
+        final supplierRows = await ctx.mappedResultsQuery(
+          '''SELECT id::text AS id, party_type AS "partyType"
+             FROM parties
+             WHERE id = @supplier AND branch_id = @branch
+             FOR UPDATE''',
+          substitutionValues: {'supplier': supplierId, 'branch': command.branchId},
+        );
+        if (supplierRows.isEmpty ||
+            _flatten(supplierRows.single)['partyType'] != 'SUPPLIER') {
+          throw StateError('Supplier was not found in the authenticated branch.');
+        }
+
+        final warehouseRows = await ctx.mappedResultsQuery(
+          '''SELECT id::text AS id FROM warehouses
+             WHERE id = @warehouse AND branch_id = @branch AND is_active = TRUE
+             FOR SHARE''',
+          substitutionValues: {
+            'warehouse': warehouseId,
+            'branch': command.branchId,
+          },
+        );
+        if (warehouseRows.isEmpty) {
+          throw StateError('Active receiving warehouse was not found.');
+        }
+
+        if (purchaseOrderId != null) {
+          final orderRows = await ctx.mappedResultsQuery(
+            '''SELECT id::text AS id, supplier_party_id::text AS supplier,
+                      status
+               FROM purchase_orders
+               WHERE id = @order AND branch_id = @branch
+               FOR UPDATE''',
+            substitutionValues: {
+              'order': purchaseOrderId,
+              'branch': command.branchId,
+            },
+          );
+          if (orderRows.isEmpty) throw StateError('Purchase order was not found.');
+          final order = _flatten(orderRows.single);
+          if (order['supplier'] != supplierId ||
+              !const {'APPROVED', 'PARTIALLY_RECEIVED'}.contains(order['status'])) {
+            throw StateError('Purchase order is not receivable for this supplier.');
+          }
+        }
+
+        final rawItems = request['items'] as List<dynamic>;
+        final invoiceId = _uuid.v4();
+        final journalId = _uuid.v4();
+        var subtotal = MoneyAmount.zero;
+        var totalDiscount = MoneyAmount.zero;
+        var netTotal = MoneyAmount.zero;
+        final postedItems = <Map<String, Object?>>[];
+
+        for (final raw in rawItems) {
+          final item = Map<String, dynamic>.from(raw as Map);
+          final productId = _requiredText(item, 'productId');
+          final unitId = _optionalText(item['unitId']);
+          final batchNo = _requiredText(item, 'batchNo');
+          final expiryDate = DateTime.parse(_requiredText(item, 'expiryDate'));
+          final locationId = _optionalText(item['locationId']);
+          final paidQuantity = ScaledDecimal.parse(
+            item['qtyPaid'],
+            scale: PurchaseMoneyCalculator.quantityScale,
+          );
+          final bonusQuantity = ScaledDecimal.parse(
+            item['bonusQty'] ?? '0',
+            scale: PurchaseMoneyCalculator.quantityScale,
+          );
+          final conversionFactor = ScaledDecimal.parse(
+            item['conversionFactor'],
+            scale: PurchaseMoneyCalculator.stockScale,
+          );
+          final unitPrice = MoneyAmount.parse(item['purchaseUnitPrice']);
+          final lineDiscount = MoneyAmount.parse(
+            item['lineDiscountAmount'] ?? '0',
+          );
+          final calculation = PurchaseMoneyCalculator.calculateLine(
+            paidQuantity: paidQuantity.toFixedString(),
+            bonusQuantity: bonusQuantity.toFixedString(),
+            conversionFactor: conversionFactor.toFixedString(),
+            purchaseUnitPrice: unitPrice.toFixedString(),
+            lineDiscountAmount: lineDiscount.toFixedString(),
+          );
+
+          final productRows = await ctx.mappedResultsQuery(
+            '''SELECT stock_base_qty::text AS stock,
+                      avg_cost_base_unit::text AS "averageCost",
+                      last_cost_base_unit::text AS "lastCost"
+               FROM products
+               WHERE id = @product AND branch_id = @branch AND is_active = TRUE
+               FOR UPDATE''',
+            substitutionValues: {
+              'product': productId,
+              'branch': command.branchId,
+            },
+          );
+          if (productRows.isEmpty) {
+            throw StateError('Active product was not found: $productId.');
+          }
+          final product = _flatten(productRows.single);
+
+          if (unitId != null) {
+            final unitRows = await ctx.mappedResultsQuery(
+              '''SELECT id FROM product_units_barcodes
+                 WHERE id = @unit AND product_id = @product
+                   AND branch_id = @branch AND is_active = TRUE''',
+              substitutionValues: {
+                'unit': unitId,
+                'product': productId,
+                'branch': command.branchId,
+              },
+            );
+            if (unitRows.isEmpty) {
+              throw StateError('Purchase unit does not belong to product $productId.');
+            }
+          }
+
+          if (locationId != null) {
+            final locationRows = await ctx.mappedResultsQuery(
+              '''SELECT id FROM aisle_shelf_locations
+                 WHERE id = @location AND warehouse_id = @warehouse
+                   AND branch_id = @branch AND is_active = TRUE''',
+              substitutionValues: {
+                'location': locationId,
+                'warehouse': warehouseId,
+                'branch': command.branchId,
+              },
+            );
+            if (locationRows.isEmpty) {
+              throw StateError('Receiving location does not belong to the selected warehouse.');
+            }
+          }
+
+          final oldStock = ScaledDecimal.parse(
+            product['stock'],
+            scale: PurchaseMoneyCalculator.stockScale,
+          );
+          final oldAverage = ScaledDecimal.parse(
+            product['averageCost'],
+            scale: PurchaseMoneyCalculator.stockScale,
+          );
+          final newAverage = PurchaseMoneyCalculator.weightedAverageBaseCost(
+            oldStockBaseQuantity: oldStock.toFixedString(),
+            oldAverageBaseCost: oldAverage.toFixedString(),
+            addedBaseQuantity: calculation.totalBaseUnitsAdded.toFixedString(),
+            purchaseLineTotal: calculation.lineTotal,
+          );
+
+          final grossLine = MoneyAmount
+              .fromString(paidQuantity.toFixedString())
+              .multiply(unitPrice);
+          subtotal = subtotal + grossLine;
+          totalDiscount = totalDiscount + lineDiscount;
+          netTotal = netTotal + calculation.lineTotal;
+
+          final itemId = _uuid.v4();
+          final batchId = _uuid.v4();
+          await ctx.execute(
+            '''INSERT INTO purchase_invoice_items
+              (id, branch_id, purchase_invoice_id, product_id, unit_id,
+               qty_paid, bonus_qty, conversion_factor, purchase_unit_price,
+               line_discount_amount, line_total, total_base_units_added,
+               effective_pack_cost, effective_base_cost)
+             VALUES (@id, @branch, @invoice, @product, @unit, @paid, @bonus,
+                     @factor, @price, @discount, @total, @base, @packCost, @baseCost)''',
+            substitutionValues: {
+              'id': itemId,
+              'branch': command.branchId,
+              'invoice': invoiceId,
+              'product': productId,
+              'unit': unitId,
+              'paid': paidQuantity.toFixedString(),
+              'bonus': bonusQuantity.toFixedString(),
+              'factor': conversionFactor.toFixedString(),
+              'price': unitPrice.toFixedString(),
+              'discount': lineDiscount.toFixedString(),
+              'total': calculation.lineTotal.toFixedString(),
+              'base': calculation.totalBaseUnitsAdded.toFixedString(),
+              'packCost': calculation.effectivePackCost.toFixedString(),
+              'baseCost': calculation.effectiveBaseCost.toFixedString(),
+            },
+          );
+
+          await ctx.execute(
+            '''INSERT INTO product_batches_fefo
+              (id, branch_id, product_id, warehouse_id, location_id,
+               purchase_invoice_item_id, batch_no, expiry_date,
+               pack_conversion_factor, sealed_cartons, loose_base_qty,
+               status, unit_cost_base)
+             VALUES (@id, @branch, @product, @warehouse, @location, @item,
+                     @batchNo, @expiry, @factor, @cartons, 0, 'ACTIVE', @cost)''',
+            substitutionValues: {
+              'id': batchId,
+              'branch': command.branchId,
+              'product': productId,
+              'warehouse': warehouseId,
+              'location': locationId,
+              'item': itemId,
+              'batchNo': batchNo,
+              'expiry': DateTime.utc(expiryDate.year, expiryDate.month, expiryDate.day),
+              'factor': conversionFactor.toFixedString(),
+              'cartons': (paidQuantity + bonusQuantity).units ~/ BigInt.from(10).pow(4),
+              'cost': calculation.effectiveBaseCost.toFixedString(),
+            },
+          );
+
+          await ctx.execute(
+            '''UPDATE products
+               SET stock_base_qty = stock_base_qty + @quantity,
+                   avg_cost_base_unit = @average,
+                   last_cost_base_unit = @lastCost,
+                   updated_at = @now
+               WHERE id = @product AND branch_id = @branch''',
+            substitutionValues: {
+              'quantity': calculation.totalBaseUnitsAdded.toFixedString(),
+              'average': newAverage.toFixedString(),
+              'lastCost': calculation.effectiveBaseCost.toFixedString(),
+              'now': now,
+              'product': productId,
+              'branch': command.branchId,
+            },
+          );
+
+          await ctx.execute(
+            '''INSERT INTO price_cost_history
+              (id, branch_id, product_id, unit_id, source_type, source_id,
+               old_cost_base, new_cost_base, effective_at)
+             VALUES (@id, @branch, @product, @unit, 'PURCHASE', @source,
+                     @oldCost, @newCost, @now)''',
+            substitutionValues: {
+              'id': _uuid.v4(),
+              'branch': command.branchId,
+              'product': productId,
+              'unit': unitId,
+              'source': invoiceId,
+              'oldCost': oldAverage.toFixedString(),
+              'newCost': newAverage.toFixedString(),
+              'now': invoiceDate,
+            },
+          );
+
+          await ctx.execute(
+            '''INSERT INTO stock_movements
+              (id, branch_id, product_id, movement_date, movement_type,
+               quantity_base, unit_cost_base, doc_type, doc_id, warehouse_id,
+               product_batch_id, reference_no, notes)
+             VALUES (@id, @branch, @product, @date, 'PURCHASE_IN',
+                     @quantity, @cost, 'PURCHASE', @doc, @warehouse,
+                     @batch, @reference, @notes)''',
+            substitutionValues: {
+              'id': _uuid.v4(),
+              'branch': command.branchId,
+              'product': productId,
+              'date': invoiceDate,
+              'quantity': calculation.totalBaseUnitsAdded.toFixedString(),
+              'cost': calculation.effectiveBaseCost.toFixedString(),
+              'doc': invoiceId,
+              'warehouse': warehouseId,
+              'batch': batchId,
+              'reference': invoiceNo,
+              'notes': 'Purchase invoice $invoiceNo',
+            },
+          );
+
+          postedItems.add({
+            'id': itemId,
+            'productId': productId,
+            'batchId': batchId,
+            'batchNo': batchNo,
+            'qtyPaid': paidQuantity.toFixedString(),
+            'bonusQty': bonusQuantity.toFixedString(),
+            'totalBaseUnitsAdded': calculation.totalBaseUnitsAdded.toFixedString(),
+            'lineTotal': calculation.lineTotal.toFixedString(),
+            'effectiveBaseCost': calculation.effectiveBaseCost.toFixedString(),
+          });
+        }
+
+        if (netTotal.isZero || netTotal.isNegative) {
+          throw const FormatException('A posted purchase invoice must have a positive net total.');
+        }
+        final paidTotal = MoneyAmount.parse(request['paidTotal'] ?? '0');
+        if (paidTotal.isNegative || paidTotal.compareTo(netTotal) > 0) {
+          throw const FormatException('paidTotal must be between zero and the invoice net total.');
+        }
+        final outstanding = netTotal - paidTotal;
+        final paymentMethod = _requiredText(request, 'paymentMethod').toUpperCase();
+        if (!const {'CASH', 'WALLET', 'CREDIT', 'MIXED'}.contains(paymentMethod)) {
+          throw const FormatException('Unsupported purchase payment method.');
+        }
+        if ((paidTotal.isZero && paymentMethod != 'CREDIT') ||
+            (!paidTotal.isZero && outstanding.isZero &&
+                !const {'CASH', 'WALLET'}.contains(paymentMethod)) ||
+            (!paidTotal.isZero && !outstanding.isZero && paymentMethod != 'MIXED')) {
+          throw const FormatException('Payment method does not match the paid and outstanding totals.');
+        }
+        final cashAccountId = _optionalText(request['cashAccountId']);
+        final walletRefNo = _optionalText(request['walletRefNo']);
+        Map<String, Object?>? cashAccount;
+        if (paidTotal.isZero) {
+          if (cashAccountId != null) {
+            throw const FormatException('cashAccountId must be omitted for a credit-only purchase.');
+          }
+        } else {
+          if (cashAccountId == null) {
+            throw const FormatException('cashAccountId is required when paidTotal is positive.');
+          }
+          if (paymentMethod == 'WALLET' &&
+              (walletRefNo == null || walletRefNo.trim().length < 6)) {
+            throw const FormatException('Wallet notification reference is required.');
+          }
+          final cashRows = await ctx.mappedResultsQuery(
+            '''SELECT id::text AS id, gl_account_id::text AS gl,
+                      current_balance::text AS balance, account_kind AS kind
+               FROM cash_accounts
+               WHERE id = @id AND branch_id = @branch AND is_active = TRUE
+               FOR UPDATE''',
+            substitutionValues: {'id': cashAccountId, 'branch': command.branchId},
+          );
+          if (cashRows.isEmpty) throw StateError('Cash or wallet account was not found.');
+          cashAccount = _flatten(cashRows.single);
+          if (ScaledDecimal.parse(cashAccount['balance'], scale: 4)
+                  .compareTo(ScaledDecimal.fromString(paidTotal.toFixedString(), scale: 4)) <
+              0) {
+            throw StateError('Insufficient cash-account balance for purchase payment.');
+          }
+          if ((paymentMethod == 'WALLET') != (cashAccount['kind'] == 'WALLET')) {
+            throw const FormatException('Payment method does not match the selected cash account.');
+          }
+        }
+
+        final inventoryAccount = await _accountId(ctx, command.branchId, '1200');
+        final supplierAccount = await _accountId(ctx, command.branchId, '2000');
+        final journalNo = 'P-$invoiceNo';
+        await ctx.execute(
+          '''INSERT INTO journal_entries
+            (id, branch_id, entry_no, entry_date, doc_type, doc_id,
+             description, status)
+           VALUES (@id, @branch, @number, @date, 'PURCHASE', @doc,
+                   @description, 'DRAFT')''',
+          substitutionValues: {
+            'id': journalId,
+            'branch': command.branchId,
+            'number': journalNo,
+            'date': invoiceDate,
+            'doc': invoiceId,
+            'description': 'Purchase invoice $invoiceNo',
+          },
+        );
+
+        final cashGl = cashAccount?['gl'];
+        if (cashGl != null) {
+          await ctx.execute(
+            '''INSERT INTO journal_lines
+              (journal_entry_id, gl_account_id, dr_amount, cr_amount, memo)
+             VALUES (@entry, @gl, 0, @amount, @memo)''',
+            substitutionValues: {
+              'entry': journalId,
+              'gl': cashGl,
+              'amount': paidTotal.toFixedString(),
+              'memo': 'Purchase payment',
+            },
+          );
+        }
+        if (!outstanding.isZero) {
+          await ctx.execute(
+            '''INSERT INTO journal_lines
+              (journal_entry_id, gl_account_id, dr_amount, cr_amount, memo)
+             VALUES (@entry, @gl, 0, @amount, @memo)''',
+            substitutionValues: {
+              'entry': journalId,
+              'gl': supplierAccount,
+              'amount': outstanding.toFixedString(),
+              'memo': 'Supplier payable',
+            },
+          );
+        }
+        await ctx.execute(
+          '''INSERT INTO journal_lines
+            (journal_entry_id, gl_account_id, dr_amount, cr_amount, memo)
+           VALUES (@entry, @gl, @amount, 0, @memo)''',
+          substitutionValues: {
+            'entry': journalId,
+            'gl': inventoryAccount,
+            'amount': netTotal.toFixedString(),
+            'memo': 'Inventory received',
+          },
+        );
+
+        await ctx.execute(
+          '''INSERT INTO purchase_invoices
+            (id, branch_id, invoice_no, supplier_invoice_no, supplier_party_id,
+             warehouse_id, purchase_order_id, invoice_date, status, subtotal,
+             discount_amount, net_total, paid_total, cash_account_id,
+             payment_method, wallet_ref_no, journal_entry_id, operation_id, notes)
+           VALUES (@id, @branch, @number, @supplierNumber, @supplier,
+                   @warehouse, @order, @date, 'POSTED', @subtotal, @discount,
+                   @net, @paid, @cash, @method, @walletRef, @journal,
+                   @operation, @notes)''',
+          substitutionValues: {
+            'id': invoiceId,
+            'branch': command.branchId,
+            'number': invoiceNo,
+            'supplierNumber': supplierInvoiceNo,
+            'supplier': supplierId,
+            'warehouse': warehouseId,
+            'order': purchaseOrderId,
+            'date': invoiceDate,
+            'subtotal': subtotal.toFixedString(),
+            'discount': totalDiscount.toFixedString(),
+            'net': netTotal.toFixedString(),
+            'paid': paidTotal.toFixedString(),
+            'cash': cashAccountId,
+            'method': paymentMethod,
+            'walletRef': walletRefNo,
+            'journal': journalId,
+            'operation': command.operationId,
+            'notes': notes,
+          },
+        );
+
+        if (cashAccount != null) {
+          await ctx.execute(
+            '''UPDATE cash_accounts
+               SET current_balance = current_balance - @amount, updated_at = @now
+               WHERE id = @id AND branch_id = @branch''',
+            substitutionValues: {
+              'amount': paidTotal.toFixedString(),
+              'now': now,
+              'id': cashAccountId,
+              'branch': command.branchId,
+            },
+          );
+        }
+
+        if (!outstanding.isZero) {
+          await ctx.execute(
+            '''INSERT INTO lah_alayh_ledger
+              (branch_id, party_id, entry_date, entry_type, alayh_amount,
+               lah_amount, doc_type, doc_id, statement_ar, journal_entry_id)
+             VALUES (@branch, @party, @date, 'PURCHASE_INVOICE', 0,
+                     @amount, 'PURCHASE', @doc, @statement, @journal)''',
+            substitutionValues: {
+              'branch': command.branchId,
+              'party': supplierId,
+              'date': invoiceDate,
+              'amount': outstanding.toFixedString(),
+              'doc': invoiceId,
+              'statement': 'مستحق للمورد عن فاتورة $invoiceNo',
+              'journal': journalId,
+            },
+          );
+        }
+
+        if (purchaseOrderId != null) {
+          await ctx.execute(
+            '''UPDATE purchase_orders
+               SET status = 'RECEIVED', updated_at = @now
+               WHERE id = @id AND branch_id = @branch''',
+            substitutionValues: {
+              'now': now,
+              'id': purchaseOrderId,
+              'branch': command.branchId,
+            },
+          );
+        }
+
+        await ctx.execute(
+          '''UPDATE journal_entries SET status = 'POSTED', posted_at = @now
+             WHERE id = @id AND branch_id = @branch''',
+          substitutionValues: {
+            'now': now,
+            'id': journalId,
+            'branch': command.branchId,
+          },
+        );
+
+        await ctx.execute(
+          '''INSERT INTO sync_operation_receipts
+            (branch_id, operation_id, operation_type, idempotency_key, result_status)
+           VALUES (@branch, @operation, 'PURCHASE_INVOICE', @key, 'ACCEPTED')
+           ON CONFLICT (branch_id, operation_id) DO NOTHING''',
+          substitutionValues: {
+            'branch': command.branchId,
+            'operation': command.operationId,
+            'key': command.idempotencyKey,
+          },
+        );
+
+        final response = <String, Object?>{
+          'id': invoiceId,
+          'invoiceNo': invoiceNo,
+          'supplierPartyId': supplierId,
+          'warehouseId': warehouseId,
+          'items': postedItems,
+          'subtotal': subtotal.toFixedString(),
+          'discountAmount': totalDiscount.toFixedString(),
+          'netTotal': netTotal.toFixedString(),
+          'paidTotal': paidTotal.toFixedString(),
+          'remainingAlayh': outstanding.toFixedString(),
+          'paymentMethod': paymentMethod,
+          'journalEntryId': journalId,
+          'createdAt': invoiceDate.toIso8601String(),
+        };
+        await _completeKey(ctx, command.idempotencyKey, 201, response);
+        return response;
+      }).then((value) => Map<String, Object?>.from(value as Map));
+
+  Future<String> _accountId(
+    PostgreSQLExecutionContext ctx,
+    String branchId,
+    String code,
+  ) async {
+    final rows = await ctx.mappedResultsQuery(
+      '''SELECT id::text AS id FROM chart_of_accounts
+         WHERE branch_id = @branch AND code = @code AND is_active = TRUE''',
+      substitutionValues: {'branch': branchId, 'code': code},
+    );
+    if (rows.isEmpty) throw StateError('Required chart account $code is missing.');
+    return _flatten(rows.single)['id'] as String;
+  }
+
+  Future<Map<String, Object?>?> _claimKey(
+    PostgreSQLExecutionContext ctx,
+    String branchId,
+    String key,
+    String hash,
+  ) async {
+    await ctx.execute(
+      '''INSERT INTO sync_idempotency (idempotency_key, branch_id, request_hash)
+         VALUES (@key, @branch, @hash)
+         ON CONFLICT (idempotency_key) DO NOTHING''',
+      substitutionValues: {'key': key, 'branch': branchId, 'hash': hash},
+    );
+    final rows = await ctx.mappedResultsQuery(
+      '''SELECT branch_id::text AS branchId, request_hash AS requestHash,
+                response_body AS responseBody
+         FROM sync_idempotency WHERE idempotency_key = @key FOR UPDATE''',
+      substitutionValues: {'key': key},
+    );
+    final record = _flatten(rows.single);
+    if (record['branchId'] != branchId || record['requestHash'] != hash) {
+      throw StateError('IDEMPOTENCY_KEY_REUSED');
+    }
+    final stored = record['responseBody'];
+    if (stored is Map) return Map<String, Object?>.from(stored);
+    if (stored is String) {
+      final decoded = jsonDecode(stored);
+      if (decoded is Map<String, dynamic>) return Map<String, Object?>.from(decoded);
+    }
+    return null;
+  }
+
+  Future<void> _completeKey(
+    PostgreSQLExecutionContext ctx,
+    String key,
+    int status,
+    Map<String, Object?> response,
+  ) async {
+    await ctx.execute(
+      '''UPDATE sync_idempotency SET response_status = @status,
+         response_body = @body::jsonb, completed_at = now()
+         WHERE idempotency_key = @key''',
+      substitutionValues: {
+        'status': status,
+        'body': jsonEncode(response),
+        'key': key,
+      },
+    );
+  }
+
+  Map<String, Object?> _flatten(Map<String, Map<String, dynamic>> row) =>
+      Map<String, Object?>.from(row.values.first);
+
+  String _requiredText(Map<String, dynamic> body, String key) {
+    final value = body[key];
+    if (value is! String || value.trim().isEmpty) {
+      throw FormatException('$key is required.');
+    }
+    return value.trim();
+  }
+
+  String? _optionalText(Object? value) {
+    if (value == null) return null;
+    if (value is! String) throw const FormatException('Optional text field must be a string.');
+    final trimmed = value.trim();
+    return trimmed.isEmpty ? null : trimmed;
+  }
+
+  String _iso(Object? value) =>
+      value is DateTime ? value.toUtc().toIso8601String() : value.toString();
+}
