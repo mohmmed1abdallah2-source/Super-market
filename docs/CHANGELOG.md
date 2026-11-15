@@ -167,3 +167,9 @@ The format follows Keep a Changelog. Version numbers will be assigned when relea
 - Created a manual pre-Iteration-3 baseline snapshot on Neon production and recorded its exact ID in the recovery runbook.
 - Attempted branch protection and scheduled backups; both were blocked by current project-plan capabilities. Production remains unprotected and automatic snapshots remain disabled.
 - No migration or SQL data change was applied to production. Restore has not been rehearsed.
+
+
+### 2026-11-15 — Snapshot restore rehearsal
+- Restored the manual baseline snapshot and verified the restored branch schema plus selected read-only row counts against production.
+- Neon restore finalization temporarily swapped the default production branch name/role; the original branch ID was immediately reinstated as `production` and default, and the restored branch was renamed as a non-default rehearsal branch. Both states were verified afterward.
+- The rehearsal branch is retained pending explicit cleanup approval. No production migration or SQL write was performed.
