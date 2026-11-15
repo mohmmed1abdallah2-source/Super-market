@@ -257,3 +257,13 @@
 - A disposable audit child branch `audit-iteration3-007-check-20261115` (`br-odd-term-ba2iavg0`) was created from production; migrations 007 and 008 passed there. It is not the production branch and is not a backup. It has been left in place pending explicit cleanup approval.
 - No SQL DDL/DML was executed on production. Migration 007 was not applied to production. The snapshot creation is the only production-adjacent backup action performed.
 - Recovery runbook: see `docs/NEON_PRODUCTION_PROTECTION_AND_RECOVERY.md`. Do not restore over production directly; first restore the snapshot to a new branch, validate schema/data/application compatibility, and require a separate explicit approval before any production cutover.
+
+
+## 2026-11-15 — Snapshot restore rehearsal and branch-state recovery
+
+- Restored manual snapshot `snap-hidden-shadow-bagbpujg` through Neon `restore_snapshot`. The provider finalized the restored branch as `br-summer-violet-baexllh2` and temporarily assigned it the name/default role `production`; the prior production branch `br-empty-brook-bab988pu` was automatically renamed to `restore-rehearsal-pre-iteration3-20261115 (1)`. This behavior was not the intended isolated rehearsal.
+- Immediately stopped further tests/writes and inspected all project branches. Re-established the original branch `br-empty-brook-bab988pu` as the project's default, renamed it back to `production`, and renamed the restored branch to `restore-rehearsal-pre-iteration3-20261115`.
+- Verified after correction: original `br-empty-brook-bab988pu` is again named `production`, ready, primary and default; restored branch `br-summer-violet-baexllh2` is ready, non-primary and non-default. No migration or SQL write was executed on either branch during the rehearsal.
+- Compared read-only row counts on production and restored branch for `branches`, `products`, `parties`, `sales_invoices`, `journal_entries`, `journal_lines`, `stock_movements`, and `users`; all eight counts were 0 on both. The restored branch exposes the same baseline schema inventory (18 public tables/views returned by Neon, including one view). This confirms the tested schema inventory and selected row-count equality only; it is not a full byte-for-byte/data-integrity proof.
+- Restore rehearsal outcome: snapshot restoration succeeded and the restored database is queryable. The restore operation's default finalization behavior caused a temporary branch-role/name swap; this was reversed and verified. Keep the rehearsal branch for review; do not delete it without explicit approval.
+- Production protection is still false; scheduled snapshots remain unavailable; PITR retention remains 6 hours. No production migration 007 was applied.
