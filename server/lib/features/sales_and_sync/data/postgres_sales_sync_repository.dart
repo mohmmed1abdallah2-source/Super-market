@@ -763,7 +763,7 @@ class PostgresSalesSyncRepository implements SalesSyncRepository {
         'unitName': item['unitName'],
         'qtySold': item['qtySold'].toString(),
         'conversionFactor': item['factor'].toString(),
-        'qtyBase': ((item['qtySold'] as double) * (item['factor'] as double)).toString(),
+        'qtyBase': item['qtyBaseExact'],
         'unitPrice': item['unitPrice'].toString(),
         'lineTotal': item['lineTotal'].toString(),
       }).toList(),
