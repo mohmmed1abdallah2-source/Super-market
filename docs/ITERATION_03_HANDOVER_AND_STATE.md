@@ -176,3 +176,43 @@ These commits are on `feature/multi-store-isolation-foundation`. No changes were
 - Added exact TEXT snapshot columns to products for new inventory quantity/cost handling while retaining legacy REAL columns for existing POS compatibility. These exact columns are not yet maintained by the legacy sale path; do not treat them as fully authoritative until sale integration is completed.
 - Added `test/iteration3_inventory_schema_test.dart` to verify fresh schema creation and the new columns.
 - The Dart server and shared-contract analyzer/tests pass in CI on the latest validation run. Flutter analyze/test/Android build for the SQLite schema commit are still running or have not yet produced a final result; do not claim success until the run concludes.
+
+
+## 11. Independent handover audit — 2026-11-15
+
+### GitHub state verified
+- Repository: `mohmmed1abdallah2-source/Super-market`.
+- Work branch exists: `feature/multi-store-isolation-foundation`.
+- The branch was compared with commit `56fd908af3bb0cf9a758ed8825cc90adb2b7425f`; GitHub reported `identical` (0 ahead / 0 behind). This establishes that SHA as the branch head at the start of this audit, not as the current head after the audit commits.
+- The reported commits `0f72fdb`, `de99bc2`, `6072925`, `04aab46`, `041cecf`, and `e68896f` were all found by exact SHA lookup.
+- The calculator, its test file, migration 007, SQL tests 008, this handover, and the two architecture review documents were found on the work branch.
+- No branch switch, merge, or production database operation was performed.
+
+### Actual PostgreSQL schema inventory
+- Migration 001 creates 6 tables, including the pre-existing `stock_movements`.
+- Migration 002 creates 12 tables.
+- Migration 003 adds composite constraints/triggers to existing tables; it creates no tables.
+- Migration 004 inserts baseline accounting accounts; it creates no tables.
+- Migration 006 is a rollback-only isolation test script; it creates no persistent tables.
+- Migration 007 creates 18 new tables and alters the existing `stock_movements` and `sales_invoice_items` tables. It does not create a second movement ledger.
+- Therefore the specification's stated count of 14 is inconsistent with its entity list: the actual implementation has 18 new tables plus the existing `stock_movements` table (19 entities in the specification's list).
+- Migration 007 uses `NUMERIC(20,4)` for money and `NUMERIC(20,6)` for stock quantities/conversion factors/costs; temperature uses `NUMERIC(8,2)`.
+- The migration defines 46 composite foreign-key declarations in the source inspection, extends the movement ledger, adds indexes, and installs the append-only UPDATE/DELETE trigger.
+
+### Review correction applied
+- Source review found that `product_batches_fefo.loose_base_qty` and `stocktaking_lines.counted_loose_base_qty` only had non-negative checks; they could still hold one full pack or more, contradicting the carton/loose-quantity invariant.
+- Migration 007 now constrains both loose quantities to `0 <= loose < pack_conversion_factor`.
+- SQL test 008 now additionally rejects negative loose quantity, loose quantity equal to one pack, and a stocktaking loose count equal to one pack. The notice now reports 10 assertions.
+- These are source changes only. They have not yet been run against PostgreSQL in this session.
+
+### Verification boundaries
+- The prior handover records migration 007 and SQL 008 passing in disposable PostgreSQL 18.7 CI. This audit did not independently reproduce that run.
+- GitHub returned no workflow runs and no combined status checks associated with the previously documented head `56fd908`; this audit therefore does not claim a current CI pass for the follow-up SQL edits.
+- Local `psql`, Docker, Dart, and Flutter executables are not installed in the execution environment. No local SQL, Dart, Flutter, or APK command could be run.
+- Neon production remains untouched. Migration 007 has not been applied to `neondb` by this session.
+
+### Next implementation entry point
+1. Run the revised migrations 001–004, 007 and test 008 as one controlled disposable PostgreSQL 18.x CI job, with SQL 008 executed as a single transaction and rollback.
+2. Then implement transactional purchase invoice/return posting and supplier ledger/journal effects in the existing server transaction architecture.
+3. Integrate FEFO batch row-locking, allocation, carton-unpack movements and sales-item batch allocations into the existing `PostgresSalesSyncRepository._applySale`; do not create a second sale path.
+4. Only after server transaction tests pass, extend the existing all-or-nothing sync batch and local-first SQLite engine.
