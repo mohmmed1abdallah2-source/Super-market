@@ -137,3 +137,10 @@ Iteration 3 adds exact decimal TEXT columns for product stock/cost snapshots and
 Migration 007's stock quantity representation is `NUMERIC(20,6)`, with carton count stored as an integer and conversion factor/loose/base quantities at six decimal places. The schema now rejects a loose quantity greater than or equal to one pack conversion factor for both FEFO batches and stocktaking counts, matching the carton-unpack representation used by the domain planner. SQL regression cases were added to test 008.
 
 This is a schema-level invariant only; it does not integrate the pure FEFO planner into live sale posting, SQLite transactions, or sync. The new SQL checks have not yet been executed by this audit session. Existing live sale and voucher arithmetic still requires the previously documented migration away from `double`.
+
+
+## 2026-11-15 — FEFO cost valuation update
+
+- FEFO-tracked sale lines now value COGS using the unit costs of the batches actually allocated, and stock movements retain the corresponding batch unit cost.
+- The existing sale journal still aggregates COGS using Dart `double`; this remains a release blocker until the live posting path is converted to exact decimal/fixed-scale arithmetic and covered by transaction tests.
+- The FEFO inventory writes are in the existing all-or-nothing sale transaction. This source change has not yet passed a PostgreSQL repository integration test or observed CI run.
