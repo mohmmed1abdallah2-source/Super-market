@@ -282,3 +282,10 @@ These commits are on `feature/multi-store-isolation-foundation`. No changes were
 - FEFO sales now exclude batches held in non-sellable warehouses. An optional `warehouseId` in the sale request scopes the allocation to that warehouse; if omitted, FEFO allocation may use any sellable warehouse in the same branch.
 - Existing batch rows in non-sellable warehouses do not trigger a fallback to aggregate legacy stock; if no eligible sellable FEFO stock can satisfy the sale, the transaction is rejected.
 - Source commit: `890e29fbb3d4bd2fb24399466f87c2b349a3342a`. This refinement also awaits CI and PostgreSQL transaction verification.
+
+
+### Selected-warehouse safety — 2026-11-15
+
+- A supplied `warehouseId` is now checked against the authenticated branch and must identify an active, sellable warehouse.
+- When a warehouse is explicitly selected, a product without FEFO batch tracking in the selected branch context is rejected rather than deducted from an unlocated aggregate stock balance.
+- Commit: `efefb0c229bff44550557a18b97411611a0e6800`. Validation is pending.
