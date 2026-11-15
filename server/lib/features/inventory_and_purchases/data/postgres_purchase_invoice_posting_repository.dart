@@ -28,6 +28,13 @@ final class PostgresPurchaseInvoicePostingRepository
         );
         if (replay != null) return replay;
 
+        await ctx.query(
+          'SELECT pg_advisory_xact_lock(hashtextextended(@lockKey, 0))',
+          substitutionValues: {
+            'lockKey': '${command.branchId}|${command.operationId}',
+          },
+        );
+
         final previous = await ctx.mappedResultsQuery(
           '''SELECT id::text AS id, invoice_no AS "invoiceNo",
                     net_total::text AS "netTotal", paid_total::text AS "paidTotal",
@@ -214,6 +221,17 @@ final class PostgresPurchaseInvoicePostingRepository
           totalDiscount = totalDiscount + lineDiscount;
           netTotal = netTotal + calculation.lineTotal;
 
+          final totalPacks = calculation.totalPacksReceived;
+          final wholeCartons =
+              totalPacks.units ~/ BigInt.from(10).pow(totalPacks.scale);
+          final fractionalPacks = ScaledDecimal.fromString(
+            '0.${totalPacks.units.remainder(BigInt.from(10).pow(totalPacks.scale)).toString().padLeft(totalPacks.scale, '0')}',
+            scale: totalPacks.scale,
+          );
+          final looseBaseQuantity = fractionalPacks.multiply(
+            conversionFactor,
+            resultScale: PurchaseMoneyCalculator.stockScale,
+          );
           final itemId = _uuid.v4();
           final batchId = _uuid.v4();
           await ctx.execute(
@@ -249,7 +267,7 @@ final class PostgresPurchaseInvoicePostingRepository
                pack_conversion_factor, sealed_cartons, loose_base_qty,
                status, unit_cost_base)
              VALUES (@id, @branch, @product, @warehouse, @location, @item,
-                     @batchNo, @expiry, @factor, @cartons, 0, 'ACTIVE', @cost)''',
+                     @batchNo, @expiry, @factor, @cartons, @loose, 'ACTIVE', @cost)''',
             substitutionValues: {
               'id': batchId,
               'branch': command.branchId,
@@ -260,7 +278,8 @@ final class PostgresPurchaseInvoicePostingRepository
               'batchNo': batchNo,
               'expiry': DateTime.utc(expiryDate.year, expiryDate.month, expiryDate.day),
               'factor': conversionFactor.toFixedString(),
-              'cartons': (paidQuantity + bonusQuantity).units ~/ BigInt.from(10).pow(4),
+              'cartons': wholeCartons.toInt(),
+              'loose': looseBaseQuantity.toFixedString(),
               'cost': calculation.effectiveBaseCost.toFixedString(),
             },
           );
@@ -515,7 +534,7 @@ final class PostgresPurchaseInvoicePostingRepository
         if (purchaseOrderId != null) {
           await ctx.execute(
             '''UPDATE purchase_orders
-               SET status = 'RECEIVED', updated_at = @now
+               SET status = 'PARTIALLY_RECEIVED', updated_at = @now
                WHERE id = @id AND branch_id = @branch''',
             substitutionValues: {
               'now': now,
