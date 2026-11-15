@@ -227,3 +227,8 @@ The format follows Keep a Changelog. Version numbers will be assigned when relea
 - Sale stock quantity checks and deductions now persist exact decimal base quantities.
 - PostgreSQL 18 CI run #197: server analysis passed and 25 tests passed; Flutter analyze/tests, Web and Windows passed, Android APK still running at documentation time.
 - No production migration or deployment.
+
+
+## 2026-11-15 — Validation result
+- Flutter validation run #197 completed successfully, including Android release APK, Windows, Web, PostgreSQL 18 setup, Dart server analysis and 25 server tests.
+- This is validation of the feature branch only, not a production deployment.

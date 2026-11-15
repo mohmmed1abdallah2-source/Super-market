@@ -337,3 +337,9 @@
 - اختبار PostgreSQL 18 في CI رقم 197: نجاح تحليل الخادم ونجاح 25 اختبارًا، بما فيها فاتورة الشراء ومردوداتها وإعادة الإرسال. تحليل واختبارات Flutter وبناء Web وWindows ناجحة؛ بناء APK كان لا يزال جاريًا وقت كتابة هذا السجل.
 - تم ضبط تزامن CI ليضع التشغيل الجديد في الانتظار بدل إلغاء تشغيل التحقق الحالي.
 - لم يتم تطبيق أي ترحيل أو تعديل بيانات على Neon production، ولم يتم نشر التطبيق.
+
+
+## 2026-11-15 — CI run #197 completed
+- GitHub Actions run #197 completed successfully: Flutter analyze/tests, Android release APK, Windows, Web, PostgreSQL 18 schema validation, Dart server analysis and 25 server tests all passed.
+- Includes PostgreSQL integration coverage for supplier purchase invoice and return posting.
+- Run: https://github.com/mohmmed1abdallah2-source/Super-market/actions/runs/43724926715

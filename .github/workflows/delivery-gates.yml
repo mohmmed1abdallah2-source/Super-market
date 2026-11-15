@@ -30,6 +30,43 @@ jobs:
         run: flutter create --platforms=android .
       - name: Resolve Flutter dependencies
         run: flutter pub get
+      - name: Set file_picker Android compile SDK to 36
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          cache = Path.home() / ".pub-cache" / "hosted" / "pub.dev"
+          candidates = list(cache.glob("file_picker-*/android/build.gradle*"))
+          if not candidates:
+              raise SystemExit("Could not find file_picker Android Gradle file in the Pub cache")
+
+          updated = False
+          for path in candidates:
+              lines = path.read_text().splitlines()
+              patched = []
+              changed = False
+              for line in lines:
+                  if re.match(r"^\\s*compileSdk(?:Version)?\\b", line):
+                      indent = re.match(r"^\\s*", line).group(0)
+                      patched.append(f"{indent}compileSdk 36")
+                      changed = True
+                  else:
+                      patched.append(line)
+
+              if changed:
+                  path.write_text("\\n".join(patched) + "\\n")
+                  print(f"Set file_picker compile SDK to 36 in {path}")
+                  updated = True
+
+          if not updated:
+              details = []
+              for path in candidates:
+                  matching = [line for line in path.read_text().splitlines() if "compileSdk" in line]
+                  details.append(f"{path}: {matching}")
+              raise SystemExit("Could not locate file_picker compileSdk declaration. " + "; ".join(details))
+          PY
+
       - name: Check formatting
         continue-on-error: true
         run: |

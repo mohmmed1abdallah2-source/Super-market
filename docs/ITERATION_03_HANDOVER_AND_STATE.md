@@ -318,3 +318,12 @@ These commits are on `feature/multi-store-isolation-foundation`. No changes were
 - Delivery Gates Dart API analyze/tests also passed for the supplier-return source revision.
 - CI concurrency for Flutter validation was changed to queue rather than cancel an in-progress run, so rapid documentation/commit updates do not terminate the current platform validation.
 - No migration was applied to Neon production, no production data was changed, and no application deployment was performed.
+
+
+### CI result update — 2026-11-15, run #197
+
+- GitHub Actions run #197 completed successfully for the current supplier-return implementation commit `4b6258eb`.
+- Confirmed: Flutter analyze/tests, Android release APK build and artifact upload, Windows build and artifact upload, Web build and artifact upload, PostgreSQL 18 schema setup, Dart server analyze, and all 25 server tests passed.
+- The PostgreSQL integration test includes purchase invoice posting, idempotent replay, fractional pack receipt, purchase-order receiving, supplier return posting, return replay, batch balance and journal checks.
+- Run URL: `https://github.com/mohmmed1abdallah2-source/Super-market/actions/runs/43724926715`.
+- This confirms the tested source revision only; it does not complete the remaining Iteration 3 scope or authorize a production migration/deployment.
