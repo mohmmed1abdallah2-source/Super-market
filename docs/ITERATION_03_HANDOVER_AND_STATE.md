@@ -227,3 +227,12 @@ These commits are on `feature/multi-store-isolation-foundation`. No changes were
 - PITR history retention remains 6 hours (`21600` seconds). This is not a substitute for a longer retention policy or an independently stored backup.
 - No production schema/data migration or SQL write was performed. Snapshot creation succeeded; a restore rehearsal has not yet been performed.
 - Follow the exact restore procedure and approval gates in `docs/NEON_PRODUCTION_PROTECTION_AND_RECOVERY.md`.
+
+
+## Snapshot restore rehearsal — 2026-11-15 (actual result and correction)
+
+- Snapshot `snap-hidden-shadow-bagbpujg` restored successfully. Neon created `br-summer-violet-baexllh2` and, because the restore call finalized immediately, temporarily made it the branch named/defaulted as `production`; the original branch ID `br-empty-brook-bab988pu` was renamed by Neon.
+- This was not the intended isolated state. No SQL writes or migrations were run. The branch roles were corrected immediately: `br-empty-brook-bab988pu` was set back as default and renamed `production`; `br-summer-violet-baexllh2` was renamed `restore-rehearsal-pre-iteration3-20261115` and is now non-default/non-primary.
+- Verified both branches are ready. Read-only counts for branches, products, parties, sales invoices, journal entries, journal lines, stock movements and users were all zero on both branches. Neon returned 18 public tables/views for the restored branch. These checks are limited and do not prove full application recovery or byte-identical data.
+- The restored rehearsal branch remains available and has not been deleted. Do not delete without separate approval.
+- Production remains unprotected, automated snapshots remain unavailable, and PITR remains 6 hours. No production migration was applied.
