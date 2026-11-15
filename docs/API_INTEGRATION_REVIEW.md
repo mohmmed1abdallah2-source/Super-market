@@ -110,3 +110,11 @@ The app schema is now version 2 with an additive v1→v2 migration in `Iteration
 The work-branch source audit confirms that migration 007 adds 18 inventory/purchase tables and extends the existing `stock_movements` ledger rather than creating a duplicate. The original specification's "14 tables" statement does not match its longer entity list; the actual migration's table definitions are authoritative.
 
 The audit identified and corrected a schema invariant gap: both FEFO batch loose stock and stocktaking loose counts must remain below one pack conversion factor. Migration 007 now enforces `0 <= loose_qty < pack_conversion_factor` for those fields, and SQL test 008 includes regression cases. These source edits have not yet been run in a new PostgreSQL CI execution. No Neon production schema was changed.
+
+
+## 2026-11-15 — FEFO sale integration update
+
+- The existing `PostgresSalesSyncRepository._applySale` now locks FEFO batch rows, allocates by expiry using the shared planner, updates batch carton/loose balances, writes sales-item batch allocations and appends stock movements in the same transaction as the sale.
+- Products without any FEFO batch records retain the legacy aggregate-stock deduction path, but still append a sale stock movement.
+- If FEFO records exist, the server no longer silently falls back when eligible batch stock is expired, held or insufficient.
+- This is a source implementation update, not a runtime verification. PostgreSQL integration/concurrency/replay tests and CI results remain pending. Purchase writes, inventory operations and new sync batch operation types remain unimplemented.
