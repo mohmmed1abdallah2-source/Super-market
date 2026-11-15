@@ -4,6 +4,7 @@ import 'package:core_contracts/core_contracts.dart';
 import 'package:postgres/postgres.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../inventory_and_purchases/domain/purchase_and_fefo_calculator.dart';
 import '../domain/sales_sync_domain.dart';
 
 /// PostgreSQL implementation for sale posting and batch synchronization.
