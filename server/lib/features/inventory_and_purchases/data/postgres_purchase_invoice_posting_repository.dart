@@ -119,6 +119,31 @@ final class PostgresPurchaseInvoicePostingRepository
         var netTotal = MoneyAmount.zero;
         final postedItems = <Map<String, Object?>>[];
 
+        // Create the parent document first because purchase_invoice_items has
+        // an immediate branch-scoped foreign key to purchase_invoices.
+        await ctx.execute(
+          '''INSERT INTO purchase_invoices
+            (id, branch_id, invoice_no, supplier_invoice_no, supplier_party_id,
+             warehouse_id, purchase_order_id, invoice_date, status, subtotal,
+             discount_amount, net_total, paid_total, cash_account_id,
+             payment_method, wallet_ref_no, journal_entry_id, operation_id, notes)
+           VALUES (@id, @branch, @number, @supplierNumber, @supplier,
+                   @warehouse, @order, @date, 'DRAFT', 0, 0, 0, 0, NULL,
+                   'CREDIT', NULL, NULL, @operation, @notes)''',
+          substitutionValues: {
+            'id': invoiceId,
+            'branch': command.branchId,
+            'number': invoiceNo,
+            'supplierNumber': supplierInvoiceNo,
+            'supplier': supplierId,
+            'warehouse': warehouseId,
+            'order': purchaseOrderId,
+            'date': invoiceDate,
+            'operation': command.operationId,
+            'notes': notes,
+          },
+        );
+
         for (final raw in rawItems) {
           final item = Map<String, dynamic>.from(raw as Map);
           final productId = _requiredText(item, 'productId');
@@ -483,24 +508,16 @@ final class PostgresPurchaseInvoicePostingRepository
         );
 
         await ctx.execute(
-          '''INSERT INTO purchase_invoices
-            (id, branch_id, invoice_no, supplier_invoice_no, supplier_party_id,
-             warehouse_id, purchase_order_id, invoice_date, status, subtotal,
-             discount_amount, net_total, paid_total, cash_account_id,
-             payment_method, wallet_ref_no, journal_entry_id, operation_id, notes)
-           VALUES (@id, @branch, @number, @supplierNumber, @supplier,
-                   @warehouse, @order, @date, 'POSTED', @subtotal, @discount,
-                   @net, @paid, @cash, @method, @walletRef, @journal,
-                   @operation, @notes)''',
+          '''UPDATE purchase_invoices
+             SET status = 'POSTED', subtotal = @subtotal,
+                 discount_amount = @discount, net_total = @net,
+                 paid_total = @paid, cash_account_id = @cash,
+                 payment_method = @method, wallet_ref_no = @walletRef,
+                 journal_entry_id = @journal, updated_at = now()
+             WHERE id = @id AND branch_id = @branch AND status = 'DRAFT' ''',
           substitutionValues: {
             'id': invoiceId,
             'branch': command.branchId,
-            'number': invoiceNo,
-            'supplierNumber': supplierInvoiceNo,
-            'supplier': supplierId,
-            'warehouse': warehouseId,
-            'order': purchaseOrderId,
-            'date': invoiceDate,
             'subtotal': subtotal.toFixedString(),
             'discount': totalDiscount.toFixedString(),
             'net': netTotal.toFixedString(),
@@ -509,8 +526,6 @@ final class PostgresPurchaseInvoicePostingRepository
             'method': paymentMethod,
             'walletRef': walletRefNo,
             'journal': journalId,
-            'operation': command.operationId,
-            'notes': notes,
           },
         );
 
