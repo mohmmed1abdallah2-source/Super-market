@@ -441,7 +441,8 @@ class PostgresLedgerRepository implements LedgerRepository {
       substitutionValues: {'key': key},
     );
     final record = _flatten(rows.single);
-    if (record['branchId'] != branchId || record['requestHash'] != requestHash) {
+    if (record['branchId']?.toString().trim() != branchId.trim() ||
+        record['requestHash']?.toString().trim() != requestHash.trim()) {
       throw StateError('IDEMPOTENCY_KEY_REUSED');
     }
     final stored = record['responseBody'];
