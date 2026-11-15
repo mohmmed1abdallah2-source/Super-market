@@ -193,3 +193,9 @@ The format follows Keep a Changelog. Version numbers will be assigned when relea
 - Commit: `fe9dde48836e554fad7f6b33ebec85732deaef18`.
 - CI execution is pending/unverified at this entry; this change alone is not a test pass.
 - No Neon production migration or deployment was performed.
+
+
+## 2026-11-15 — Iteration 3 FEFO sale posting
+- Integrated FEFO batch row locking/allocation, carton opening, batch balances, sales-item batch allocations and append-only stock movements into the existing sale transaction.
+- Added sale movement rows for legacy non-batch-tracked products and used allocated batch costs for FEFO line COGS.
+- Validation remains pending: no repository-level PostgreSQL integration result or completed CI run is claimed. Live financial journal arithmetic still uses `double`.
