@@ -103,3 +103,10 @@ They reuse the existing branch bearer-token map and require `X-Branch-Id`; repos
 ## Local SQLite status (2026-11-13)
 
 The app schema is now version 2 with an additive v1→v2 migration in `Iteration3InventorySchema`. New local inventory/purchase tables and exact decimal TEXT fields are present in source; the old REAL columns remain for backward compatibility. Local purchase/stocktake/disposal/transfer transaction services, queue payload creation and sync acknowledgment behavior are not implemented yet. The local schema test is added; its Flutter test run is pending final CI result.
+
+
+## 2026-11-15 — Iteration 3 schema audit
+
+The work-branch source audit confirms that migration 007 adds 18 inventory/purchase tables and extends the existing `stock_movements` ledger rather than creating a duplicate. The original specification's "14 tables" statement does not match its longer entity list; the actual migration's table definitions are authoritative.
+
+The audit identified and corrected a schema invariant gap: both FEFO batch loose stock and stocktaking loose counts must remain below one pack conversion factor. Migration 007 now enforces `0 <= loose_qty < pack_conversion_factor` for those fields, and SQL test 008 includes regression cases. These source edits have not yet been run in a new PostgreSQL CI execution. No Neon production schema was changed.
