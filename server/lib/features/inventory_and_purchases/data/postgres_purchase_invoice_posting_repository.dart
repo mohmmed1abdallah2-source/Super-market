@@ -28,8 +28,8 @@ final class PostgresPurchaseInvoicePostingRepository
         );
         if (replay != null) return replay;
 
-        await ctx.query(
-          'SELECT pg_advisory_xact_lock(hashtextextended(@lockKey, 0))',
+        await ctx.mappedResultsQuery(
+          'SELECT pg_advisory_xact_lock(hashtextextended(@lockKey, 0)) AS locked',
           substitutionValues: {
             'lockKey': '${command.branchId}|${command.operationId}',
           },
@@ -125,6 +125,12 @@ final class PostgresPurchaseInvoicePostingRepository
           final unitId = _optionalText(item['unitId']);
           final batchNo = _requiredText(item, 'batchNo');
           final expiryDate = DateTime.parse(_requiredText(item, 'expiryDate'));
+          final expiryDay = DateTime.utc(expiryDate.year, expiryDate.month, expiryDate.day);
+          final today = DateTime.now().toUtc();
+          final todayDay = DateTime.utc(today.year, today.month, today.day);
+          if (expiryDay.isBefore(todayDay)) {
+            throw FormatException('Expired batch $batchNo cannot be received as active stock.');
+          }
           final locationId = _optionalText(item['locationId']);
           final paidQuantity = ScaledDecimal.parse(
             item['qtyPaid'],
@@ -169,7 +175,8 @@ final class PostgresPurchaseInvoicePostingRepository
 
           if (unitId != null) {
             final unitRows = await ctx.mappedResultsQuery(
-              '''SELECT id FROM product_units_barcodes
+              '''SELECT id, conversion_factor::text AS factor
+                 FROM product_units_barcodes
                  WHERE id = @unit AND product_id = @product
                    AND branch_id = @branch AND is_active = TRUE''',
               substitutionValues: {
@@ -180,6 +187,15 @@ final class PostgresPurchaseInvoicePostingRepository
             );
             if (unitRows.isEmpty) {
               throw StateError('Purchase unit does not belong to product $productId.');
+            }
+            final unitFactor = ScaledDecimal.parse(
+              _flatten(unitRows.single)['factor'],
+              scale: PurchaseMoneyCalculator.stockScale,
+            );
+            if (unitFactor.compareTo(conversionFactor) != 0) {
+              throw const FormatException(
+                'conversionFactor does not match the selected product unit.',
+              );
             }
           }
 
