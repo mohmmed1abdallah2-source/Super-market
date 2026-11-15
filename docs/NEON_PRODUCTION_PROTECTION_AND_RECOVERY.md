@@ -67,3 +67,44 @@ This snapshot is a recovery point inside the same Neon project. It is **not** an
 - `docs/ITERATION_03_HANDOVER_AND_STATE.md`
 - `docs/neon/007_fefo_inventory_and_purchases_schema.sql`
 - `docs/neon/008_inventory_branch_isolation_tests.sql`
+
+
+## 7. Restore rehearsal record — 2026-11-15
+
+### Result
+
+- Restored from snapshot: `snap-hidden-shadow-bagbpujg`.
+- Restored branch ID: `br-summer-violet-baexllh2`.
+- Final rehearsal name: `restore-rehearsal-pre-iteration3-20261115`.
+- Final status: ready; non-primary; non-default.
+- Console: https://console.neon.tech/app/projects/long-smoke-94048943/branches/br-summer-violet-baexllh2
+
+### Important provider behavior and correction
+
+The restore call was finalized immediately by the provider and temporarily made the restored branch the branch named/defaulted `production`, while the original branch ID `br-empty-brook-bab988pu` was renamed. No SQL write or migration was run during this interval. The branch roles were immediately corrected: the original ID was made default again and renamed `production`; the restored ID was renamed to the rehearsal name above. Final branch listing and default-branch lookup confirmed the original ID is again `production` and default.
+
+### Verification performed
+
+- Restored branch is ready and queryable; Neon returned 18 public tables/views in `neondb`.
+- Read-only counts on both original production and restored rehearsal branch:
+
+| Table | Production | Restored rehearsal |
+|---|---:|---:|
+| branches | 0 | 0 |
+| products | 0 | 0 |
+| parties | 0 | 0 |
+| sales_invoices | 0 | 0 |
+| journal_entries | 0 | 0 |
+| journal_lines | 0 | 0 |
+| stock_movements | 0 | 0 |
+| users | 0 | 0 |
+
+These checks establish queryability, schema visibility, and equality for the selected counts only. They do not prove byte-for-byte equality, full application recovery, or successful application connectivity.
+
+### Current safety state
+
+- Original production ID `br-empty-brook-bab988pu`: name `production`, ready, primary, default, unprotected.
+- Restored rehearsal ID `br-summer-violet-baexllh2`: name `restore-rehearsal-pre-iteration3-20261115`, ready, non-primary, non-default.
+- No production DDL/DML or migration 007 was executed.
+- The rehearsal branch is intentionally retained; cleanup requires separate explicit approval.
+- Branch protection remains blocked by the plan's protected-branch limit; automatic snapshot scheduling remains unavailable; PITR retention remains 6 hours.
