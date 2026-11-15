@@ -157,21 +157,23 @@ final class PostgresPurchaseInvoicePostingRepository
             throw FormatException('Expired batch $batchNo cannot be received as active stock.');
           }
           final locationId = _optionalText(item['locationId']);
-          final paidQuantity = ScaledDecimal.parse(
-            item['qtyPaid'],
+          final paidQuantity = ScaledDecimal.fromString(
+            _decimalText(item['qtyPaid'], 'qtyPaid'),
             scale: PurchaseMoneyCalculator.quantityScale,
           );
-          final bonusQuantity = ScaledDecimal.parse(
-            item['bonusQty'] ?? '0',
+          final bonusQuantity = ScaledDecimal.fromString(
+            _decimalText(item['bonusQty'] ?? '0', 'bonusQty'),
             scale: PurchaseMoneyCalculator.quantityScale,
           );
-          final conversionFactor = ScaledDecimal.parse(
-            item['conversionFactor'],
+          final conversionFactor = ScaledDecimal.fromString(
+            _decimalText(item['conversionFactor'], 'conversionFactor'),
             scale: PurchaseMoneyCalculator.stockScale,
           );
-          final unitPrice = MoneyAmount.parse(item['purchaseUnitPrice']);
-          final lineDiscount = MoneyAmount.parse(
-            item['lineDiscountAmount'] ?? '0',
+          final unitPrice = MoneyAmount.fromString(
+            _decimalText(item['purchaseUnitPrice'], 'purchaseUnitPrice'),
+          );
+          final lineDiscount = MoneyAmount.fromString(
+            _decimalText(item['lineDiscountAmount'] ?? '0', 'lineDiscountAmount'),
           );
           final calculation = PurchaseMoneyCalculator.calculateLine(
             paidQuantity: paidQuantity.toFixedString(),
@@ -455,7 +457,9 @@ final class PostgresPurchaseInvoicePostingRepository
         if (netTotal.isZero || netTotal.isNegative) {
           throw const FormatException('A posted purchase invoice must have a positive net total.');
         }
-        final paidTotal = MoneyAmount.parse(request['paidTotal'] ?? '0');
+        final paidTotal = MoneyAmount.fromString(
+          _decimalText(request['paidTotal'] ?? '0', 'paidTotal'),
+        );
         if (paidTotal.isNegative || paidTotal.compareTo(netTotal) > 0) {
           throw const FormatException('paidTotal must be between zero and the invoice net total.');
         }
@@ -507,7 +511,7 @@ final class PostgresPurchaseInvoicePostingRepository
 
         final inventoryAccount = await _accountId(ctx, command.branchId, '1200');
         final supplierAccount = await _accountId(ctx, command.branchId, '2000');
-        final journalNo = invoiceNo;
+        final journalNo = 'PUR-$invoiceId';
         await ctx.execute(
           '''INSERT INTO journal_entries
             (id, branch_id, entry_no, entry_date, doc_type, doc_id,
@@ -746,6 +750,12 @@ final class PostgresPurchaseInvoicePostingRepository
 
   Map<String, Object?> _flatten(Map<String, Map<String, dynamic>> row) =>
       Map<String, Object?>.from(row.values.first);
+
+  String _decimalText(Object? value, String field) {
+    if (value is String) return value;
+    if (value is int) return value.toString();
+    throw FormatException('$field must be sent as a decimal string or integer, not a floating-point number.');
+  }
 
   String _requiredText(Map<String, dynamic> body, String key) {
     final value = body[key];
