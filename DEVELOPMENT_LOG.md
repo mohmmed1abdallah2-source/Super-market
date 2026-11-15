@@ -235,3 +235,12 @@
 - Added `test/iteration3_inventory_schema_test.dart`.
 - CI on the current branch reports server analyze/tests and shared contract tests successful. Flutter analyze/test/build for the SQLite schema change has not yet returned a final result at log time.
 - Important limitation: the existing sale path still mutates legacy REAL stock and has not been integrated with FEFO batches or the exact TEXT snapshots. Do not use the new local inventory schema as a complete operational feature until the transaction engine and queue integration are implemented.
+
+
+## 2026-11-15 — Iteration 3 schema audit
+
+- Verified the work branch and the previously reported calculator, test, and handover commits.
+- Audited migrations 001–006 and counted 18 new table definitions in migration 007; existing `stock_movements` is extended, not recreated.
+- Added the missing upper bound for loose quantities in FEFO batches and stocktaking lines.
+- Expanded rollback-only SQL test 008 from 7 to 10 assertions.
+- No PostgreSQL/Dart/Flutter commands were run in this environment; no Neon production changes were made. Re-run the disposable PostgreSQL CI gate before treating the SQL follow-up as verified.
