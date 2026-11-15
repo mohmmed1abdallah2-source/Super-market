@@ -244,3 +244,11 @@ These commits are on `feature/multi-store-isolation-foundation`. No changes were
 - Production branch ID `br-empty-brook-bab988pu` currently has newly created endpoint `ep-floral-term-badqa5er` from the restore operation.
 - Thus the original app connection string may now target the rehearsal branch if it uses the old endpoint host. Actual application configuration was not inspected.
 - No endpoint changes were made. Restoring the original endpoint association requires removing/moving the new endpoint and reattaching the old endpoint, which drops active DB connections briefly. Explicit user approval is required before this corrective action.
+
+
+## 2026-11-15 — حالة نقطة اتصال الإنتاج بعد تصحيح الربط
+- نُفذت موافقة المستخدم على تصحيح ارتباط نقطة الاتصال بعد تجربة استعادة Snapshot.
+- حُذفت نقطة الاتصال التي أنشأتها عملية الاستعادة على الإنتاج `ep-floral-term-badqa5er`، ثم أُعيدت نقطة الاتصال الأصلية `ep-young-scene-bab6kmsp` إلى الفرع `br-empty-brook-bab988pu` (`production`).
+- تحققنا من أن نقطة الاتصال الأصلية أصبحت مرتبطة بفرع الإنتاج، وأن الإنتاج ما زال الفرع الأساسي والافتراضي وحالته `ready`. بقي فرع الاستعادة `br-summer-violet-baexllh2` وفرع التدقيق `br-odd-term-ba2iavg0` دون حذف.
+- لم تُنفذ ترحيلات 007/008 على الإنتاج، ولم يحدث أي تعديل SQL أو بيانات ضمن هذه الخطوة.
+- اسم مضيف الاتصال الأصلي لم يتغير، لكن لم تتم مراجعة متغيرات بيئة التطبيق أو إجراء اختبار اتصال من التطبيق؛ يجب اعتبار توجيه Neon مصححًا ومتحققًا، بينما تحقق التطبيق ما زال مطلوبًا.
