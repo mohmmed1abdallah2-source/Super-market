@@ -181,6 +181,59 @@ void main() {
         );
         expect(ledgerRows.single.values.single['alayh'], '0.0000');
         expect(ledgerRows.single.values.single['lah'], '20.0000');
+
+        // A half-pack receipt must be represented as loose base units, not lost
+        // by truncating the integer sealed-carton column.
+        final fractionalOperationId = uuid.v4();
+        final fractionalInvoiceNo = 'FRAC-$suffix';
+        final fractionalRequest = <String, dynamic>{
+          'operationId': fractionalOperationId,
+          'invoiceNo': fractionalInvoiceNo,
+          'supplierPartyId': supplierId,
+          'warehouseId': warehouseId,
+          'paymentMethod': 'CREDIT',
+          'paidTotal': '0.0000',
+          'items': [
+            {
+              'productId': productId,
+              'batchNo': 'FRACTIONAL-$suffix',
+              'expiryDate': DateTime.now()
+                  .toUtc()
+                  .add(const Duration(days: 120))
+                  .toIso8601String()
+                  .split('T')
+                  .first,
+              'qtyPaid': '0.5000',
+              'bonusQty': '0.0000',
+              'conversionFactor': '24.000000',
+              'purchaseUnitPrice': '10.0000',
+              'lineDiscountAmount': '0.0000',
+            },
+          ],
+        };
+        final fractionalCommand = PurchaseInvoiceCommand(
+          branchId: branchId,
+          operationId: fractionalOperationId,
+          idempotencyKey: 'purchase-fractional-$branchId',
+          requestHash: List.filled(64, 'b').join(),
+          request: fractionalRequest,
+        );
+        await repository.postPurchaseInvoice(fractionalCommand);
+        final fractionalBatchRows = await connection.mappedResultsQuery(
+          '''SELECT sealed_cartons, loose_base_qty::text AS loose,
+                    total_base_qty::text AS total
+             FROM product_batches_fefo
+             WHERE branch_id = @branch AND batch_no = @batch''',
+          substitutionValues: {
+            'branch': branchId,
+            'batch': 'FRACTIONAL-$suffix',
+          },
+        );
+        expect(fractionalBatchRows, hasLength(1));
+        final fractionalBatch = fractionalBatchRows.single.values.single;
+        expect(fractionalBatch['sealed_cartons'], 0);
+        expect(fractionalBatch['loose'], '12.000000');
+        expect(fractionalBatch['total'], '12.000000');
       } finally {
         await connection.close();
       }
