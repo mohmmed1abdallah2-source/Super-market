@@ -191,7 +191,8 @@ CREATE TABLE IF NOT EXISTS product_batches_fefo (
   expiry_date DATE NOT NULL,
   pack_conversion_factor NUMERIC(20,6) NOT NULL CHECK (pack_conversion_factor > 0),
   sealed_cartons INTEGER NOT NULL DEFAULT 0 CHECK (sealed_cartons >= 0),
-  loose_base_qty NUMERIC(20,6) NOT NULL DEFAULT 0 CHECK (loose_base_qty >= 0),
+  loose_base_qty NUMERIC(20,6) NOT NULL DEFAULT 0
+    CHECK (loose_base_qty >= 0 AND loose_base_qty < pack_conversion_factor),
   total_base_qty NUMERIC(20,6) GENERATED ALWAYS AS
     ((sealed_cartons::NUMERIC * pack_conversion_factor) + loose_base_qty) STORED,
   status VARCHAR(16) NOT NULL DEFAULT 'ACTIVE'
@@ -274,7 +275,8 @@ CREATE TABLE IF NOT EXISTS stocktaking_lines (
   product_batch_id TEXT,
   expected_base_qty NUMERIC(20,6) NOT NULL DEFAULT 0 CHECK (expected_base_qty >= 0),
   counted_sealed_cartons INTEGER NOT NULL DEFAULT 0 CHECK (counted_sealed_cartons >= 0),
-  counted_loose_base_qty NUMERIC(20,6) NOT NULL DEFAULT 0 CHECK (counted_loose_base_qty >= 0),
+  counted_loose_base_qty NUMERIC(20,6) NOT NULL DEFAULT 0
+    CHECK (counted_loose_base_qty >= 0 AND counted_loose_base_qty < pack_conversion_factor),
   pack_conversion_factor NUMERIC(20,6) NOT NULL CHECK (pack_conversion_factor > 0),
   counted_base_qty NUMERIC(20,6) GENERATED ALWAYS AS
     ((counted_sealed_cartons::NUMERIC * pack_conversion_factor) + counted_loose_base_qty) STORED,
