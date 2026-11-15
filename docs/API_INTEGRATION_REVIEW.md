@@ -143,3 +143,12 @@ The audit identified and corrected a schema invariant gap: both FEFO batch loose
 - The server validates and posts stock, FEFO batches, cost history, cash movement, supplier ledger and journal in a single transaction. It also stores the sync operation receipt.
 - Linked purchase orders now track `qty_received` under migration 009; each receipt must match exactly one product/unit order line and may not exceed the remaining ordered quantity.
 - PostgreSQL integration coverage was added but is pending a completed PostgreSQL-enabled CI run. The ordinary Delivery Gates server job has passed analyze/tests with the integration test skipped because that workflow does not configure `PGTEST_HOST`.
+
+
+## 2026-11-15 — Supplier return API
+
+- Added `POST /v1/purchases/returns`, authenticated with the same bearer token and branch header as the other ERP APIs and protected by `Idempotency-Key`.
+- Request fields: `operationId`, `returnNo`, `purchaseInvoiceId`, and a non-empty `items` list containing `purchaseInvoiceItemId`, `productBatchId`, and decimal-string `qtyBase`; `returnDate` and `notes` are optional.
+- The server derives the supplier from the original posted purchase invoice. It rejects items not belonging to that invoice, previously returned quantities beyond the original invoice amount, and quantities exceeding physical batch or aggregate stock.
+- Return stock movements and supplier credit journal/ledger entries are written in the same transaction. The return is valued at the current moving-average carrying cost; cash refunds are not part of this endpoint.
+- PostgreSQL integration test covers posting and idempotent replay. Latest PG18 run #197 reports 25 server tests passed; Android APK job was still running when documented.

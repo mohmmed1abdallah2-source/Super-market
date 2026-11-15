@@ -219,3 +219,11 @@ The format follows Keep a Changelog. Version numbers will be assigned when relea
 - Added purchase-order received-quantity tracking migration 009 and receipt reconciliation.
 - Added PostgreSQL integration coverage for replay, fractional packs, journal balance, supplier balance and purchase-order completion. Execution is pending the PostgreSQL-enabled CI result.
 - No production migration or deployment.
+
+
+## 2026-11-15 — Supplier purchase returns
+- Added transactional supplier purchase return endpoint with batch/invoice linkage validation, over-return protection, carton/loose quantity handling, stock movement, supplier ledger credit and balanced journal.
+- Return valuation follows current moving-average carrying cost; cash refunds are not included.
+- Sale stock quantity checks and deductions now persist exact decimal base quantities.
+- PostgreSQL 18 CI run #197: server analysis passed and 25 tests passed; Flutter analyze/tests, Web and Windows passed, Android APK still running at documentation time.
+- No production migration or deployment.

@@ -153,3 +153,10 @@ This is a schema-level invariant only; it does not integrate the pure FEFO plann
 - The purchase cash component is checked against the locked cash-account balance and deducted in the same transaction.
 - Sale posting still has existing `double`-based invoice/journal aggregation and COGS totals; this remains a financial precision blocker and is not resolved by the purchase implementation.
 - Purchase operation replay is guarded by the request idempotency record and a branch+operation transaction advisory lock. The PostgreSQL repository integration test must complete before release acceptance.
+
+
+## 2026-11-15 — Purchase return valuation
+
+- Supplier returns reduce inventory at the product's current moving-average carrying cost, not the historical batch cost. This matches the aggregate inventory valuation method currently used by the product master and prevents the quantity/value balance from drifting when a batch's original cost differs from the current average.
+- The supplier ledger receives an `alayh_amount` credit against the supplier's prior `lah_amount` payable; the journal debits supplier payable and credits inventory.
+- Purchase invoices and returns now use exact decimal contracts for their own quantity and money calculations. The sales invoice and journal aggregation path still contains `double` and remains open.

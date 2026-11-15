@@ -304,3 +304,17 @@ These commits are on `feature/multi-store-isolation-foundation`. No changes were
 - Added migration 009 to the disposable PostgreSQL 18 CI setup and included the new Dart files in the delivery-gate formatting list.
 - Source commits include `f17a236f`, `39af37c9`, `6770c5d5`, `1282d7d8`, and `a4cd3961`. A Delivery Gates run reported the Dart API analyze/test job successful after the FEFO import correction; the PostgreSQL-enabled Flutter validation run for the final test revision is still pending/in progress at handover. Do not claim the new PostgreSQL integration test has passed until its PostgreSQL-enabled job completes.
 - No migration was applied to Neon production. Migration 009 is source-only and CI-only at this point.
+
+
+## 2026-11-15 — Supplier returns and exact stock movement follow-up
+
+- Added authenticated `POST /v1/purchases/returns`, `PostPurchaseReturnUseCase`, and `PostgresPurchaseReturnPostingRepository`.
+- Return posting locks the original posted purchase invoice, invoice item, FEFO batch and product; verifies the batch/item/invoice linkage; checks previously returned quantity, remaining physical batch stock and aggregate stock; and rejects over-returns.
+- The return consumes loose units first and opens only the minimum cartons required. It writes purchase-return items, updates batch/product quantities, appends negative `PURCHASE_RETURN_OUT` stock movements and cost history, and posts the balanced supplier-credit/inventory journal and supplier ledger adjustment in one transaction.
+- Supplier return valuation uses the current moving-average carrying cost, keeping aggregate inventory value consistent with the quantity removed. It does not create a cash refund; any supplier credit remains on the supplier ledger.
+- Sale stock availability checks, aggregate stock deductions, sale item quantity/factor persistence and stock movement quantities now use the exact six-place `ScaledDecimal` result rather than converting the stock quantity through `double`. Sale invoice/journal money aggregation still contains `double` and remains a release blocker.
+- Extended the PostgreSQL integration test to cover supplier return posting, idempotent replay, batch carton/loose balance, negative stock movement, balanced journal and remaining product stock.
+- Latest PostgreSQL-enabled run #197: server analysis passed and all 25 server tests passed, including purchase invoice and purchase return posting. Flutter analyze/tests, Web build and Windows build passed in the same run; Android APK build was still in progress at the time this entry was written. Run #188 had completed all validation jobs successfully before the supplier-return server additions.
+- Delivery Gates Dart API analyze/tests also passed for the supplier-return source revision.
+- CI concurrency for Flutter validation was changed to queue rather than cancel an in-progress run, so rapid documentation/commit updates do not terminate the current platform validation.
+- No migration was applied to Neon production, no production data was changed, and no application deployment was performed.

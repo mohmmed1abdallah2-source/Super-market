@@ -2,7 +2,7 @@ name: Flutter validation
 
 concurrency:
   group: flutter-validation-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 on:
   push:
