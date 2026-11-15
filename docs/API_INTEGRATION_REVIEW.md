@@ -118,3 +118,10 @@ The audit identified and corrected a schema invariant gap: both FEFO batch loose
 - Products without any FEFO batch records retain the legacy aggregate-stock deduction path, but still append a sale stock movement.
 - If FEFO records exist, the server no longer silently falls back when eligible batch stock is expired, held or insufficient.
 - This is a source implementation update, not a runtime verification. PostgreSQL integration/concurrency/replay tests and CI results remain pending. Purchase writes, inventory operations and new sync batch operation types remain unimplemented.
+
+
+## FEFO warehouse eligibility refinement — 2026-11-15
+
+- The sale allocator now joins each batch to its branch-owned warehouse and considers only `is_sellable = TRUE` warehouses. A supplied `warehouseId` further scopes the allocation; omitting it allows FEFO across all sellable warehouses in the branch.
+- A product that has batch records only in non-sellable warehouses cannot silently fall back to untracked aggregate stock.
+- Commit: `890e29fbb3d4bd2fb24399466f87c2b349a3342a`. Runtime verification remains pending.
