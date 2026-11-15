@@ -173,3 +173,8 @@ The format follows Keep a Changelog. Version numbers will be assigned when relea
 - Restored the manual baseline snapshot and verified the restored branch schema plus selected read-only row counts against production.
 - Neon restore finalization temporarily swapped the default production branch name/role; the original branch ID was immediately reinstated as `production` and default, and the restored branch was renamed as a non-default rehearsal branch. Both states were verified afterward.
 - The rehearsal branch is retained pending explicit cleanup approval. No production migration or SQL write was performed.
+
+
+### 2026-11-15 — Post-restore endpoint review
+- Found that Neon restore finalization moved the original read-write endpoint to the rehearsal branch and created a new endpoint on production. Application routing via the old endpoint is therefore potentially affected; application environment was not inspected.
+- No endpoint was moved or deleted. Endpoint reassociation is documented as pending explicit approval because it causes a brief connection interruption.
