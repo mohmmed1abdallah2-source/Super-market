@@ -4,7 +4,9 @@ import 'package:postgres/postgres.dart';
 import 'package:test/test.dart';
 import 'package:uuid/uuid.dart';
 import 'package:supermarket_erp_server/features/inventory_and_purchases/application/purchase_invoice_posting.dart';
+import 'package:supermarket_erp_server/features/inventory_and_purchases/application/purchase_return_posting.dart';
 import 'package:supermarket_erp_server/features/inventory_and_purchases/data/postgres_purchase_invoice_posting_repository.dart';
+import 'package:supermarket_erp_server/features/inventory_and_purchases/data/postgres_purchase_return_posting_repository.dart';
 
 void main() {
   final enabled = Platform.environment['PGTEST_HOST']?.isNotEmpty == true;
@@ -308,6 +310,80 @@ void main() {
           substitutionValues: {'order': purchaseOrderId, 'branch': branchId},
         );
         expect(_flattenRow(orderItemRows.single)['received'], '1.5000');
+
+        final returnRepository = PostgresPurchaseReturnPostingRepository(connection);
+        final firstItem = (first['items'] as List).first as Map<String, Object?>;
+        final returnOperationId = uuid.v4();
+        final returnRequest = <String, dynamic>{
+          'operationId': returnOperationId,
+          'returnNo': 'RET-$suffix',
+          'purchaseInvoiceId': first['id'],
+          'items': [
+            {
+              'purchaseInvoiceItemId': firstItem['id'],
+              'productBatchId': firstItem['batchId'],
+              'qtyBase': '6.000000',
+            },
+          ],
+        };
+        final returnCommand = PurchaseReturnCommand(
+          branchId: branchId,
+          operationId: returnOperationId,
+          idempotencyKey: 'purchase-return-$branchId',
+          requestHash: List.filled(64, 'd').join(),
+          request: returnRequest,
+        );
+        final firstReturn = await returnRepository.postPurchaseReturn(returnCommand);
+        final replayedReturn = await returnRepository.postPurchaseReturn(returnCommand);
+        expect(replayedReturn['id'], firstReturn['id']);
+        expect(firstReturn['netTotal'], '2.0000');
+        expect(firstReturn['status'], 'POSTED');
+
+        final returnedBatchRows = await connection.mappedResultsQuery(
+          '''SELECT sealed_cartons, loose_base_qty::text AS loose,
+                    total_base_qty::text AS total
+             FROM product_batches_fefo WHERE id = @batch AND branch_id = @branch''',
+          substitutionValues: {'batch': firstItem['batchId'], 'branch': branchId},
+        );
+        final returnedBatch = _flattenRow(returnedBatchRows.single);
+        expect(returnedBatch['sealed_cartons'], 2);
+        expect(returnedBatch['loose'], '18.000000');
+        expect(returnedBatch['total'], '66.000000');
+
+        final returnJournalRows = await connection.mappedResultsQuery(
+          '''SELECT j.status, SUM(l.dr_amount)::text AS debit,
+                    SUM(l.cr_amount)::text AS credit
+             FROM journal_entries j
+             JOIN journal_lines l ON l.journal_entry_id = j.id
+             WHERE j.id = @journal AND j.branch_id = @branch
+             GROUP BY j.status''',
+          substitutionValues: {
+            'journal': firstReturn['journalEntryId'],
+            'branch': branchId,
+          },
+        );
+        final returnJournal = _flattenRow(returnJournalRows.single);
+        expect(returnJournal['status'], 'POSTED');
+        expect(returnJournal['debit'], '2.0000');
+        expect(returnJournal['credit'], '2.0000');
+
+        final returnMovementRows = await connection.mappedResultsQuery(
+          '''SELECT COUNT(*)::int AS count, SUM(quantity_base)::text AS quantity
+             FROM stock_movements
+             WHERE branch_id = @branch AND doc_id = @return
+               AND movement_type = 'PURCHASE_RETURN_OUT' ''',
+          substitutionValues: {'branch': branchId, 'return': firstReturn['id']},
+        );
+        final returnMovement = _flattenRow(returnMovementRows.single);
+        expect(returnMovement['count'], 1);
+        expect(returnMovement['quantity'], '-6.000000');
+
+        final finalProductRows = await connection.mappedResultsQuery(
+          '''SELECT stock_base_qty::text AS stock
+             FROM products WHERE id = @product AND branch_id = @branch''',
+          substitutionValues: {'product': productId, 'branch': branchId},
+        );
+        expect(_flattenRow(finalProductRows.single)['stock'], '114.000000');
       } finally {
         await connection.close();
       }
