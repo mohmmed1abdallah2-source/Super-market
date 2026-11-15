@@ -185,3 +185,11 @@ The format follows Keep a Changelog. Version numbers will be assigned when relea
 - Reattached the original endpoint `ep-young-scene-bab6kmsp` to the original production branch `br-empty-brook-bab988pu` after explicit user approval.
 - Read-back verification confirms the original endpoint-to-production association and confirms production remains ready, primary, and default. The audit and restore-rehearsal branches were retained.
 - No production SQL, schema migration, or row data was changed. Application environment variables and end-to-end connectivity were not inspected or tested; application connectivity must not be marked verified from this control-plane correction alone.
+
+
+## 2026-11-15 — Iteration 3 CI coverage
+- Expanded the Flutter/server validation workflow to run on the Iteration 3 work branch.
+- Moved its disposable PostgreSQL service to version 18 and included migrations/tests 003, 004, 006, 007 and 008 in the server validation database setup.
+- Commit: `fe9dde48836e554fad7f6b33ebec85732deaef18`.
+- CI execution is pending/unverified at this entry; this change alone is not a test pass.
+- No Neon production migration or deployment was performed.
