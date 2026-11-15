@@ -513,7 +513,7 @@ final class PostgresPurchaseInvoicePostingRepository
                  discount_amount = @discount, net_total = @net,
                  paid_total = @paid, cash_account_id = @cash,
                  payment_method = @method, wallet_ref_no = @walletRef,
-                 journal_entry_id = @journal, updated_at = now()
+                 journal_entry_id = @journal
              WHERE id = @id AND branch_id = @branch AND status = 'DRAFT' ''',
           substitutionValues: {
             'id': invoiceId,
