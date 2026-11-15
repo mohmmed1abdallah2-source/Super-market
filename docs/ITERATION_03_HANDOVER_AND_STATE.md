@@ -289,3 +289,18 @@ These commits are on `feature/multi-store-isolation-foundation`. No changes were
 - A supplied `warehouseId` is now checked against the authenticated branch and must identify an active, sellable warehouse.
 - When a warehouse is explicitly selected, a product without FEFO batch tracking in the selected branch context is rejected rather than deducted from an unlocated aggregate stock balance.
 - Commit: `efefb0c229bff44550557a18b97411611a0e6800`. Validation is pending.
+
+
+## 2026-11-15 — Supplier purchase invoice posting milestone
+
+- Added `PostPurchaseInvoiceUseCase` and `PostgresPurchaseInvoicePostingRepository`, exposed through the branch-authenticated `POST /v1/purchases/invoices` route and wired in `server/bin/server.dart`.
+- The operation runs in one PostgreSQL transaction and uses both the HTTP idempotency key/request hash and stable operation ID. A completed operation replay returns its stored response; duplicate operation IDs are serialized with a transaction-scoped advisory lock.
+- Validates supplier ownership/type, active receiving warehouse, optional active product unit and its exact conversion factor, optional location ownership, future/non-expired batch date, payment method/account compatibility, cash sufficiency, and purchase-order supplier/status/line quantity.
+- Persisting each purchase line creates the invoice item and FEFO batch, updates aggregate stock and weighted average base cost using `ScaledDecimal`/`MoneyAmount`, appends price-cost history and a positive `PURCHASE_IN` stock movement, all inside the same transaction.
+- Fractional packs are preserved as integer sealed cartons plus loose base quantity; they are not truncated into the integer carton column.
+- Posts a balanced journal entry: debit inventory, credit cash for paid amount, and credit supplier payable for the outstanding amount. Updates the cash account and supplier `lah_alayh_ledger` balance consistently with the existing voucher convention.
+- Added additive migration `docs/neon/009_purchase_order_receiving_progress.sql` to track cumulative received quantities and enforce `0 <= qty_received <= qty_ordered`. Purchase invoices linked to an order reconcile each line and set order status to PARTIALLY_RECEIVED or RECEIVED only when all lines are satisfied.
+- Added `server/test/postgres_purchase_invoice_posting_test.dart` covering atomic posting, replay/no duplicate movement, fractional-pack receipt, balanced journal, supplier balance and full purchase-order receipt. This test requires `PGTEST_HOST`; it is intentionally skipped in workflows that do not provide PostgreSQL.
+- Added migration 009 to the disposable PostgreSQL 18 CI setup and included the new Dart files in the delivery-gate formatting list.
+- Source commits include `f17a236f`, `39af37c9`, `6770c5d5`, `1282d7d8`, and `a4cd3961`. A Delivery Gates run reported the Dart API analyze/test job successful after the FEFO import correction; the PostgreSQL-enabled Flutter validation run for the final test revision is still pending/in progress at handover. Do not claim the new PostgreSQL integration test has passed until its PostgreSQL-enabled job completes.
+- No migration was applied to Neon production. Migration 009 is source-only and CI-only at this point.
