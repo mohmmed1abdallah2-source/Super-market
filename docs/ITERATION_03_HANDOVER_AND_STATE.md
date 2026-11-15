@@ -1,8 +1,8 @@
 # Iteration 03 — Handover and implementation state
 
 **Branch:** `feature/multi-store-isolation-foundation`  
-**Status:** In progress — FEFO sale transaction integration added; purchase posting, sync writes, UI and validation remain  
-**Last updated:** 2026-11-13
+**Status:** In progress — purchase invoice/return posting and FEFO sale integration implemented; sync write operations, remaining inventory workflows, UI/PDF and financial precision closure remain  
+**Last updated:** 2026-11-15
 
 ## 1. Baseline inspected before implementation
 
@@ -69,51 +69,59 @@ The planner is intentionally pure. It does not lock database rows, mutate invent
 
 Added unit tests for bonus quantity arithmetic, line discount validation, weighted-average cost, FEFO ordering and auto-unpack, expired/inactive batch exclusion, and insufficient batch stock.
 
-## 4. Not implemented yet — do not represent as complete
+## 4. Current implementation status — 2026-11-15
 
-- Created additive Neon migration `007` and rollback-only SQL isolation tests `008` on the work branch. They have **not** been executed against PostgreSQL/Neon; review and disposable-database execution remain required.
-- Warehouse, aisle/shelf, fridge temperature, FEFO batch, stocktaking, disposal, transfer, purchase order/invoice/return, and cost-history persistence.
-- Immutable append-only enforcement for PostgreSQL and SQLite stock movements.
-- Server repositories, use cases, and inventory/purchase routes.
-- Extension of the existing sync contract to new operation types while preserving all-or-nothing behavior and idempotency.
-- Local SQLite additive migration. The existing schema version is 1; the existing `onUpgrade` only handles old versions below 1 and is not an implementation of Iteration 3.
-- Purchase/inventory DTOs and API client methods.
-- FEFO deductions have now been wired into the existing `PostgresSalesSyncRepository._applySale` transaction (latest source change; pending CI and PostgreSQL integration verification).
-- Local POS purchase/stock workflows and queue mapping.
-- Provider, screens, responsive layouts, and official PDF reports.
-- Live Neon NUMERIC string bind/round-trip verification.
-- Integration tests against PostgreSQL/Neon and end-to-end offline replay.
-- Any deployment or production-readiness evidence.
+### Completed in the work branch
+- PostgreSQL migration 007 and rollback-only isolation tests 008 were executed successfully on disposable PostgreSQL 18.7; additive migration 009 for purchase-order receiving progress was also applied in CI.
+- Branch-scoped read APIs exist for warehouses, locations, FEFO batches, stock movements, stocktaking sessions and shortage suggestions.
+- Inventory/purchase decimal contracts and the versioned SQLite v1→v2 additive schema migration exist. The exact local inventory columns are not yet maintained by every legacy POS write path.
+- The existing `PostgresSalesSyncRepository._applySale` now integrates FEFO row locking/allocation, batch balances, sales-item batch allocations and stock movement rows. Sale stock quantity checks/deductions and movement quantities use exact six-place decimals. Dedicated FEFO sale concurrency/replay integration coverage is still required.
+- Transactional supplier purchase invoice posting exists at `POST /v1/purchases/invoices`, including FEFO receipt batches, weighted-average cost, stock movements, cash account updates, supplier ledger, balanced journal, idempotency and purchase-order receipt reconciliation.
+- Transactional supplier purchase return posting exists at `POST /v1/purchases/returns`, including invoice/batch linkage, over-return protection, carton/loose stock handling, supplier credit, stock movement and balanced journal.
+- The PostgreSQL integration test covers purchase invoice replay, fractional pack receipt, purchase-order receiving, purchase return replay, batch quantities, journal balance and stock movement behavior.
+- CI run #197 completed successfully: PostgreSQL 18 setup, Dart server analysis and all 25 server tests; Flutter analyze/tests; Android release APK; Windows build; and Web build all passed. Delivery Gates run #131 also passed the formatting and Dart API analyze/test jobs after aligning its file_picker compile SDK workaround.
+
+### Remaining work — Iteration 3 is not complete
+- Extend the existing all-or-nothing sync batch contract and server handlers for purchase invoice, purchase return, stocktaking, disposal and transfer operations. Preserve stable operation IDs, idempotency and receipts.
+- Complete local-first SQLite inventory persistence, exact TEXT snapshot maintenance in all relevant POS paths, pending queue mapping, retry/recovery and offline replay.
+- Implement stocktaking count/approval, disposal posting, transfer dispatch/receipt and fridge-temperature writes.
+- Add dedicated FEFO sale PostgreSQL concurrency/replay/rollback tests; do not infer them from the pure planner tests or generic sale tests.
+- Convert remaining sale invoice, COGS and journal money aggregation away from Dart `double` to `MoneyAmount`/fixed-scale arithmetic.
+- Complete Flutter providers, screens, navigation, POS expiry/batch warnings, purchase workflows and shortage-to-order flow.
+- Implement official PDF reports through `OfficialReportTemplate`.
+- Complete full end-to-end offline/online replay tests and release-readiness review.
+- Do not apply migrations 007/009 to Neon production or deploy without the separately required review and explicit approval.
 
 ## 5. Verification log — truthful state
 
 | Check | Result |
 |---|---|
 | Source inspection of architecture and key integration points | Completed |
-| Dart/Flutter toolchain available in this execution environment | No — `dart` and `flutter` commands are not installed |
-| New Dart tests authored | Yes |
-| New Dart tests executed | No |
-| Dart analyzer / formatter | Not run |
-| PostgreSQL migration 007 / SQL tests 008 | Passed on disposable PostgreSQL 18.7 in CI; not applied to Neon production |
+| Local Dart/Flutter executables in this session | Not installed; CI toolchains were used |
+| New server and integration tests authored | Yes |
+| PostgreSQL server tests | 25 passed on disposable PostgreSQL 18.7 in CI run #197 |
+| Dart server analyzer | Passed in CI run #197 |
+| Flutter analyzer and tests | Passed in CI run #197 |
+| Android release APK / Windows / Web builds | Passed in CI run #197 |
+| Delivery Gates formatting + Dart API analyze/tests | Passed in CI run #131 |
+| PostgreSQL migrations 001–004, 006–009 and SQL isolation tests | Passed on disposable PostgreSQL 18.7 in CI; not applied to Neon production |
 | Neon database modified | No |
-| SQLite schema/data modified | No |
-| Server API or live sale transaction modified | No |
+| SQLite source schema | Additive v1→v2 migration exists; legacy write-path integration remains incomplete |
+| Server API and live sale transaction | Modified and tested in CI |
 | Production deployment | No |
 
 Do not change any of these statuses without new execution evidence.
 
 ## 6. Next developer entry point
 
-1. Read this handover and the two existing architecture reviews.
-2. Inspect the new calculator and its tests. Run formatting, analysis and tests in a Dart-enabled environment; fix issues before integration.
-3. Add migration `007` as an additive migration. Preserve the existing `stock_movements` table and establish composite branch-safe references for every new branch-scoped relationship.
-4. Add rollback-only SQL tests `008`; execute them against a disposable database with the required migrations, not a live business database.
-5. Implement inventory and purchase repository/use cases in the existing Dart server and reuse its PostgreSQL connection, auth middleware and branch scope.
-6. Integrate FEFO into the existing sale transaction only after row-locking, rollback, concurrency and replay tests exist. Do not create a second sale path.
-7. Extend the existing batch operation contract only after defining payloads and replay semantics. Preserve batch all-or-nothing behavior and the existing stable IDs/idempotency keys.
-8. Add a versioned, non-destructive SQLite migration and explicit tests that preserve all existing rows and pending sync queue entries.
-9. Wire UI and `OfficialReportTemplate.preview` only after API/local contracts stabilize.
-10. Update this document, the API/financial reviews, development log and changelog after every milestone.
+1. Extend sync batch operation types and server handlers for purchase invoice/return, stocktaking, disposal and transfer; preserve all-or-nothing and idempotent replay.
+2. Finish exact local SQLite inventory persistence and queue/retry/recovery integration without dropping pending operations.
+3. Implement stocktaking approval, disposal, transfer and fridge-temperature write flows with branch-safe transactions.
+4. Add dedicated PostgreSQL FEFO sale concurrency, rollback and replay tests.
+5. Replace remaining sale/COGS/journal `double` calculations with fixed-scale decimal arithmetic.
+6. Complete Flutter providers/screens/navigation and official PDF reports after local/API contracts stabilize.
+7. Run full end-to-end offline replay and release-readiness tests. Keep production migrations gated behind review and explicit approval.
+8. Update this handover and the API/financial reviews after each milestone.
 
 ## 7. Commits in this milestone
 
@@ -122,7 +130,7 @@ Do not change any of these statuses without new execution evidence.
 - `6072925e462007adc459c2f2ff587a573c8c6b9e` — added purchase/FEFO unit tests.
 - `04aab46aa256b0aa6d69dc6c8b1f6799c6a3be07` — tightened FEFO batch bounds and scale validation.
 
-These commits are on `feature/multi-store-isolation-foundation`. No changes were made to `main`.
+These early calculator commits are on `feature/multi-store-isolation-foundation`. Later server, migration, test and CI milestones are recorded below. No changes were made to `main`.
 
 
 ## 8. Iteration 3 schema milestone — 2026-11-13
@@ -173,9 +181,9 @@ These commits are on `feature/multi-store-isolation-foundation`. No changes were
 - Increased `SchemaBuilder.version` from 1 to 2 and wired `DatabaseHelper.onUpgrade` to an additive v1→v2 migration.
 - Added local tables for warehouses, locations, fridge temperature logs, purchase orders/invoices/returns, FEFO batches, sales-item batch allocations, stocktaking, disposals, transfers and cost history.
 - Extended existing local `stock_movements` with optional warehouse/batch/reference/note columns; no replacement movement table was introduced.
-- Added exact TEXT snapshot columns to products for new inventory quantity/cost handling while retaining legacy REAL columns for existing POS compatibility. These exact columns are not yet maintained by the legacy sale path; do not treat them as fully authoritative until sale integration is completed.
+- Added exact TEXT snapshot columns to products for new inventory quantity/cost handling while retaining legacy REAL columns for existing POS compatibility. Sale quantity deductions now use exact decimal values in PostgreSQL, but the local SQLite snapshots and every legacy POS write path still need to be wired to these exact columns.
 - Added `test/iteration3_inventory_schema_test.dart` to verify fresh schema creation and the new columns.
-- The Dart server and shared-contract analyzer/tests pass in CI on the latest validation run. Flutter analyze/test/Android build for the SQLite schema commit are still running or have not yet produced a final result; do not claim success until the run concludes.
+- CI run #197 subsequently passed Dart server analysis and 25 server tests, Flutter analyze/tests, Android release APK, Windows and Web builds. This validates the current branch build, but does not mean local SQLite exact snapshots or offline replay are complete.
 
 
 ## 11. Independent handover audit — 2026-11-15
@@ -302,7 +310,7 @@ These commits are on `feature/multi-store-isolation-foundation`. No changes were
 - Added additive migration `docs/neon/009_purchase_order_receiving_progress.sql` to track cumulative received quantities and enforce `0 <= qty_received <= qty_ordered`. Purchase invoices linked to an order reconcile each line and set order status to PARTIALLY_RECEIVED or RECEIVED only when all lines are satisfied.
 - Added `server/test/postgres_purchase_invoice_posting_test.dart` covering atomic posting, replay/no duplicate movement, fractional-pack receipt, balanced journal, supplier balance and full purchase-order receipt. This test requires `PGTEST_HOST`; it is intentionally skipped in workflows that do not provide PostgreSQL.
 - Added migration 009 to the disposable PostgreSQL 18 CI setup and included the new Dart files in the delivery-gate formatting list.
-- Source commits include `f17a236f`, `39af37c9`, `6770c5d5`, `1282d7d8`, and `a4cd3961`. A Delivery Gates run reported the Dart API analyze/test job successful after the FEFO import correction; the PostgreSQL-enabled Flutter validation run for the final test revision is still pending/in progress at handover. Do not claim the new PostgreSQL integration test has passed until its PostgreSQL-enabled job completes.
+- Source commits include `f17a236f`, `39af37c9`, `6770c5d5`, `1282d7d8`, and `a4cd3961`. PostgreSQL-enabled CI run #197 completed successfully with 25 server tests, including this purchase invoice integration coverage.
 - No migration was applied to Neon production. Migration 009 is source-only and CI-only at this point.
 
 
@@ -314,7 +322,7 @@ These commits are on `feature/multi-store-isolation-foundation`. No changes were
 - Supplier return valuation uses the current moving-average carrying cost, keeping aggregate inventory value consistent with the quantity removed. It does not create a cash refund; any supplier credit remains on the supplier ledger.
 - Sale stock availability checks, aggregate stock deductions, sale item quantity/factor persistence and stock movement quantities now use the exact six-place `ScaledDecimal` result rather than converting the stock quantity through `double`. Sale invoice/journal money aggregation still contains `double` and remains a release blocker.
 - Extended the PostgreSQL integration test to cover supplier return posting, idempotent replay, batch carton/loose balance, negative stock movement, balanced journal and remaining product stock.
-- Latest PostgreSQL-enabled run #197: server analysis passed and all 25 server tests passed, including purchase invoice and purchase return posting. Flutter analyze/tests, Web build and Windows build passed in the same run; Android APK build was still in progress at the time this entry was written. Run #188 had completed all validation jobs successfully before the supplier-return server additions.
+- Latest PostgreSQL-enabled run #197 completed successfully: server analysis and all 25 server tests passed, including purchase invoice and purchase return posting; Flutter analyze/tests, Android release APK, Web and Windows builds also passed.
 - Delivery Gates Dart API analyze/tests also passed for the supplier-return source revision.
 - CI concurrency for Flutter validation was changed to queue rather than cancel an in-progress run, so rapid documentation/commit updates do not terminate the current platform validation.
 - No migration was applied to Neon production, no production data was changed, and no application deployment was performed.

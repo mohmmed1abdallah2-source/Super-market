@@ -232,3 +232,9 @@ The format follows Keep a Changelog. Version numbers will be assigned when relea
 ## 2026-11-15 — Validation result
 - Flutter validation run #197 completed successfully, including Android release APK, Windows, Web, PostgreSQL 18 setup, Dart server analysis and 25 server tests.
 - This is validation of the feature branch only, not a production deployment.
+
+
+## 2026-11-15 — CI verification and Delivery Gates alignment
+- PostgreSQL-enabled Flutter validation run #197 completed successfully: 25 server tests, Dart/Flutter analysis and tests, Android release APK, Windows and Web builds.
+- Added the file_picker compile SDK 36 workaround to Delivery Gates so its Android build uses the same SDK compatibility fix as the primary validation workflow.
+- Iteration 3 remains in progress; remaining sync, local SQLite, inventory write flows, UI/PDF and sales money precision work is still open.

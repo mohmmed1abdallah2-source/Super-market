@@ -343,3 +343,11 @@
 - GitHub Actions run #197 completed successfully: Flutter analyze/tests, Android release APK, Windows, Web, PostgreSQL 18 schema validation, Dart server analysis and 25 server tests all passed.
 - Includes PostgreSQL integration coverage for supplier purchase invoice and return posting.
 - Run: https://github.com/mohmmed1abdallah2-source/Super-market/actions/runs/43724926715
+
+
+## 2026-11-15 — تأكيد نتيجة التحقق النهائي للدورة الفرعية
+- اكتملت GitHub Actions run #197 بنجاح: تحليل الخادم، 25 اختبارًا على PostgreSQL 18، تحليل واختبارات Flutter، بناء APK release، وبناء Windows وWeb.
+- أضيف مسار مردودات المشتريات واختبار التكامل الخاص به، كما تم إصلاح خصم كمية المخزون في المبيعات ليستخدم `ScaledDecimal` بدقة ست منازل.
+- عولج اختلاف بوابة Delivery Gates في AAR الخاص بـ file_picker بإضافة خطوة compile SDK 36 المطابقة للبوابة الرئيسية؛ تحقق تشغيل #131 من نجاح التنسيق وتحليل/اختبارات Dart.
+- ما زالت الدورة الثالثة غير مكتملة: مزامنة عمليات الشراء والجرد والإتلاف والتحويل، ربط SQLite المحلي، شاشات Flutter، التقارير PDF، ودقة الأموال في مسار البيع ما زالت مفتوحة.
+- لم يتم تطبيق ترحيلات على Neon production ولم يتم نشر التطبيق.
