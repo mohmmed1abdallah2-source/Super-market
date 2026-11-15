@@ -14,6 +14,7 @@ DECLARE
   w3 TEXT := 'it3-test-warehouse-a2-' || gen_random_uuid()::text;
   batch2 TEXT := 'it3-test-batch-b-' || gen_random_uuid()::text;
   transfer1 TEXT := 'it3-test-transfer-a-' || gen_random_uuid()::text;
+  session1 TEXT := 'it3-test-stocktake-a-' || gen_random_uuid()::text;
   party1 TEXT := 'it3-test-supplier-a-' || gen_random_uuid()::text;
   party2 TEXT := 'it3-test-supplier-b-' || gen_random_uuid()::text;
   po1 TEXT := 'it3-test-po-a-' || gen_random_uuid()::text;
@@ -54,6 +55,9 @@ BEGIN
 
   INSERT INTO stock_transfers(id, branch_id, transfer_no, source_warehouse_id, destination_warehouse_id)
   VALUES (transfer1, b1, 'TR-' || substr(md5(transfer1),1,8), w1, w3);
+
+  INSERT INTO stocktaking_sessions(id, branch_id, warehouse_id, session_no)
+  VALUES (session1, b1, w1, 'ST-' || substr(md5(session1),1,8));
 
   INSERT INTO stock_movements(
     id, branch_id, product_id, movement_type, quantity_base, unit_cost_base, doc_type, doc_id, warehouse_id, product_batch_id
@@ -99,6 +103,36 @@ BEGIN
   END;
 
   BEGIN
+    INSERT INTO product_batches_fefo(
+      id, branch_id, product_id, warehouse_id, batch_no, expiry_date,
+      pack_conversion_factor, sealed_cartons, loose_base_qty
+    ) VALUES ('negative-loose-' || gen_random_uuid()::text, b1, p1, w1, 'NEG-LOOSE', CURRENT_DATE + 30, 24, 0, -1);
+    RAISE EXCEPTION 'FAIL: negative loose stock was accepted';
+  EXCEPTION WHEN check_violation THEN
+    NULL;
+  END;
+
+  BEGIN
+    INSERT INTO product_batches_fefo(
+      id, branch_id, product_id, warehouse_id, batch_no, expiry_date,
+      pack_conversion_factor, sealed_cartons, loose_base_qty
+    ) VALUES ('overflow-loose-' || gen_random_uuid()::text, b1, p1, w1, 'OVERFLOW-LOOSE', CURRENT_DATE + 30, 24, 0, 24);
+    RAISE EXCEPTION 'FAIL: loose stock equal to one full pack was accepted';
+  EXCEPTION WHEN check_violation THEN
+    NULL;
+  END;
+
+  BEGIN
+    INSERT INTO stocktaking_lines(
+      id, branch_id, session_id, product_id, counted_sealed_cartons,
+      counted_loose_base_qty, pack_conversion_factor
+    ) VALUES ('overflow-count-' || gen_random_uuid()::text, b1, session1, p1, 0, 24, 24);
+    RAISE EXCEPTION 'FAIL: stocktaking loose count equal to one full pack was accepted';
+  EXCEPTION WHEN check_violation THEN
+    NULL;
+  END;
+
+  BEGIN
     UPDATE stock_movements SET notes = 'mutation must fail' WHERE id = movement1;
     RAISE EXCEPTION 'FAIL: stock movement UPDATE was accepted';
   EXCEPTION WHEN object_not_in_prerequisite_state THEN
@@ -121,7 +155,7 @@ BEGIN
     NULL;
   END;
 
-  RAISE NOTICE 'PASS: 7 Iteration 3 SQL assertions completed';
+  RAISE NOTICE 'PASS: 10 Iteration 3 SQL assertions completed';
 END $$;
 
 ROLLBACK;
