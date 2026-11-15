@@ -1,7 +1,7 @@
 # Iteration 03 — Handover and implementation state
 
 **Branch:** `feature/multi-store-isolation-foundation`  
-**Status:** In progress — domain calculation foundation only  
+**Status:** In progress — FEFO sale transaction integration added; purchase posting, sync writes, UI and validation remain  
 **Last updated:** 2026-11-13
 
 ## 1. Baseline inspected before implementation
@@ -78,7 +78,7 @@ Added unit tests for bonus quantity arithmetic, line discount validation, weight
 - Extension of the existing sync contract to new operation types while preserving all-or-nothing behavior and idempotency.
 - Local SQLite additive migration. The existing schema version is 1; the existing `onUpgrade` only handles old versions below 1 and is not an implementation of Iteration 3.
 - Purchase/inventory DTOs and API client methods.
-- Wiring FEFO deductions into the existing `PostgresSalesSyncRepository._applySale` transaction.
+- FEFO deductions have now been wired into the existing `PostgresSalesSyncRepository._applySale` transaction (latest source change; pending CI and PostgreSQL integration verification).
 - Local POS purchase/stock workflows and queue mapping.
 - Provider, screens, responsive layouts, and official PDF reports.
 - Live Neon NUMERIC string bind/round-trip verification.
@@ -262,3 +262,16 @@ These commits are on `feature/multi-store-isolation-foundation`. No changes were
 - Extended the disposable-database setup to apply branch constraints (003), baseline accounting (004), rollback-only branch tests (006), inventory/purchase schema (007), and rollback-only inventory isolation assertions (008), after the existing server migrations 001/002.
 - This is CI configuration only. The workflow result has not yet been observed; no Flutter/Dart test, APK build, Windows build, Web build, or SQL pass is claimed from this commit.
 - Neon production and its data remain untouched. No production migration or deployment was performed.
+
+
+## 12. FEFO integration milestone — 2026-11-15 (implementation, not yet validated)
+
+- Extended the existing sale transaction rather than creating a second sale path.
+- For products with no FEFO batch records, the legacy aggregate-stock path remains available; a sale movement is now appended to the existing stock movement ledger.
+- Once a product has FEFO batch records, the server locks its batch rows with `FOR UPDATE`, plans allocations using the pure decimal-scale FEFO planner, excludes expired/held/depleted batches, and rejects a sale if the remaining unexpired batch quantity is insufficient.
+- Successful allocations update sealed-carton/loose-unit balances, mark depleted batches, create `sales_invoice_item_batches` rows, and append immutable `SALE_OUT` stock movements in the same PostgreSQL transaction as the invoice.
+- COGS for FEFO-tracked lines is derived from allocated batch unit costs; the current accounting implementation still converts values to Dart `double` for journal totals. This does **not** close the financial-precision release blocker.
+- Source commit: `036132e91cf195bbcbe70ef9c16aa848829cedea`; batch-cost valuation correction: `d435a0c2d375b112bd9c9d92f06face6eb40e8e4`.
+- Existing pure FEFO planner tests cover expiry ordering, carton opening, inactive/expired exclusion and insufficient quantity. No new PostgreSQL repository integration test has been run for this wiring yet.
+- The CI workflow was expanded in `fe9dde48836e554fad7f6b33ebec85732deaef18`, but GitHub has not returned a completed check result in this session. Treat all runtime/analyze/SQL validation of this integration as pending.
+- No production Neon migration or deployment was performed.
