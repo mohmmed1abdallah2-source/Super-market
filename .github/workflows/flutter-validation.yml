@@ -157,6 +157,7 @@ jobs:
           PGPASSWORD="$PGTEST_PASSWORD" psql -h "$PGTEST_HOST" -U "$PGTEST_USER" -d "$PGTEST_DATABASE" -v ON_ERROR_STOP=1 -f ../docs/neon/004_baseline_accounting_accounts.sql
           PGPASSWORD="$PGTEST_PASSWORD" psql -h "$PGTEST_HOST" -U "$PGTEST_USER" -d "$PGTEST_DATABASE" -v ON_ERROR_STOP=1 -f ../docs/neon/006_branch_isolation_transactional_tests.sql
           PGPASSWORD="$PGTEST_PASSWORD" psql -h "$PGTEST_HOST" -U "$PGTEST_USER" -d "$PGTEST_DATABASE" -v ON_ERROR_STOP=1 -f ../docs/neon/007_fefo_inventory_and_purchases_schema.sql
+          PGPASSWORD="$PGTEST_PASSWORD" psql -h "$PGTEST_HOST" -U "$PGTEST_USER" -d "$PGTEST_DATABASE" -v ON_ERROR_STOP=1 -f ../docs/neon/009_purchase_order_receiving_progress.sql
           PGPASSWORD="$PGTEST_PASSWORD" psql -h "$PGTEST_HOST" -U "$PGTEST_USER" -d "$PGTEST_DATABASE" -v ON_ERROR_STOP=1 -f ../docs/neon/008_inventory_branch_isolation_tests.sql
 
       - name: Set up Dart
