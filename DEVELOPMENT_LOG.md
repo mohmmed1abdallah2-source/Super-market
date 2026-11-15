@@ -244,3 +244,16 @@
 - Added the missing upper bound for loose quantities in FEFO batches and stocktaking lines.
 - Expanded rollback-only SQL test 008 from 7 to 10 assertions.
 - No PostgreSQL/Dart/Flutter commands were run in this environment; no Neon production changes were made. Re-run the disposable PostgreSQL CI gate before treating the SQL follow-up as verified.
+
+
+## 2026-11-15 — Neon production protection and recovery readiness
+
+- Connected to Neon project `supermarket-erp` (`long-smoke-94048943`), PostgreSQL 18, region `aws-eu-central-1`; production branch `br-empty-brook-bab988pu` was confirmed as the default/primary branch.
+- Read-only inspection before protection: production branch was unprotected; project point-in-time history retention was `21600` seconds (6 hours); automatic snapshot schedule was empty; no prior snapshots were listed.
+- Created a manual baseline snapshot from production: `pre-iteration3-migration-baseline-2026-11-15`, snapshot ID `snap-hidden-shadow-bagbpujg`, created `2026-11-15T12:41:20Z`. This is a provider snapshot, not an independently exported/offsite backup; restore has not been rehearsed.
+- Attempted to protect the production branch. Neon rejected the request with HTTP 422 because the current plan has reached its maximum number of protected branches. No existing branch protection was changed.
+- Attempted to configure a daily automatic snapshot schedule (03:00 UTC, 7-day retention). Neon rejected it with HTTP 404: backup schedule creation is not enabled for this project. No schedule was changed.
+- No change was made to the 6-hour PITR history retention. Increasing retention, enabling scheduled backups, or enabling branch protection requires an eligible plan/Neon console capability change and must be verified after the account change.
+- A disposable audit child branch `audit-iteration3-007-check-20261115` (`br-odd-term-ba2iavg0`) was created from production; migrations 007 and 008 passed there. It is not the production branch and is not a backup. It has been left in place pending explicit cleanup approval.
+- No SQL DDL/DML was executed on production. Migration 007 was not applied to production. The snapshot creation is the only production-adjacent backup action performed.
+- Recovery runbook: see `docs/NEON_PRODUCTION_PROTECTION_AND_RECOVERY.md`. Do not restore over production directly; first restore the snapshot to a new branch, validate schema/data/application compatibility, and require a separate explicit approval before any production cutover.
