@@ -1,18 +1,23 @@
 import 'dart:convert';
 
+import 'package:crypto/crypto.dart';
+
 import 'package:shelf/shelf.dart';
 import 'package:shelf_router/shelf_router.dart';
 
+import '../application/purchase_invoice_posting.dart';
 import '../data/postgres_inventory_purchases_read_repository.dart';
 
 /// Read endpoints for the existing branch-scoped inventory/purchase API.
 final class InventoryPurchasesRoutes {
   const InventoryPurchasesRoutes({
     required this.repository,
+    required this.postPurchaseInvoice,
     required this.branchTokens,
   });
 
   final PostgresInventoryPurchasesReadRepository repository;
+  final PostPurchaseInvoiceUseCase postPurchaseInvoice;
   final Map<String, String> branchTokens;
 
   Router get router {
@@ -23,6 +28,7 @@ final class InventoryPurchasesRoutes {
     router.get('/v1/inventory/movements', _listMovements);
     router.get('/v1/inventory/stocktaking', _listStocktaking);
     router.get('/v1/purchases/shortages', _listShortages);
+    router.post('/v1/purchases/invoices', _postPurchaseInvoice);
     return router;
   }
 
@@ -86,6 +92,22 @@ final class InventoryPurchasesRoutes {
         }),
       );
 
+  Future<Response> _postPurchaseInvoice(Request request) => _guard(
+        request,
+        () async {
+          final body = await _body(request);
+          final command = PurchaseInvoiceCommand(
+            branchId: _branchId(request),
+            operationId: _requiredText(body, 'operationId'),
+            request: body,
+            idempotencyKey: _idempotencyKey(request),
+            requestHash: _hash(body),
+          );
+          return _json(201, await postPurchaseInvoice(command));
+        },
+      );
+
+
   Future<Response> _guard(
     Request request,
     Future<Response> Function() action,
@@ -106,6 +128,13 @@ final class InventoryPurchasesRoutes {
         'code': 'VALIDATION_ERROR',
         'message': error.message,
       });
+    } on StateError catch (error) {
+      final message = error.message;
+      final conflict = message == 'IDEMPOTENCY_KEY_REUSED';
+      return _json(conflict ? 409 : 422, {
+        'code': conflict ? 'IDEMPOTENCY_KEY_REUSED' : 'BUSINESS_RULE_VIOLATION',
+        'message': message,
+      });
     } catch (_) {
       return _json(500, {
         'code': 'INTERNAL_ERROR',
@@ -113,6 +142,35 @@ final class InventoryPurchasesRoutes {
       });
     }
   }
+
+  Future<Map<String, dynamic>> _body(Request request) async {
+    final raw = await request.readAsString();
+    if (raw.isEmpty) throw const FormatException('JSON request body is required.');
+    final decoded = jsonDecode(raw);
+    if (decoded is! Map<String, dynamic>) {
+      throw const FormatException('Request body must be a JSON object.');
+    }
+    return decoded;
+  }
+
+  String _requiredText(Map<String, dynamic> body, String key) {
+    final value = body[key];
+    if (value is! String || value.trim().isEmpty) {
+      throw FormatException('$key is required.');
+    }
+    return value.trim();
+  }
+
+  String _idempotencyKey(Request request) {
+    final value = request.headers['idempotency-key'];
+    if (value == null || value.trim().length < 16 || value.trim().length > 200) {
+      throw const FormatException('A valid Idempotency-Key header is required.');
+    }
+    return value.trim();
+  }
+
+  String _hash(Map<String, dynamic> body) =>
+      sha256.convert(utf8.encode(jsonEncode(body))).toString();
 
   String _branchId(Request request) {
     final value = request.headers['x-branch-id'];
