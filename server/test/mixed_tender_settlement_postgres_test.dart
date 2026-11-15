@@ -123,7 +123,7 @@ void main() {
              FROM sales_invoices WHERE id = @id''',
           substitutionValues: {'id': firstSale['id']},
         );
-        final invoice = invoiceRows.single.values.first;
+        final invoice = _flattenRow(invoiceRows.single);
         expect(invoice['saleType'], 'MIXED');
         expect(double.parse(invoice['paid'] as String), 3);
         expect(double.parse(invoice['remaining'] as String), 2);
@@ -134,7 +134,7 @@ void main() {
           substitutionValues: {'invoice': firstSale['id']},
         );
         expect(paymentRows.length, 3);
-        final methods = paymentRows.map((row) => row.values.first['method']).toSet();
+        final methods = paymentRows.map((row) => _flattenRow(row)['method']).toSet();
         expect(methods, {'CASH', 'WALLET', 'CREDIT'});
 
         final ledgerBeforeSettlement = await connection.mappedResultsQuery(
@@ -143,7 +143,7 @@ void main() {
           substitutionValues: {'party': party['id']},
         );
         expect(
-          double.parse(ledgerBeforeSettlement.single.values.first['alayh'] as String),
+          double.parse(_flattenRow(ledgerBeforeSettlement.single)['alayh'] as String),
           2,
         );
 
@@ -154,7 +154,7 @@ void main() {
              WHERE journal_entry_id = (SELECT journal_entry_id FROM sales_invoices WHERE id = @id)''',
           substitutionValues: {'id': firstSale['id']},
         );
-        final saleTotals = saleJournal.single.values.first;
+        final saleTotals = _flattenRow(saleJournal.single);
         expect(
           double.parse(saleTotals['dr'] as String),
           closeTo(double.parse(saleTotals['cr'] as String), 0.0001),
@@ -191,7 +191,7 @@ void main() {
              FROM v_party_balance WHERE party_id = @party''',
           substitutionValues: {'party': party['id']},
         );
-        final balance = finalBalance.single.values.first;
+        final balance = _flattenRow(finalBalance.single);
         expect(double.parse(balance['alayh'] as String), 2);
         expect(double.parse(balance['lah'] as String), 2);
         expect(double.parse(balance['balance'] as String), 0);
@@ -201,7 +201,7 @@ void main() {
              WHERE branch_id = 'branch-main' AND operation_id = @operation''',
           substitutionValues: {'operation': settlementCommand.operationId},
         );
-        expect(int.parse(voucherCount.single.values.first['count'] as String), 1);
+        expect(int.parse(_flattenRow(voucherCount.single)['count'] as String), 1);
       } finally {
         await connection.close();
       }
@@ -209,3 +209,9 @@ void main() {
     skip: Platform.environment['PGTEST_HOST'] == null,
   );
 }
+
+Map<String, Object?> _flattenRow(Map<String, Map<String, dynamic>> row) =>
+    row.values.fold<Map<String, Object?>>(
+      <String, Object?>{},
+      (result, values) => result..addAll(values),
+    );
