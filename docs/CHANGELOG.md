@@ -205,3 +205,9 @@ The format follows Keep a Changelog. Version numbers will be assigned when relea
 - Restricted FEFO allocation to branch-owned sellable warehouses, with optional explicit `warehouseId` scoping.
 - Products with batch records only in non-sellable warehouses no longer bypass FEFO by falling back to aggregate stock.
 - Commit: `890e29fbb3d4bd2fb24399466f87c2b349a3342a`; runtime validation pending.
+
+
+## 2026-11-15 — Selected warehouse validation
+- Validated explicit sale warehouse IDs against the authenticated branch and sellable/active state.
+- Explicit-warehouse sales fail closed if no FEFO batch records exist for the product, instead of silently consuming unlocated aggregate stock.
+- Commit: `efefb0c229bff44550557a18b97411611a0e6800`; runtime validation pending.
