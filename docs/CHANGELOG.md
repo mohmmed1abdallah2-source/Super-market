@@ -199,3 +199,9 @@ The format follows Keep a Changelog. Version numbers will be assigned when relea
 - Integrated FEFO batch row locking/allocation, carton opening, batch balances, sales-item batch allocations and append-only stock movements into the existing sale transaction.
 - Added sale movement rows for legacy non-batch-tracked products and used allocated batch costs for FEFO line COGS.
 - Validation remains pending: no repository-level PostgreSQL integration result or completed CI run is claimed. Live financial journal arithmetic still uses `double`.
+
+
+## 2026-11-15 — FEFO warehouse eligibility
+- Restricted FEFO allocation to branch-owned sellable warehouses, with optional explicit `warehouseId` scoping.
+- Products with batch records only in non-sellable warehouses no longer bypass FEFO by falling back to aggregate stock.
+- Commit: `890e29fbb3d4bd2fb24399466f87c2b349a3342a`; runtime validation pending.
