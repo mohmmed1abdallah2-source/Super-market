@@ -421,10 +421,15 @@ class PostgresSalesSyncRepository implements SalesSyncRepository {
       if (_decimal(product['stock']) < qtyBase) {
         throw StateError('Insufficient stock for product $productId.');
       }
+      final requestedWarehouse = request['warehouseId'];
+      if (requestedWarehouse != null && requestedWarehouse is! String) {
+        throw const FormatException('warehouseId must be a string.');
+      }
       final batchAllocations = await _allocateFefoBatches(
         ctx,
         branchId: branchId,
         productId: productId,
+        warehouseId: requestedWarehouse as String?,
         requiredBaseQuantity: qtyBaseExact,
       );
       await ctx.execute(
@@ -772,22 +777,25 @@ class PostgresSalesSyncRepository implements SalesSyncRepository {
     PostgreSQLExecutionContext ctx, {
     required String branchId,
     required String productId,
+    required String? warehouseId,
     required ScaledDecimal requiredBaseQuantity,
   }) async {
     // Lock every batch for this product before planning. If the product has
     // never been batch-tracked, preserve the legacy stock path; once batches
-    // exist, expired/held/insufficient batch stock must not be bypassed.
+    // exist, expired/held/insufficient or non-sellable stock must not be bypassed.
     final rows = await ctx.mappedResultsQuery(
-      '''SELECT id::text AS id, warehouse_id::text AS "warehouseId",
-                expiry_date AS "expiryDate", created_at AS "createdAt",
-                pack_conversion_factor::text AS "packConversionFactor",
-                sealed_cartons AS "sealedCartons",
-                loose_base_qty::text AS "looseBaseQty",
-                status, unit_cost_base::text AS "unitCostBase"
-         FROM product_batches_fefo
-         WHERE branch_id = @branch AND product_id = @product
-         ORDER BY expiry_date, created_at, id
-         FOR UPDATE''',
+      '''SELECT b.id::text AS id, b.warehouse_id::text AS "warehouseId",
+                w.is_sellable AS "isSellable",
+                b.expiry_date AS "expiryDate", b.created_at AS "createdAt",
+                b.pack_conversion_factor::text AS "packConversionFactor",
+                b.sealed_cartons AS "sealedCartons",
+                b.loose_base_qty::text AS "looseBaseQty",
+                b.status, b.unit_cost_base::text AS "unitCostBase"
+         FROM product_batches_fefo b
+         JOIN warehouses w ON w.id = b.warehouse_id AND w.branch_id = b.branch_id
+         WHERE b.branch_id = @branch AND b.product_id = @product
+         ORDER BY b.expiry_date, b.created_at, b.id
+         FOR UPDATE OF b''',
       substitutionValues: {'branch': branchId, 'product': productId},
     );
     if (rows.isEmpty) return <Map<String, Object?>>[];
@@ -808,7 +816,9 @@ class PostgresSalesSyncRepository implements SalesSyncRepository {
           looseBaseQuantity: ScaledDecimal.parse(row['looseBaseQty'], scale: 6),
           packConversionFactor:
               ScaledDecimal.parse(row['packConversionFactor'], scale: 6),
-          active: row['status'] == 'ACTIVE',
+          active: row['status'] == 'ACTIVE' &&
+              row['isSellable'] == true &&
+              (warehouseId == null || row['warehouseId'] == warehouseId),
         )).toList(growable: false);
 
     final plan = FefoAllocationPlanner.plan(
