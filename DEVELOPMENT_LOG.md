@@ -267,3 +267,11 @@
 - Compared read-only row counts on production and restored branch for `branches`, `products`, `parties`, `sales_invoices`, `journal_entries`, `journal_lines`, `stock_movements`, and `users`; all eight counts were 0 on both. The restored branch exposes the same baseline schema inventory (18 public tables/views returned by Neon, including one view). This confirms the tested schema inventory and selected row-count equality only; it is not a full byte-for-byte/data-integrity proof.
 - Restore rehearsal outcome: snapshot restoration succeeded and the restored database is queryable. The restore operation's default finalization behavior caused a temporary branch-role/name swap; this was reversed and verified. Keep the rehearsal branch for review; do not delete it without explicit approval.
 - Production protection is still false; scheduled snapshots remain unavailable; PITR retention remains 6 hours. No production migration 007 was applied.
+
+
+## 2026-11-15 — Post-restore compute endpoint mapping review
+
+- A further read-only endpoint audit found the original read-write endpoint `ep-young-scene-bab6kmsp` (created 2026-11-11) is currently attached to rehearsal branch `br-summer-violet-baexllh2`; the restored/default production branch `br-empty-brook-bab988pu` currently has a newly created read-write endpoint `ep-floral-term-badqa5er` (created 2026-11-15 during snapshot restore).
+- This means restoring the branch name/default did not restore the previous endpoint-to-branch association. Any application DATABASE_URL that still uses the original endpoint host may currently connect to the restored rehearsal branch, not the original production branch. Application environment variables were not inspected, so actual app routing is unconfirmed.
+- No endpoint was deleted, moved, suspended, or restarted. No further changes were made while assessing this risk.
+- Corrective plan, pending explicit approval because it will drop active database connections: remove the newly created endpoint `ep-floral-term-badqa5er` from the original production branch, then reattach the original endpoint `ep-young-scene-bab6kmsp` to `br-empty-brook-bab988pu`, verify branch/endpoint mapping and connection target. This creates a brief production connection interruption. Do not proceed until the user approves this exact interruption.
