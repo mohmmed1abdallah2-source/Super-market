@@ -108,3 +108,17 @@ These checks establish queryability, schema visibility, and equality for the sel
 - No production DDL/DML or migration 007 was executed.
 - The rehearsal branch is intentionally retained; cleanup requires separate explicit approval.
 - Branch protection remains blocked by the plan's protected-branch limit; automatic snapshot scheduling remains unavailable; PITR retention remains 6 hours.
+
+
+## 8. Endpoint association follow-up — pending approval
+
+The post-restore endpoint audit returned:
+
+| Branch | Endpoint | Created | Current association |
+|---|---|---|---|
+| `br-empty-brook-bab988pu` (`production`) | `ep-floral-term-badqa5er` | 2026-11-15 | Current production read-write endpoint, created by restore finalization |
+| `br-summer-violet-baexllh2` (restore rehearsal) | `ep-young-scene-bab6kmsp` | 2026-11-11 | Original read-write endpoint, now attached to the rehearsal branch |
+
+If the deployed application still uses the original endpoint host, it may now connect to the rehearsal branch. The application environment was not inspected, so actual runtime routing remains unknown.
+
+**Do not claim application connectivity is restored.** No endpoint was deleted, moved, suspended or restarted. To reattach the original endpoint to production, Neon requires the production branch to have no existing read-write endpoint. The proposed correction is to remove the newly created endpoint `ep-floral-term-badqa5er`, then move `ep-young-scene-bab6kmsp` back to `br-empty-brook-bab988pu`. This will interrupt active database connections briefly and requires explicit approval before execution.
