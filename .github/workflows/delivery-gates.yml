@@ -38,8 +38,10 @@ jobs:
             lib/data/database/iteration3_inventory_schema.dart \
             server/lib/features/inventory_and_purchases/domain/purchase_and_fefo_calculator.dart \
             server/lib/features/inventory_and_purchases/application/purchase_invoice_posting.dart \
+            server/lib/features/inventory_and_purchases/application/purchase_return_posting.dart \
             server/lib/features/inventory_and_purchases/data/postgres_inventory_purchases_read_repository.dart \
             server/lib/features/inventory_and_purchases/data/postgres_purchase_invoice_posting_repository.dart \
+            server/lib/features/inventory_and_purchases/data/postgres_purchase_return_posting_repository.dart \
             server/lib/features/inventory_and_purchases/domain/purchase_and_fefo_calculator.dart \
             server/lib/features/inventory_and_purchases/presentation/inventory_purchases_routes.dart \
             server/lib/features/sales_and_sync/data/postgres_sales_sync_repository.dart \
