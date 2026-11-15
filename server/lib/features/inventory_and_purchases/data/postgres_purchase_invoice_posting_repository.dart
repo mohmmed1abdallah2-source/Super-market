@@ -224,6 +224,62 @@ final class PostgresPurchaseInvoicePostingRepository
             }
           }
 
+          if (purchaseOrderId != null) {
+            final orderItemRows = await ctx.mappedResultsQuery(
+              '''SELECT id::text AS id, qty_ordered::text AS "qtyOrdered",
+                        qty_received::text AS "qtyReceived",
+                        conversion_factor::text AS factor
+                 FROM purchase_order_items
+                 WHERE purchase_order_id = @order AND branch_id = @branch
+                   AND product_id = @product
+                   AND unit_id IS NOT DISTINCT FROM @unit
+                 FOR UPDATE''',
+              substitutionValues: {
+                'order': purchaseOrderId,
+                'branch': command.branchId,
+                'product': productId,
+                'unit': unitId,
+              },
+            );
+            if (orderItemRows.length != 1) {
+              throw StateError(
+                'Purchase order must contain exactly one matching line for product $productId and selected unit.',
+              );
+            }
+            final orderItem = _flatten(orderItemRows.single);
+            final orderFactor = ScaledDecimal.parse(
+              orderItem['factor'],
+              scale: PurchaseMoneyCalculator.stockScale,
+            );
+            if (orderFactor.compareTo(conversionFactor) != 0) {
+              throw StateError('Purchase order conversion factor does not match.');
+            }
+            final ordered = ScaledDecimal.parse(
+              orderItem['qtyOrdered'],
+              scale: PurchaseMoneyCalculator.quantityScale,
+            );
+            final received = ScaledDecimal.parse(
+              orderItem['qtyReceived'],
+              scale: PurchaseMoneyCalculator.quantityScale,
+            );
+            final remaining = ordered - received;
+            if (calculation.totalPacksReceived.compareTo(remaining) > 0) {
+              throw StateError(
+                'Received quantity exceeds the remaining purchase-order quantity for product $productId.',
+              );
+            }
+            await ctx.execute(
+              '''UPDATE purchase_order_items
+                 SET qty_received = qty_received + @quantity
+                 WHERE id = @id AND branch_id = @branch''',
+              substitutionValues: {
+                'quantity': calculation.totalPacksReceived.toFixedString(),
+                'id': orderItem['id'],
+                'branch': command.branchId,
+              },
+            );
+          }
+
           if (locationId != null) {
             final locationRows = await ctx.mappedResultsQuery(
               '''SELECT id FROM aisle_shelf_locations
@@ -565,7 +621,16 @@ final class PostgresPurchaseInvoicePostingRepository
         if (purchaseOrderId != null) {
           await ctx.execute(
             '''UPDATE purchase_orders
-               SET status = 'PARTIALLY_RECEIVED', updated_at = @now
+               SET status = CASE
+                 WHEN EXISTS (
+                   SELECT 1 FROM purchase_order_items i
+                   WHERE i.purchase_order_id = purchase_orders.id
+                     AND i.branch_id = purchase_orders.branch_id
+                     AND i.qty_received < i.qty_ordered
+                 ) THEN 'PARTIALLY_RECEIVED'
+                 ELSE 'RECEIVED'
+               END,
+               updated_at = @now
                WHERE id = @id AND branch_id = @branch''',
             substitutionValues: {
               'now': now,
