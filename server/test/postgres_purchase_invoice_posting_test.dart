@@ -234,6 +234,80 @@ void main() {
         expect(fractionalBatch['sealed_cartons'], 0);
         expect(fractionalBatch['loose'], '12.000000');
         expect(fractionalBatch['total'], '12.000000');
+
+        final purchaseOrderId = uuid.v4();
+        await connection.execute(
+          '''INSERT INTO purchase_orders
+             (id, branch_id, order_no, supplier_party_id, status)
+             VALUES (@id, @branch, @number, @supplier, 'APPROVED')''',
+          substitutionValues: {
+            'id': purchaseOrderId,
+            'branch': branchId,
+            'number': 'PO-$suffix',
+            'supplier': supplierId,
+          },
+        );
+        await connection.execute(
+          '''INSERT INTO purchase_order_items
+             (id, branch_id, purchase_order_id, product_id, qty_ordered,
+              conversion_factor, expected_unit_price)
+             VALUES (@id, @branch, @order, @product, 1.5000, 24.000000, 10.0000)''',
+          substitutionValues: {
+            'id': uuid.v4(),
+            'branch': branchId,
+            'order': purchaseOrderId,
+            'product': productId,
+          },
+        );
+        final orderOperationId = uuid.v4();
+        final orderRequest = <String, dynamic>{
+          'operationId': orderOperationId,
+          'invoiceNo': 'PO-INV-$suffix',
+          'supplierPartyId': supplierId,
+          'warehouseId': warehouseId,
+          'purchaseOrderId': purchaseOrderId,
+          'paymentMethod': 'CREDIT',
+          'paidTotal': '0.0000',
+          'items': [
+            {
+              'productId': productId,
+              'batchNo': 'PO-BATCH-$suffix',
+              'expiryDate': DateTime.now()
+                  .toUtc()
+                  .add(const Duration(days: 150))
+                  .toIso8601String()
+                  .split('T')
+                  .first,
+              'qtyPaid': '1.0000',
+              'bonusQty': '0.5000',
+              'conversionFactor': '24.000000',
+              'purchaseUnitPrice': '10.0000',
+              'lineDiscountAmount': '0.0000',
+            },
+          ],
+        };
+        await repository.postPurchaseInvoice(
+          PurchaseInvoiceCommand(
+            branchId: branchId,
+            operationId: orderOperationId,
+            idempotencyKey: 'purchase-order-$branchId',
+            requestHash: List.filled(64, 'c').join(),
+            request: orderRequest,
+          ),
+        );
+        final orderRows = await connection.mappedResultsQuery(
+          '''SELECT status FROM purchase_orders
+             WHERE id = @id AND branch_id = @branch''',
+          substitutionValues: {'id': purchaseOrderId, 'branch': branchId},
+        );
+        expect(orderRows.single.values.single['status'], 'RECEIVED');
+        final orderItemRows = await connection.mappedResultsQuery(
+          '''SELECT qty_received::text AS received
+             FROM purchase_order_items
+             WHERE purchase_order_id = @order AND branch_id = @branch''',
+          substitutionValues: {'order': purchaseOrderId, 'branch': branchId},
+        );
+        expect(orderItemRows.single.values.single['received'], '1.5000');
       } finally {
         await connection.close();
       }
