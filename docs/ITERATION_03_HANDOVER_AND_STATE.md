@@ -252,3 +252,13 @@ These commits are on `feature/multi-store-isolation-foundation`. No changes were
 - تحققنا من أن نقطة الاتصال الأصلية أصبحت مرتبطة بفرع الإنتاج، وأن الإنتاج ما زال الفرع الأساسي والافتراضي وحالته `ready`. بقي فرع الاستعادة `br-summer-violet-baexllh2` وفرع التدقيق `br-odd-term-ba2iavg0` دون حذف.
 - لم تُنفذ ترحيلات 007/008 على الإنتاج، ولم يحدث أي تعديل SQL أو بيانات ضمن هذه الخطوة.
 - اسم مضيف الاتصال الأصلي لم يتغير، لكن لم تتم مراجعة متغيرات بيئة التطبيق أو إجراء اختبار اتصال من التطبيق؛ يجب اعتبار توجيه Neon مصححًا ومتحققًا، بينما تحقق التطبيق ما زال مطلوبًا.
+
+
+## 2026-11-15 — CI gate expanded for Iteration 3 (implementation session)
+
+- Updated `.github/workflows/flutter-validation.yml` on `feature/multi-store-isolation-foundation` in commit `fe9dde48836e554fad7f6b33ebec85732deaef18`.
+- Added the work branch to push triggers so Flutter, server and platform validation can run for this development line.
+- Changed the disposable PostgreSQL service used by server validation from PostgreSQL 16 to PostgreSQL 18, matching migration 007's explicit minimum-version guard.
+- Extended the disposable-database setup to apply branch constraints (003), baseline accounting (004), rollback-only branch tests (006), inventory/purchase schema (007), and rollback-only inventory isolation assertions (008), after the existing server migrations 001/002.
+- This is CI configuration only. The workflow result has not yet been observed; no Flutter/Dart test, APK build, Windows build, Web build, or SQL pass is claimed from this commit.
+- Neon production and its data remain untouched. No production migration or deployment was performed.
