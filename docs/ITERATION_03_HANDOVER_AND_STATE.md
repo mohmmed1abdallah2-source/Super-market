@@ -275,3 +275,10 @@ These commits are on `feature/multi-store-isolation-foundation`. No changes were
 - Existing pure FEFO planner tests cover expiry ordering, carton opening, inactive/expired exclusion and insufficient quantity. No new PostgreSQL repository integration test has been run for this wiring yet.
 - The CI workflow was expanded in `fe9dde48836e554fad7f6b33ebec85732deaef18`, but GitHub has not returned a completed check result in this session. Treat all runtime/analyze/SQL validation of this integration as pending.
 - No production Neon migration or deployment was performed.
+
+
+### FEFO warehouse eligibility refinement — 2026-11-15
+
+- FEFO sales now exclude batches held in non-sellable warehouses. An optional `warehouseId` in the sale request scopes the allocation to that warehouse; if omitted, FEFO allocation may use any sellable warehouse in the same branch.
+- Existing batch rows in non-sellable warehouses do not trigger a fallback to aggregate legacy stock; if no eligible sellable FEFO stock can satisfy the sale, the transaction is rejected.
+- Source commit: `890e29fbb3d4bd2fb24399466f87c2b349a3342a`. This refinement also awaits CI and PostgreSQL transaction verification.
