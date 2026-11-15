@@ -125,3 +125,10 @@ The audit identified and corrected a schema invariant gap: both FEFO batch loose
 - The sale allocator now joins each batch to its branch-owned warehouse and considers only `is_sellable = TRUE` warehouses. A supplied `warehouseId` further scopes the allocation; omitting it allows FEFO across all sellable warehouses in the branch.
 - A product that has batch records only in non-sellable warehouses cannot silently fall back to untracked aggregate stock.
 - Commit: `890e29fbb3d4bd2fb24399466f87c2b349a3342a`. Runtime verification remains pending.
+
+
+## Selected-warehouse safety — 2026-11-15
+
+- Sale requests supplying `warehouseId` now require an active, sellable warehouse owned by the authenticated branch.
+- Explicit-warehouse sales are rejected when the product has no FEFO batch records, avoiding a false claim that aggregate stock was deducted from the selected location.
+- Commit: `efefb0c229bff44550557a18b97411611a0e6800`; validation pending.
