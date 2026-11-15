@@ -144,3 +144,12 @@ This is a schema-level invariant only; it does not integrate the pure FEFO plann
 - FEFO-tracked sale lines now value COGS using the unit costs of the batches actually allocated, and stock movements retain the corresponding batch unit cost.
 - The existing sale journal still aggregates COGS using Dart `double`; this remains a release blocker until the live posting path is converted to exact decimal/fixed-scale arithmetic and covered by transaction tests.
 - The FEFO inventory writes are in the existing all-or-nothing sale transaction. This source change has not yet passed a PostgreSQL repository integration test or observed CI run.
+
+
+## 2026-11-15 — Exact purchase posting and supplier accounting
+
+- Purchase invoice line amounts, discounts, pack/base quantities, batch balances and weighted-average base cost are computed through `MoneyAmount`, `ScaledDecimal`, and `PurchaseMoneyCalculator`; the new purchase posting path does not use Dart `double` for monetary calculations.
+- Journal posting debits inventory at invoice net value and credits the paid cash/wallet account plus the remaining supplier payable. Supplier balance is recorded as `lah_amount` for the outstanding amount, so subsequent supplier-payment vouchers offset the payable under the current ledger sign convention.
+- The purchase cash component is checked against the locked cash-account balance and deducted in the same transaction.
+- Sale posting still has existing `double`-based invoice/journal aggregation and COGS totals; this remains a financial precision blocker and is not resolved by the purchase implementation.
+- Purchase operation replay is guarded by the request idempotency record and a branch+operation transaction advisory lock. The PostgreSQL repository integration test must complete before release acceptance.
