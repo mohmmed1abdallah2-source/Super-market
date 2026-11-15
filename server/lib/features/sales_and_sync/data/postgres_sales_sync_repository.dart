@@ -953,7 +953,8 @@ class PostgresSalesSyncRepository implements SalesSyncRepository {
       substitutionValues: {'key': key},
     );
     final record = _flatten(rows.single);
-    if (record['branchId'] != branchId || record['requestHash'] != hash) {
+    if (record['branchId']?.toString().trim() != branchId.trim() ||
+        record['requestHash']?.toString().trim() != hash.trim()) {
       throw StateError('IDEMPOTENCY_KEY_REUSED');
     }
     final response = record['responseBody'];
