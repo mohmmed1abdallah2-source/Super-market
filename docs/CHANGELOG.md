@@ -211,3 +211,11 @@ The format follows Keep a Changelog. Version numbers will be assigned when relea
 - Validated explicit sale warehouse IDs against the authenticated branch and sellable/active state.
 - Explicit-warehouse sales fail closed if no FEFO batch records exist for the product, instead of silently consuming unlocated aggregate stock.
 - Commit: `efefb0c229bff44550557a18b97411611a0e6800`; runtime validation pending.
+
+
+## 2026-11-15 — Purchase invoice posting
+- Added authenticated, idempotent purchase invoice posting endpoint.
+- Added atomic supplier invoice, FEFO batch, stock movement, weighted-cost, cash account, supplier ledger and balanced journal writes.
+- Added purchase-order received-quantity tracking migration 009 and receipt reconciliation.
+- Added PostgreSQL integration coverage for replay, fractional packs, journal balance, supplier balance and purchase-order completion. Execution is pending the PostgreSQL-enabled CI result.
+- No production migration or deployment.
