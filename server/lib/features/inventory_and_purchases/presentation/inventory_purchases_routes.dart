@@ -6,6 +6,7 @@ import 'package:shelf/shelf.dart';
 import 'package:shelf_router/shelf_router.dart';
 
 import '../application/purchase_invoice_posting.dart';
+import '../application/purchase_return_posting.dart';
 import '../data/postgres_inventory_purchases_read_repository.dart';
 
 /// Read endpoints for the existing branch-scoped inventory/purchase API.
@@ -13,11 +14,13 @@ final class InventoryPurchasesRoutes {
   const InventoryPurchasesRoutes({
     required this.repository,
     required this.postPurchaseInvoice,
+    required this.postPurchaseReturn,
     required this.branchTokens,
   });
 
   final PostgresInventoryPurchasesReadRepository repository;
   final PostPurchaseInvoiceUseCase postPurchaseInvoice;
+  final PostPurchaseReturnUseCase postPurchaseReturn;
   final Map<String, String> branchTokens;
 
   Router get router {
@@ -29,6 +32,7 @@ final class InventoryPurchasesRoutes {
     router.get('/v1/inventory/stocktaking', _listStocktaking);
     router.get('/v1/purchases/shortages', _listShortages);
     router.post('/v1/purchases/invoices', _postPurchaseInvoice);
+    router.post('/v1/purchases/returns', _postPurchaseReturn);
     return router;
   }
 
@@ -104,6 +108,21 @@ final class InventoryPurchasesRoutes {
             requestHash: _hash(body),
           );
           return _json(201, await postPurchaseInvoice(command));
+        },
+      );
+
+  Future<Response> _postPurchaseReturn(Request request) => _guard(
+        request,
+        () async {
+          final body = await _body(request);
+          final command = PurchaseReturnCommand(
+            branchId: _branchId(request),
+            operationId: _requiredText(body, 'operationId'),
+            request: body,
+            idempotencyKey: _idempotencyKey(request),
+            requestHash: _hash(body),
+          );
+          return _json(201, await postPurchaseReturn(command));
         },
       );
 
