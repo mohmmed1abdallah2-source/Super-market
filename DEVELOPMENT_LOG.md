@@ -275,3 +275,12 @@
 - This means restoring the branch name/default did not restore the previous endpoint-to-branch association. Any application DATABASE_URL that still uses the original endpoint host may currently connect to the restored rehearsal branch, not the original production branch. Application environment variables were not inspected, so actual app routing is unconfirmed.
 - No endpoint was deleted, moved, suspended, or restarted. No further changes were made while assessing this risk.
 - Corrective plan, pending explicit approval because it will drop active database connections: remove the newly created endpoint `ep-floral-term-badqa5er` from the original production branch, then reattach the original endpoint `ep-young-scene-bab6kmsp` to `br-empty-brook-bab988pu`, verify branch/endpoint mapping and connection target. This creates a brief production connection interruption. Do not proceed until the user approves this exact interruption.
+
+
+### 2026-11-15 — تصحيح ربط نقطة اتصال Neon بعد تجربة الاستعادة
+- بعد موافقة المستخدم الصريحة على احتمال انقطاع قصير، حُذفت نقطة الاتصال المؤقتة `ep-floral-term-badqa5er` التي كانت مرتبطة بفرع الإنتاج.
+- أُعيد ربط نقطة الاتصال الأصلية `ep-young-scene-bab6kmsp` بالفرع الأصلي `br-empty-brook-bab988pu` (`production`). بقي اسم المضيف الأصلي كما هو: `ep-young-scene-bab6kmsp.c-8.eu-central-1.aws.neon.tech`.
+- تحققنا بعد التنفيذ عبر قائمة نقاط الاتصال والفروع وقراءة الفرع الافتراضي: نقطة الاتصال الأصلية مرتبطة الآن بالإنتاج؛ والإنتاج ما زال `ready` و`primary=true` و`default=true`. نقطة اتصال فرع التدقيق `ep-young-dust-bajproqk` بقيت مرتبطة بفرع التدقيق.
+- لم تُحذف أو تُعدّل فروع الاستعادة أو التدقيق، ولم تُنفذ أي أوامر SQL أو ترحيلات أو تغييرات بيانات في قاعدة الإنتاج.
+- كانت نقطة الاتصال الأصلية في حالة `idle`/معلقة عند الفحص قبل النقل؛ لم نرصد انقطاعًا فعليًا للتطبيق، لكن إعادة الربط قد تسبب انقطاعًا قصيرًا للاتصالات. لم نفحص إعدادات النشر أو نختبر اتصال التطبيق؛ لذلك لا ندعي اكتمال اختبار التطبيق.
+- حُدّث سجل التطوير وملف التسليم وسجل التغييرات ودليل حماية/استعادة Neon بهذه النتيجة.
