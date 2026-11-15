@@ -132,3 +132,14 @@ The audit identified and corrected a schema invariant gap: both FEFO batch loose
 - Sale requests supplying `warehouseId` now require an active, sellable warehouse owned by the authenticated branch.
 - Explicit-warehouse sales are rejected when the product has no FEFO batch records, avoiding a false claim that aggregate stock was deducted from the selected location.
 - Commit: `efefb0c229bff44550557a18b97411611a0e6800`; validation pending.
+
+
+## 2026-11-15 — Purchase invoice write API
+
+- Added `POST /v1/purchases/invoices` with the existing `Authorization: Bearer`, `X-Branch-Id`, and `Idempotency-Key` contract. Branch identity comes only from the authenticated header, never the request body.
+- Required payload envelope: `operationId`, `invoiceNo`, `supplierPartyId`, `warehouseId`, `paymentMethod`, `paidTotal`, and a non-empty `items` array. Each item supplies `productId`, `batchNo`, `expiryDate`, `qtyPaid`, `bonusQty`, `conversionFactor`, `purchaseUnitPrice`, and optional `lineDiscountAmount`, `unitId`, `locationId`.
+- Monetary and quantity values are parsed as exact decimal contracts; clients should send decimal strings (money scale 4, purchase quantity scale 4, stock/conversion scale 6).
+- Optional payment fields: `cashAccountId`, `walletRefNo`; optional document fields: `supplierInvoiceNo`, `purchaseOrderId`, `invoiceDate`, `notes`.
+- The server validates and posts stock, FEFO batches, cost history, cash movement, supplier ledger and journal in a single transaction. It also stores the sync operation receipt.
+- Linked purchase orders now track `qty_received` under migration 009; each receipt must match exactly one product/unit order line and may not exceed the remaining ordered quantity.
+- PostgreSQL integration coverage was added but is pending a completed PostgreSQL-enabled CI run. The ordinary Delivery Gates server job has passed analyze/tests with the integration test skipped because that workflow does not configure `PGTEST_HOST`.
