@@ -435,8 +435,8 @@ class PostgresLedgerRepository implements LedgerRepository {
       substitutionValues: {'key': key, 'branch': branchId, 'hash': requestHash},
     );
     final rows = await ctx.mappedResultsQuery(
-      '''SELECT branch_id::text AS branchId, request_hash AS requestHash,
-                response_body AS responseBody
+      '''SELECT branch_id::text AS "branchId", request_hash AS "requestHash",
+                response_body AS "responseBody"
          FROM sync_idempotency WHERE idempotency_key = @key FOR UPDATE''',
       substitutionValues: {'key': key},
     );
