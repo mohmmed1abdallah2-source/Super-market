@@ -521,6 +521,7 @@ void main() {
         expect(_flattenRow(stockAfterRollbackRows.single)['stock'], baselineStock);
 
         final batchInvoiceOperationId = uuid.v4();
+        final batchReturnOperationId = uuid.v4();
         final batchInvoiceRequest = Map<String, dynamic>.from(request)
           ..['operationId'] = batchInvoiceOperationId
           ..['invoiceNo'] = 'SYNC-$suffix'
@@ -528,6 +529,17 @@ void main() {
             Map<String, dynamic>.from((request['items'] as List).first as Map)
               ..['batchNo'] = 'SYNC-BATCH-$suffix',
           ];
+        final batchReturnPayload = {
+          'returnNo': 'SYNC-RET-$suffix',
+          'purchaseInvoiceId': first['id'],
+          'items': [
+            {
+              'purchaseInvoiceItemId': firstItem['id'],
+              'productBatchId': firstItem['batchId'],
+              'qtyBase': '6.000000',
+            },
+          ],
+        };
         final invoiceBatchResult = await syncRepository.processBatch(
           syncCommand(
             batchBranchId: branchId,
@@ -538,10 +550,18 @@ void main() {
                 operationType: 'PURCHASE_INVOICE',
                 payload: batchInvoiceRequest,
               ),
+              SyncOperation(
+                operationId: batchReturnOperationId,
+                operationType: 'PURCHASE_RETURN',
+                payload: batchReturnPayload,
+              ),
             ],
           ),
         );
-        expect(invoiceBatchResult['acceptedIds'], [batchInvoiceOperationId]);
+        expect(
+          invoiceBatchResult['acceptedIds'],
+          [batchInvoiceOperationId, batchReturnOperationId],
+        );
         final invoiceBatchRetry = await syncRepository.processBatch(
           syncCommand(
             batchBranchId: branchId,
@@ -582,38 +602,6 @@ void main() {
           ),
         );
 
-
-        final batchInvoiceRows = await connection.mappedResultsQuery(
-          '''SELECT id::text AS id FROM purchase_invoices
-             WHERE branch_id = @branch AND operation_id = @operation''',
-          substitutionValues: {
-            'branch': branchId,
-            'operation': batchInvoiceOperationId,
-          },
-        );
-        final batchInvoiceId = _flattenRow(batchInvoiceRows.single)['id'] as String;
-        final batchItemRows = await connection.mappedResultsQuery(
-          '''SELECT i.id::text AS id, b.id::text AS "batchId"
-             FROM purchase_invoice_items i
-             JOIN product_batches_fefo b
-               ON b.purchase_invoice_item_id = i.id AND b.branch_id = i.branch_id
-             WHERE i.purchase_invoice_id = @invoice AND i.branch_id = @branch''',
-          substitutionValues: {'invoice': batchInvoiceId, 'branch': branchId},
-        );
-        final batchItem = _flattenRow(batchItemRows.single);
-
-        final batchReturnOperationId = uuid.v4();
-        final batchReturnPayload = {
-          'returnNo': 'SYNC-RET-$suffix',
-          'purchaseInvoiceId': batchInvoiceId,
-          'items': [
-            {
-              'purchaseInvoiceItemId': batchItem['id'],
-              'productBatchId': batchItem['batchId'],
-              'qtyBase': '6.000000',
-            },
-          ],
-        };
         final returnBatchResult = await syncRepository.processBatch(
           syncCommand(
             batchBranchId: branchId,
