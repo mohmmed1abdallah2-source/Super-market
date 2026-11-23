@@ -324,3 +324,10 @@ The format follows Keep a Changelog. Version numbers will be assigned when relea
 - Migrated voucher amount and cash-balance/journal/ledger writes to fixed-scale money strings.
 - Fixed the fridge-temperature note SQL binding after the current PostgreSQL integration run exposed a missing note value; CI verification is pending.
 - No production database or deployment changes.
+
+### 2026-11-24 — Fixed-scale server posting and offline sync boundary
+
+- Migrated live PostgreSQL sale and ledger/voucher posting calculations to fixed-scale money and decimal quantities.
+- Enforced cash-vs-wallet account-kind validation in sale and voucher posting.
+- Normalized legacy SQLite numeric payloads to explicit decimal strings at the sync boundary and added FAILED queue recovery coverage.
+- Added fractional-sale, journal-balance, and payment-account mismatch regression assertions. PostgreSQL-enabled CI verification remains pending on source commit `20043d15`.
