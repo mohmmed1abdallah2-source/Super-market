@@ -1,6 +1,7 @@
-import 'package:core_contracts/core_contracts.dart';
 import 'dart:convert';
 import 'dart:io';
+
+import 'package:core_contracts/core_contracts.dart';
 
 import 'package:crypto/crypto.dart';
 import 'package:postgres/postgres.dart';
