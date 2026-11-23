@@ -1,3 +1,4 @@
+import 'package:core_contracts/core_contracts.dart';
 import 'dart:convert';
 import 'dart:io';
 
@@ -216,7 +217,7 @@ void main() {
           'voucherType': 'RECEIPT',
           'partyId': party['id'],
           'cashAccountId': 'cash-drawer',
-          'amount': 5,
+          'amount': '5.0000',
           'method': 'CASH',
         };
         final command = PostVoucherCommand(
@@ -225,7 +226,7 @@ void main() {
           voucherType: LedgerVoucherType.receipt,
           partyId: party['id'] as String,
           cashAccountId: 'cash-drawer',
-          amount: 5,
+          amount: MoneyAmount.parse('5.0000'),
           method: 'CASH',
           idempotencyKey: 'integration-voucher-' + uuid.v4(),
           requestHash: sha256.convert(utf8.encode(jsonEncode(request))).toString(),
