@@ -39,7 +39,7 @@ class SyncOperation {
   /// Stable operation UUID.
   final String operationId;
 
-  /// PARTY_CREATE, SALE_INVOICE, VOUCHER, PURCHASE_INVOICE or PURCHASE_RETURN.
+  /// Stable server operation type, including inventory and cold-storage writes.
   final String operationType;
 
   /// Operation-specific data.
