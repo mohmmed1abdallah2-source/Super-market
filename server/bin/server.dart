@@ -15,6 +15,7 @@ import '../lib/features/sales_and_sync/presentation/sales_sync_routes.dart';
 import '../lib/features/inventory_and_purchases/application/purchase_invoice_posting.dart';
 import '../lib/features/inventory_and_purchases/application/purchase_return_posting.dart';
 import '../lib/features/inventory_and_purchases/data/postgres_inventory_purchases_read_repository.dart';
+import '../lib/features/inventory_and_purchases/data/postgres_inventory_approval_repository.dart';
 import '../lib/features/inventory_and_purchases/data/postgres_purchase_invoice_posting_repository.dart';
 import '../lib/features/inventory_and_purchases/data/postgres_purchase_return_posting_repository.dart';
 import '../lib/features/inventory_and_purchases/presentation/inventory_purchases_routes.dart';
@@ -36,6 +37,7 @@ Future<void> main(List<String> arguments) async {
   final ledgerRepository = PostgresLedgerRepository(database);
   final salesRepository = PostgresSalesSyncRepository(database);
   final inventoryRepository = PostgresInventoryPurchasesReadRepository(database);
+  final inventoryApprovalRepository = PostgresInventoryApprovalRepository(database);
   final purchasePostingRepository =
       PostgresPurchaseInvoicePostingRepository(database);
   final purchaseReturnPostingRepository =
@@ -64,6 +66,7 @@ Future<void> main(List<String> arguments) async {
     postPurchaseReturn:
         PostPurchaseReturnUseCase(purchaseReturnPostingRepository),
     processSyncBatch: ProcessSyncBatchUseCase(salesRepository),
+    createStocktakingSession: inventoryApprovalRepository.createStocktakeSession,
     branchTokens: branchTokens,
   );
 

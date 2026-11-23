@@ -8,6 +8,182 @@ final class PostgresInventoryApprovalRepository {
   final PostgreSQLConnection connection;
   static const _uuid = Uuid();
 
+
+  /// Creates a counted stocktake session without applying inventory adjustments.
+  ///
+  /// The session ID and line IDs are stable idempotency identities. Replaying
+  /// the same request returns the existing session; reusing an identity with a
+  /// different payload is rejected. Expected quantities and conversion factors
+  /// are read from branch-owned FEFO batches, never trusted from the client.
+  Future<Map<String, Object?>> createStocktakeSession({
+    required String branchId,
+    required Map<String, dynamic> payload,
+  }) =>
+      connection.transaction((ctx) async {
+        final id = _required(payload, 'sessionId');
+        final warehouse = _required(payload, 'warehouseId');
+        final number = _required(payload, 'sessionNo');
+        final blindValue = payload['blindCount'] ?? true;
+        if (blindValue is! bool) {
+          throw const FormatException('blindCount must be a boolean.');
+        }
+        final rawLines = payload['lines'];
+        if (rawLines is! List || rawLines.isEmpty || rawLines.length > 500) {
+          throw const FormatException('A stocktake must contain between 1 and 500 counted lines.');
+        }
+        final requestedLines = <Map<String, dynamic>>[];
+        final seenBatches = <String>{};
+        for (final raw in rawLines) {
+          if (raw is! Map<String, dynamic>) {
+            throw const FormatException('Every stocktake line must be a JSON object.');
+          }
+          final lineId = _required(raw, 'id');
+          final product = _required(raw, 'productId');
+          final batch = _required(raw, 'productBatchId');
+          if (!seenBatches.add(batch)) {
+            throw const FormatException('A stocktake cannot contain the same batch more than once.');
+          }
+          final cartons = raw['countedSealedCartons'];
+          if (cartons is! int || cartons < 0) {
+            throw const FormatException('countedSealedCartons must be a non-negative integer.');
+          }
+          final loose = _decimal6(_required(raw, 'countedLooseBaseQty'));
+          if (loose.isNegative) {
+            throw const FormatException('countedLooseBaseQty cannot be negative.');
+          }
+          requestedLines.add({
+            'id': lineId,
+            'productId': product,
+            'productBatchId': batch,
+            'countedSealedCartons': cartons,
+            'countedLooseBaseQty': loose.toFixedString(),
+            if (raw['expectedBaseQty'] != null)
+              'expectedBaseQty': _required(raw, 'expectedBaseQty'),
+            if (raw['packConversionFactor'] != null)
+              'packConversionFactor': _required(raw, 'packConversionFactor'),
+          });
+        }
+
+        final existingRows = await ctx.mappedResultsQuery(
+          '''SELECT id, warehouse_id AS warehouse, session_no AS number, status,
+                    blind_count AS blind, started_at AS started,
+                    completed_at AS completed, approved_at AS approved
+             FROM stocktaking_sessions
+             WHERE id=@id AND branch_id=@branch FOR UPDATE''',
+          substitutionValues: {'id': id, 'branch': branchId});
+        if (existingRows.isNotEmpty) {
+          final existing = _flat(existingRows.single);
+          final existingLineRows = await ctx.mappedResultsQuery(
+            '''SELECT id, product_id AS product, product_batch_id AS batch,
+                      expected_base_qty::text AS expected,
+                      counted_sealed_cartons AS cartons,
+                      counted_loose_base_qty::text AS loose,
+                      pack_conversion_factor::text AS factor
+               FROM stocktaking_lines
+               WHERE session_id=@id AND branch_id=@branch
+               ORDER BY product_batch_id, id FOR UPDATE''',
+            substitutionValues: {'id': id, 'branch': branchId});
+          final persisted = <String, Map<String, Object?>>{
+            for (final row in existingLineRows) _flat(row)['batch'].toString(): _flat(row),
+          };
+          var matches = existing['warehouse'] == warehouse &&
+              existing['number'] == number &&
+              existing['blind'] == blindValue &&
+              persisted.length == requestedLines.length;
+          for (final line in requestedLines) {
+            final saved = persisted[line['productBatchId']];
+            if (saved == null ||
+                saved['id'] != line['id'] ||
+                saved['product'] != line['productId'] ||
+                saved['cartons'] != line['countedSealedCartons'] ||
+                _decimal6(saved['loose']).compareTo(_decimal6(line['countedLooseBaseQty'])) != 0 ||
+                (line['expectedBaseQty'] != null &&
+                    _decimal6(saved['expected']).compareTo(_decimal6(line['expectedBaseQty'])) != 0) ||
+                (line['packConversionFactor'] != null &&
+                    _decimal6(saved['factor']).compareTo(_decimal6(line['packConversionFactor'])) != 0)) {
+              matches = false;
+              break;
+            }
+          }
+          if (!matches) throw StateError('IDEMPOTENCY_KEY_REUSED');
+          return _stocktakeSessionResponse(existing, true);
+        }
+
+        final warehouseRows = await ctx.mappedResultsQuery(
+          '''SELECT id FROM warehouses
+             WHERE id=@warehouse AND branch_id=@branch AND is_active=TRUE
+             FOR SHARE''',
+          substitutionValues: {'warehouse': warehouse, 'branch': branchId});
+        if (warehouseRows.isEmpty) {
+          throw StateError('Stocktake warehouse is not active in this branch.');
+        }
+        final normalizedLines = <Map<String, dynamic>>[];
+        for (final line in requestedLines) {
+          final batchRows = await ctx.mappedResultsQuery(
+            '''SELECT product_id AS product, warehouse_id AS warehouse,
+                      total_base_qty::text AS expected,
+                      pack_conversion_factor::text AS factor
+               FROM product_batches_fefo
+               WHERE id=@batch AND branch_id=@branch
+                 AND warehouse_id=@warehouse FOR SHARE''',
+            substitutionValues: {
+              'batch': line['productBatchId'],
+              'branch': branchId,
+              'warehouse': warehouse,
+            });
+          if (batchRows.isEmpty) {
+            throw StateError('Stocktake batch is not in the selected warehouse and branch.');
+          }
+          final batch = _flat(batchRows.single);
+          if (batch['product'] != line['productId']) {
+            throw StateError('Stocktake product does not match its FEFO batch.');
+          }
+          final expected = _decimal6(batch['expected']);
+          final factor = _decimal6(batch['factor']);
+          if (line['expectedBaseQty'] != null &&
+              expected.compareTo(_decimal6(line['expectedBaseQty'])) != 0) {
+            throw StateError('Batch stock changed before the stocktake session was created.');
+          }
+          if (line['packConversionFactor'] != null &&
+              factor.compareTo(_decimal6(line['packConversionFactor'])) != 0) {
+            throw StateError('Stocktake conversion factor differs from the FEFO batch.');
+          }
+          final loose = _decimal6(line['countedLooseBaseQty']);
+          if (loose.compareTo(factor) >= 0) {
+            throw const FormatException('countedLooseBaseQty must be less than the pack conversion factor.');
+          }
+          normalizedLines.add({
+            ...line,
+            'expectedBaseQty': expected.toFixedString(),
+            'packConversionFactor': factor.toFixedString(),
+          });
+        }
+        final duplicateNumber = await ctx.mappedResultsQuery(
+          '''SELECT id FROM stocktaking_sessions
+             WHERE branch_id=@branch AND session_no=@number''',
+          substitutionValues: {'branch': branchId, 'number': number});
+        if (duplicateNumber.isNotEmpty) {
+          throw StateError('Stocktake session number already exists in this branch.');
+        }
+        await ctx.execute(
+          '''INSERT INTO stocktaking_sessions
+            (id,branch_id,warehouse_id,session_no,status,blind_count,started_at)
+           VALUES (@id,@branch,@warehouse,@number,'COUNTING',@blind,now())''',
+          substitutionValues: {
+            'id': id, 'branch': branchId, 'warehouse': warehouse,
+            'number': number, 'blind': blindValue,
+          });
+        await _insertStocktakeLines(ctx, branchId, id, normalizedLines);
+        final createdRows = await ctx.mappedResultsQuery(
+          '''SELECT id, warehouse_id AS warehouse, session_no AS number, status,
+                    blind_count AS blind, started_at AS started,
+                    completed_at AS completed, approved_at AS approved
+             FROM stocktaking_sessions
+             WHERE id=@id AND branch_id=@branch''',
+          substitutionValues: {'id': id, 'branch': branchId});
+        return _stocktakeSessionResponse(_flat(createdRows.single), false);
+      }).then((value) => Map<String, Object?>.from(value));
+
   Future<Map<String, Object?>> approveStocktake({
     required String branchId,
     required Map<String, dynamic> payload,
@@ -662,6 +838,20 @@ final class PostgresInventoryApprovalRepository {
 
   Map<String, Object?> _jline(String code, String debit, String credit, String memo) =>
       {'code': code, 'debit': debit, 'credit': credit, 'memo': memo};
+
+
+  Map<String, Object?> _stocktakeSessionResponse(
+      Map<String, Object?> session, bool replayed) => {
+    'id': session['id'],
+    'warehouseId': session['warehouse'],
+    'sessionNo': session['number'],
+    'status': session['status'],
+    'blindCount': session['blind'] == true,
+    'startedAt': (session['started'] as DateTime).toUtc().toIso8601String(),
+    'completedAt': (session['completed'] as DateTime?)?.toUtc().toIso8601String(),
+    'approvedAt': (session['approved'] as DateTime?)?.toUtc().toIso8601String(),
+    'replayed': replayed,
+  };
 
   Map<String, Object?> _stocktakeResult(Map<String, Object?> session, String id,
       String? journal, String gain, String loss, bool replayed) => {

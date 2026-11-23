@@ -18,6 +18,7 @@ final class InventoryPurchasesRoutes {
     required this.postPurchaseInvoice,
     required this.postPurchaseReturn,
     required this.processSyncBatch,
+    required this.createStocktakingSession,
     required this.branchTokens,
   });
 
@@ -25,6 +26,10 @@ final class InventoryPurchasesRoutes {
   final PostPurchaseInvoiceUseCase postPurchaseInvoice;
   final PostPurchaseReturnUseCase postPurchaseReturn;
   final ProcessSyncBatchUseCase processSyncBatch;
+  final Future<Map<String, Object?>> Function({
+    required String branchId,
+    required Map<String, dynamic> payload,
+  }) createStocktakingSession;
   final Map<String, String> branchTokens;
 
   Router get router {
@@ -34,6 +39,7 @@ final class InventoryPurchasesRoutes {
     router.get('/v1/inventory/batches', _listBatches);
     router.get('/v1/inventory/movements', _listMovements);
     router.get('/v1/inventory/stocktaking', _listStocktaking);
+    router.post('/v1/inventory/stocktaking', _createStocktaking);
     router.post('/v1/inventory/stocktaking/<sessionId>/approve', _approveStocktake);
     router.post('/v1/inventory/disposals', _approveDisposal);
     router.post('/v1/inventory/transfers', _executeStockTransfer);
@@ -92,6 +98,21 @@ final class InventoryPurchasesRoutes {
             branchId: _branchId(request),
           ),
         }),
+      );
+
+
+  Future<Response> _createStocktaking(Request request) => _guard(
+        request,
+        () async {
+          final body = await _body(request);
+          // Stable sessionId and line IDs make an identical retry safe.
+          _idempotencyKey(request);
+          final result = await createStocktakingSession(
+            branchId: _branchId(request),
+            payload: body,
+          );
+          return _json(result['replayed'] == true ? 200 : 201, result);
+        },
       );
 
   Future<Response> _listShortages(Request request) => _guard(
