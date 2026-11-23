@@ -96,7 +96,7 @@ class LocalPosAndLedgerEngine {
     final remaining = await (await _helper.database).query(
       'sync_queue',
       columns: ['id'],
-      where: 'branch_id=? AND status IN (?, ?)',
+      where: 'branch_id=? AND status IN (?, ?) AND is_deleted=0',
       whereArgs: [branchId, 'PENDING', 'FAILED'],
       limit: 1,
     );
@@ -640,6 +640,37 @@ class LocalPosAndLedgerEngine {
     };
 
     await db.transaction((txn) async {
+      final warehouses = await txn.query(
+        'warehouses',
+        where: 'id=? AND branch_id=? AND is_active=1 AND is_deleted=0',
+        whereArgs: [warehouseId, branchId],
+        limit: 1,
+      );
+      if (warehouses.isEmpty) {
+        throw StateError('Fridge temperature warehouse is not active in this branch.');
+      }
+      if (locationId != null && locationId.isNotEmpty) {
+        final locations = await txn.query(
+          'aisle_shelf_locations',
+          where: 'id=? AND branch_id=? AND warehouse_id=? AND is_active=1 AND is_deleted=0',
+          whereArgs: [locationId, branchId, warehouseId],
+          limit: 1,
+        );
+        if (locations.isEmpty) {
+          throw StateError('Fridge location does not belong to this warehouse and branch.');
+        }
+      }
+      if (recordedByUserId != null && recordedByUserId.isNotEmpty) {
+        final users = await txn.query(
+          'users',
+          where: 'id=? AND branch_id=? AND is_active=1 AND is_deleted=0',
+          whereArgs: [recordedByUserId, branchId],
+          limit: 1,
+        );
+        if (users.isEmpty) {
+          throw StateError('Temperature recorder is not active in this branch.');
+        }
+      }
       await txn.insert('fridge_temp_logs', {
         ..._base(logId, branchId, now),
         'warehouse_id': warehouseId,
@@ -683,9 +714,9 @@ class LocalPosAndLedgerEngine {
     final db = await _helper.database;
     final rows = await db.query(
       'sync_queue',
-      where: 'branch_id=? AND status IN (?, ?)',
+      where: 'branch_id=? AND status IN (?, ?) AND is_deleted=0',
       whereArgs: [branchId, 'PENDING', 'FAILED'],
-      orderBy: 'queued_at ASC',
+      orderBy: 'queued_at ASC, id ASC',
       limit: maxEvents.clamp(1, 100).toInt(),
     );
     if (rows.isEmpty) return null;
