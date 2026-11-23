@@ -91,6 +91,92 @@ void main() {
   );
 
   test(
+    'sync operation ID cannot be reused with a different payload',
+    () async {
+      final connection = PostgreSQLConnection(
+        Platform.environment['PGTEST_HOST']!,
+        int.tryParse(Platform.environment['PGTEST_PORT'] ?? '5432') ?? 5432,
+        Platform.environment['PGTEST_DATABASE']!,
+        username: Platform.environment['PGTEST_USER']!,
+        password: Platform.environment['PGTEST_PASSWORD']!,
+        timeoutInSeconds: 30,
+      );
+      await connection.open();
+      try {
+        final uuid = const Uuid();
+        final repository = PostgresSalesSyncRepository(connection);
+        final operationId = uuid.v4();
+        final partyId = uuid.v4();
+        final payload = <String, dynamic>{
+          'id': partyId,
+          'partyType': 'CUSTOMER',
+          'code': 'BATCH-${uuid.v4().substring(0, 8)}',
+          'name': 'Original batch customer',
+          'creditLimit': '0.0000',
+          'paymentTermsDays': 0,
+          'priceTier': 'RETAIL',
+        };
+
+        SyncBatchCommand commandFor(Map<String, dynamic> operationPayload) {
+          final body = {
+            'batchId': uuid.v4(),
+            'operations': [
+              {
+                'operationId': operationId,
+                'operationType': 'PARTY_CREATE',
+                'payload': operationPayload,
+              },
+            ],
+          };
+          return SyncBatchCommand(
+            branchId: 'branch-main',
+            batchId: body['batchId']! as String,
+            idempotencyKey: 'integration-batch-' + uuid.v4(),
+            requestHash:
+                sha256.convert(utf8.encode(jsonEncode(body))).toString(),
+            operations: [
+              SyncOperation(
+                operationId: operationId,
+                operationType: 'PARTY_CREATE',
+                payload: operationPayload,
+              ),
+            ],
+          );
+        }
+
+        final first = await repository.processBatch(commandFor(payload));
+        expect(first['acceptedIds'], [operationId]);
+
+        final samePayloadRetry =
+            await repository.processBatch(commandFor(payload));
+        expect(samePayloadRetry['acceptedIds'], [operationId]);
+
+        final conflictingPayload = Map<String, dynamic>.from(payload)
+          ..['name'] = 'Conflicting batch customer';
+        await expectLater(
+          repository.processBatch(commandFor(conflictingPayload)),
+          throwsA(
+            isA<StateError>().having(
+              (error) => error.message,
+              'message',
+              'OPERATION_ID_REUSED',
+            ),
+          ),
+        );
+
+        final rows = await connection.mappedResultsQuery(
+          'SELECT name_ar AS name FROM parties WHERE id = @id AND branch_id = @branch',
+          substitutionValues: {'id': partyId, 'branch': 'branch-main'},
+        );
+        expect(rows.single.values.first['name'], 'Original batch customer');
+      } finally {
+        await connection.close();
+      }
+    },
+    skip: Platform.environment['PGTEST_HOST'] == null,
+  );
+
+  test(
     'PostgreSQL voucher retry records one ledger movement and balanced journal',
     () async {
       final host = Platform.environment['PGTEST_HOST']!;
