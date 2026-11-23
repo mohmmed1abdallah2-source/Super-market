@@ -203,3 +203,12 @@ This is a schema-level invariant only; it does not integrate the pure FEFO plann
 - Delivery Gates #141 passed Dart analysis/tests and shared-contract tests for source c36c130f. Delivery Gates #142 also passed the Dart job; its Android APK build hit Maven Central HTTP 429 rate limiting while fetching Kotlin Gradle artifacts. The failed APK job was re-run; this is an external dependency throttling failure, not a source compilation failure.
 - Latest branch commit 4da4118c only updates documentation after the tested application source; no source changes occurred after c36c130f.
 - No Neon Production DDL/DML, deployment, or release was performed.
+
+## 2026-11-24 — Live sale and voucher fixed-scale migration
+
+- Replaced the live sale-posting monetary path's Dart `double` accumulators with `MoneyAmount` for invoice subtotal, discounts, net total, tender totals, credit limits, cash-account aggregation, COGS journal totals, and ledger amounts.
+- Sale quantity and conversion remain `ScaledDecimal` at the documented four-/six-place scales. Line totals and inventory costs now use the shared `SaleMoneyCalculator`; SQL NUMERIC values are sent as fixed decimal strings.
+- Voucher amount, cash-balance comparison, journal lines, cash movement, and party-ledger amounts now use `MoneyAmount`.
+- The sale repository no longer contains `double` parsing or `toStringAsFixed` formatting. This is a source inspection result, not a test result.
+- PostgreSQL integration tests and server analysis for the new live arithmetic are pending the CI run for the current branch head. Do not mark financial precision closed until fractional-sale, mixed-tender, COGS, journal-balance, voucher, and replay tests pass.
+- No Neon production schema/data changes or deployment were made.
