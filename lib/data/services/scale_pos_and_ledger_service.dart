@@ -331,6 +331,61 @@ class LocalPosAndLedgerEngine {
     return voucherId;
   }
 
+  /// Enqueues a supported server operation for retryable offline delivery.
+  ///
+  /// The durable queue row supplies a stable operation identity across retries.
+  Future<String> enqueueSyncOperation({
+    required String branchId,
+    required String operationType,
+    required Map<String, dynamic> payload,
+  }) async {
+    const supported = {
+      'PARTY_CREATE',
+      'SALE_INVOICE',
+      'VOUCHER',
+      'PURCHASE_INVOICE',
+      'PURCHASE_RETURN',
+    };
+    final type = operationType.trim().toUpperCase();
+    if (!supported.contains(type)) {
+      throw ArgumentError.value(
+        operationType,
+        'operationType',
+        'This operation is not yet supported by the server sync contract.',
+      );
+    }
+    if (branchId.trim().isEmpty || payload.isEmpty) {
+      throw ArgumentError('A branch and non-empty operation payload are required.');
+    }
+
+    final db = await _helper.database;
+    final queueId = _localId('sync-operation');
+    final now = DateTime.now().toUtc().toIso8601String();
+    await db.transaction((txn) async {
+      await txn.insert('sync_queue', {
+        'id': queueId,
+        'uuid': 'uuid-$queueId',
+        'branch_id': branchId,
+        'table_name': 'sync_operations',
+        'row_uuid': queueId,
+        'operation': 'INSERT',
+        'payload_json': jsonEncode({
+          'operationType': type,
+          'payload': payload,
+        }),
+        'sync_version': 1,
+        'batch_id': null,
+        'status': 'PENDING',
+        'queued_at': now,
+        'created_at': now,
+        'updated_at': now,
+        'is_deleted': 0,
+      });
+    });
+    unawaited(_syncAfterCommit(branchId));
+    return queueId;
+  }
+
   /// Sends at most 100 pending local events through the idempotent batch API.
   Future<SyncBatchResponseDto?> syncPendingBatch(
     String branchId, {
@@ -368,6 +423,13 @@ class LocalPosAndLedgerEngine {
       } else if (table == 'parties') {
         operationType = 'PARTY_CREATE';
         payload = _mapPartyPayload(rawPayload);
+      } else if (table == 'sync_operations') {
+        operationType = (rawPayload['operationType'] as String? ?? '').toUpperCase();
+        final queuedOperation = rawPayload['payload'];
+        if (queuedOperation is! Map<String, dynamic>) {
+          throw FormatException('Invalid queued operation payload for ${row['id']}');
+        }
+        payload = Map<String, dynamic>.from(queuedOperation);
       } else {
         throw StateError('Unsupported sync queue table: $table');
       }
