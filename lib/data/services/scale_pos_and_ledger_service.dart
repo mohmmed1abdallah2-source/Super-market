@@ -52,13 +52,14 @@ class LocalPosAndLedgerEngine {
   static const Uuid _uuid = Uuid();
 
   /// Attaches an authenticated API client after the user session is established.
-  void configureApiClient(ApiClient client, {String? branchId}) {
+  Future<int> configureApiClient(ApiClient client, {String? branchId}) {
     _apiClient = client;
-    // The authenticated session knows the active branch. Supplying it here
-    // resumes durable work left by a previous process before new writes occur.
-    if (branchId != null && branchId.trim().isNotEmpty) {
-      unawaited(resumePendingSync(branchId));
+    // Await this from the authenticated application bootstrap. This makes
+    // restart recovery observable instead of launching an untracked task.
+    if (branchId == null || branchId.trim().isEmpty) {
+      return Future<int>.value(0);
     }
+    return resumePendingSync(branchId);
   }
 
   /// Drains durable PENDING/FAILED operations after login or app restart.
@@ -91,6 +92,18 @@ class LocalPosAndLedgerEngine {
         // A short batch means the queue was drained at the time it was read.
         return acceptedCount;
       }
+    }
+    final remaining = await (await _helper.database).query(
+      'sync_queue',
+      columns: ['id'],
+      where: 'branch_id=? AND status IN (?, ?)',
+      whereArgs: [branchId, 'PENDING', 'FAILED'],
+      limit: 1,
+    );
+    if (remaining.isNotEmpty) {
+      throw StateError(
+        'Offline sync recovery reached its batch limit; remaining operations stay queued.',
+      );
     }
     return acceptedCount;
   }
