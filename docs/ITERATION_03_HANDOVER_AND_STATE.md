@@ -370,3 +370,10 @@ These early calculator commits are on `feature/multi-store-isolation-foundation`
 - Extended the PostgreSQL integration test to retry each purchase document with a new idempotency key and reject a changed payload under the same operation ID.
 - Delivery Gates #141 passed Dart server analysis/tests and shared-contract tests; five PostgreSQL-only tests were skipped in that workflow. PostgreSQL-enabled validation #211 is pending for this exact source commit. Earlier run #208 passed 26 server tests on the previous source revision, but it does not validate this purchase-specific receipt-hash extension.
 - Legacy receipts with NULL payload_hash remain same-type replayable because their original payload cannot be reconstructed. No Neon production migration/DML or deployment.
+
+
+## 2026-11-23 — CI queue correction
+- PostgreSQL-enabled Flutter Validation run #211 was cancelled before its PostgreSQL test job started when a later documentation commit arrived. It must not be counted as a pass or failure.
+- Run #212 is queued for the same application source as commit c36c130f0e7611d535f6b1ced4e43e85997ad03d; subsequent commits 8bcc22c and 606a5cd only updated documentation. Run #212 is the pending PostgreSQL verification for the purchase invoice/return payload-hash changes.
+- Delivery Gates #141 passed server analysis/unit tests and shared-contract tests on source c36c130f. The PostgreSQL integration suite was skipped in that workflow because PGTEST_HOST is not configured.
+- The earlier PostgreSQL-enabled run #208 passed all 26 server tests, but it predates the purchase-specific payload-hash extension.

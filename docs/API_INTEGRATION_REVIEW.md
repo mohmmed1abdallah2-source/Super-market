@@ -175,3 +175,10 @@ Compatibility note: receipts created before migration 010 have NULL payload_hash
 Purchase invoice and purchase return posting now use the migration 010 payload-hash column when creating operation receipts. Before returning an existing document for a repeated operation ID, the repositories compare the recorded operation type and canonical request hash. Changed payload reuse returns HTTP 409 through the inventory routes. The supplier-return transaction lock key was corrected to include the actual branch and operation identifiers.
 
 The PostgreSQL integration test now covers replay using a new idempotency key and changed-payload rejection for both document types. Delivery Gates #141 passed server analysis/tests and shared-contract tests, but skips PostgreSQL integration because it has no PGTEST_HOST. PostgreSQL-enabled validation #211 is pending for source commit c36c130f. The earlier run #208 passed 26 server tests before this purchase-specific change and is not evidence for the new assertions. No production database action was performed.
+
+
+## 2026-11-23 — CI queue correction
+- PostgreSQL-enabled Flutter Validation run #211 was cancelled before its PostgreSQL test job started when a later documentation commit arrived. It must not be counted as a pass or failure.
+- Run #212 is queued for the same application source as commit c36c130f0e7611d535f6b1ced4e43e85997ad03d; subsequent commits 8bcc22c and 606a5cd only updated documentation. Run #212 is the pending PostgreSQL verification for the purchase invoice/return payload-hash changes.
+- Delivery Gates #141 passed server analysis/unit tests and shared-contract tests on source c36c130f. The PostgreSQL integration suite was skipped in that workflow because PGTEST_HOST is not configured.
+- The earlier PostgreSQL-enabled run #208 passed all 26 server tests, but it predates the purchase-specific payload-hash extension.

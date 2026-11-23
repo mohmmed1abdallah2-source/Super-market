@@ -379,3 +379,10 @@
 - Source commit c36c130f0e7611d535f6b1ced4e43e85997ad03d includes this change. Delivery Gates #141 passed server analysis/tests (21 server tests passed, five PostgreSQL-only tests skipped in this workflow) and shared contracts (five tests passed). PostgreSQL-enabled validation #211 is pending; do not treat the purchase receipt change as PostgreSQL-verified yet.
 - Earlier PostgreSQL Validation #208 passed all 26 server tests for sales/batch operation identity, migration 010 and existing purchase invoice/return posting, but it predates this purchase receipt-hash extension.
 - No production database or deployment changes.
+
+
+## 2026-11-23 — CI queue correction
+- PostgreSQL-enabled Flutter Validation run #211 was cancelled before its PostgreSQL test job started when a later documentation commit arrived. It must not be counted as a pass or failure.
+- Run #212 is queued for the same application source as commit c36c130f0e7611d535f6b1ced4e43e85997ad03d; subsequent commits 8bcc22c and 606a5cd only updated documentation. Run #212 is the pending PostgreSQL verification for the purchase invoice/return payload-hash changes.
+- Delivery Gates #141 passed server analysis/unit tests and shared-contract tests on source c36c130f. The PostgreSQL integration suite was skipped in that workflow because PGTEST_HOST is not configured.
+- The earlier PostgreSQL-enabled run #208 passed all 26 server tests, but it predates the purchase-specific payload-hash extension.

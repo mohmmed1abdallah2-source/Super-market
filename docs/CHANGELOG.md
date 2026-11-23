@@ -261,3 +261,10 @@ The format follows Keep a Changelog. Version numbers will be assigned when relea
 - Added PostgreSQL integration assertions for same-payload replay with a new idempotency key and changed-payload rejection for invoices and returns.
 - Delivery Gates #141 passed server analysis/tests and shared contracts; PostgreSQL-only tests were skipped in that workflow. The PostgreSQL-enabled run for current source commit c36c130f is pending. Run #208 passed 26 PostgreSQL tests on the earlier sales/batch identity implementation, before this purchase-specific extension.
 - No production database changes.
+
+
+## 2026-11-23 — CI queue correction
+- PostgreSQL-enabled Flutter Validation run #211 was cancelled before its PostgreSQL test job started when a later documentation commit arrived. It must not be counted as a pass or failure.
+- Run #212 is queued for the same application source as commit c36c130f0e7611d535f6b1ced4e43e85997ad03d; subsequent commits 8bcc22c and 606a5cd only updated documentation. Run #212 is the pending PostgreSQL verification for the purchase invoice/return payload-hash changes.
+- Delivery Gates #141 passed server analysis/unit tests and shared-contract tests on source c36c130f. The PostgreSQL integration suite was skipped in that workflow because PGTEST_HOST is not configured.
+- The earlier PostgreSQL-enabled run #208 passed all 26 server tests, but it predates the purchase-specific payload-hash extension.

@@ -188,3 +188,10 @@ This is a schema-level invariant only; it does not integrate the pure FEFO plann
 - Added PostgreSQL integration assertions for replay with a new idempotency key and changed-payload rejection on both purchase invoice and return operations.
 - The current source commit c36c130f has passed Delivery Gates server analysis/tests and shared-contract tests. PostgreSQL integration for this exact revision remains pending; the earlier 26-test PostgreSQL pass #208 predates this purchase-specific change.
 - Financial sale calculations still use double in the live sales posting path. This change does not resolve financial precision.
+
+
+## 2026-11-23 — CI queue correction
+- PostgreSQL-enabled Flutter Validation run #211 was cancelled before its PostgreSQL test job started when a later documentation commit arrived. It must not be counted as a pass or failure.
+- Run #212 is queued for the same application source as commit c36c130f0e7611d535f6b1ced4e43e85997ad03d; subsequent commits 8bcc22c and 606a5cd only updated documentation. Run #212 is the pending PostgreSQL verification for the purchase invoice/return payload-hash changes.
+- Delivery Gates #141 passed server analysis/unit tests and shared-contract tests on source c36c130f. The PostgreSQL integration suite was skipped in that workflow because PGTEST_HOST is not configured.
+- The earlier PostgreSQL-enabled run #208 passed all 26 server tests, but it predates the purchase-specific payload-hash extension.
