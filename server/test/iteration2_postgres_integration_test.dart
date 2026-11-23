@@ -32,7 +32,7 @@ void main() {
         final operationId = uuid.v4();
         final key = 'integration-sale-' + uuid.v4();
         await connection.execute(
-          "INSERT INTO products (id, branch_id, sku_code, name_ar, product_type, base_unit_name, stock_base_qty, avg_cost_base_unit, last_cost_base_unit) VALUES (@id, 'branch-main', @sku, 'صنف اختبار', 'STANDARD', 'حبة', 10, 1, 1)",
+          "INSERT INTO products (id, branch_id, sku_code, name_ar, product_type, base_unit_name, stock_base_qty, avg_cost_base_unit, last_cost_base_unit) VALUES (@id, 'branch-main', @sku, 'صنف اختبار', 'STANDARD', 'حبة', 10, 0.1, 0.1)",
           substitutionValues: {'id': productId, 'sku': productId},
         );
         final request = <String, dynamic>{
@@ -43,22 +43,22 @@ void main() {
               'id': uuid.v4(),
               'productId': productId,
               'unitName': 'حبة',
-              'qtySold': 1,
-              'conversionFactor': 1,
-              'unitPrice': 5,
-              'lineTotal': 5,
+              'qtySold': '0.3000',
+              'conversionFactor': '1.000000',
+              'unitPrice': '0.1000',
+              'lineTotal': '0.0300',
             }
           ],
           'payments': [
             {
               'id': uuid.v4(),
               'method': 'CASH',
-              'amount': 5,
+              'amount': '0.0300',
               'cashAccountId': 'cash-drawer',
             }
           ],
-          'discountAmount': 0,
-          'changeReturned': 0,
+          'discountAmount': '0.0000',
+          'changeReturned': '0.0000',
         };
         final command = SaleInvoiceCommand(
           branchId: 'branch-main',
@@ -76,14 +76,30 @@ void main() {
           'SELECT stock_base_qty::text AS stock FROM products WHERE id=@id',
           substitutionValues: {'id': productId},
         );
-        expect(double.parse(stock.single.values.first['stock'] as String), 9);
+        expect(stock.single.values.first['stock'], '9.700000');
 
         final totals = await connection.mappedResultsQuery(
           "SELECT COALESCE(SUM(dr_amount),0)::text AS dr, COALESCE(SUM(cr_amount),0)::text AS cr FROM journal_lines WHERE journal_entry_id=(SELECT journal_entry_id FROM sales_invoices WHERE id=@id)",
           substitutionValues: {'id': first['id']},
         );
         final line = totals.single.values.first;
-        expect(double.parse(line['dr'] as String), closeTo(double.parse(line['cr'] as String), 0.0001));
+        expect(line['dr'], '0.0600');
+        expect(line['cr'], '0.0600');
+
+        final invoiceRows = await connection.mappedResultsQuery(
+          '''SELECT net_total::text AS net, paid_total::text AS paid
+             FROM sales_invoices WHERE id=@id''',
+          substitutionValues: {'id': first['id']},
+        );
+        expect(invoiceRows.single.values.first['net'], '0.0300');
+        expect(invoiceRows.single.values.first['paid'], '0.0300');
+
+        final itemRows = await connection.mappedResultsQuery(
+          '''SELECT line_total::text AS total FROM sales_invoice_items
+             WHERE invoice_id=@id''',
+          substitutionValues: {'id': first['id']},
+        );
+        expect(itemRows.single.values.first['total'], '0.0300');
       } finally {
         await connection.close();
       }
