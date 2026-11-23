@@ -52,10 +52,35 @@ class ProcessSyncBatchUseCase {
       'STOCKTAKE_APPROVE',
       'DISPOSAL_APPROVE',
       'STOCK_TRANSFER',
+      'STOCKTAKE_CREATE',
+      'FRIDGE_TEMPERATURE_LOG',
     };
     for (final operation in command.operations) {
       if (!allowed.contains(operation.operationType)) {
         throw FormatException('Unsupported operation type: ${operation.operationType}');
+      }
+      if (operation.operationType == 'STOCKTAKE_CREATE') {
+        final lines = operation.payload['lines'];
+        for (final key in const ['sessionId', 'warehouseId', 'sessionNo']) {
+          final value = operation.payload[key];
+          if (value is! String || value.trim().isEmpty) {
+            throw FormatException('STOCKTAKE_CREATE requires $key.');
+          }
+        }
+        if (lines is! List || lines.isEmpty || lines.length > 500 ||
+            lines.any((line) => line is! Map<String, dynamic>)) {
+          throw const FormatException(
+            'STOCKTAKE_CREATE requires between 1 and 500 JSON line objects.',
+          );
+        }
+      }
+      if (operation.operationType == 'FRIDGE_TEMPERATURE_LOG') {
+        for (final key in const ['logId', 'warehouseId', 'temperatureC']) {
+          final value = operation.payload[key];
+          if (value is! String || value.trim().isEmpty) {
+            throw FormatException('FRIDGE_TEMPERATURE_LOG requires $key.');
+          }
+        }
       }
       if (operation.operationType == 'STOCK_TRANSFER') {
         final items = operation.payload['items'];
