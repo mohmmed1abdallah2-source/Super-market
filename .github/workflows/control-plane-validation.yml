@@ -1,0 +1,70 @@
+name: Control plane validation
+
+on:
+  push:
+    branches:
+      - feature/control-plane-account-management
+    paths:
+      - 'server/control_plane/**'
+      - 'server/lib/features/control_plane/**'
+      - 'server/test/control_plane_domain_test.dart'
+      - '.github/workflows/control-plane-validation.yml'
+  pull_request:
+    branches:
+      - feature/control-plane-account-management
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  control-plane:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_DB: postgres
+          POSTGRES_USER: erp_test
+          POSTGRES_PASSWORD: disposable_test_only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U erp_test -d postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes postgresql-client
+      - name: Create a separate disposable control-plane database
+        env:
+          PGPASSWORD: disposable_test_only
+        run: createdb -h 127.0.0.1 -p 5432 -U erp_test control_plane_test
+      - name: Apply control-plane migration
+        env:
+          PGPASSWORD: disposable_test_only
+        run: |
+          psql -h 127.0.0.1 -p 5432 -U erp_test -d control_plane_test \
+            -v ON_ERROR_STOP=1 -f server/control_plane/migrations/001_control_plane.sql
+      - name: Run rollback-only control-plane SQL assertions
+        env:
+          PGPASSWORD: disposable_test_only
+        run: |
+          psql -h 127.0.0.1 -p 5432 -U erp_test -d control_plane_test \
+            -v ON_ERROR_STOP=1 -f server/control_plane/tests/001_control_plane_assertions.sql
+      - name: Resolve Dart server dependencies
+        working-directory: server
+        run: dart pub get
+      - name: Analyze Dart server
+        working-directory: server
+        run: dart analyze
+      - name: Run control-plane domain tests
+        working-directory: server
+        run: dart test test/control_plane_domain_test.dart
