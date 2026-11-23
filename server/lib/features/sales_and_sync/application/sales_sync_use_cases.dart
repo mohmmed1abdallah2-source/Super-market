@@ -43,7 +43,13 @@ class ProcessSyncBatchUseCase {
     if (ids.length != command.operations.length) {
       throw const FormatException('A batch cannot contain duplicate operation IDs.');
     }
-    const allowed = {'PARTY_CREATE', 'SALE_INVOICE', 'VOUCHER'};
+    const allowed = {
+      'PARTY_CREATE',
+      'SALE_INVOICE',
+      'VOUCHER',
+      'PURCHASE_INVOICE',
+      'PURCHASE_RETURN',
+    };
     for (final operation in command.operations) {
       if (!allowed.contains(operation.operationType)) {
         throw FormatException('Unsupported operation type: ${operation.operationType}');

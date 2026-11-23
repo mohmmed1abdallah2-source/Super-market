@@ -6,6 +6,10 @@ import 'package:core_contracts/core_contracts.dart';
 import 'package:postgres/postgres.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../inventory_and_purchases/application/purchase_invoice_posting.dart';
+import '../../inventory_and_purchases/application/purchase_return_posting.dart';
+import '../../inventory_and_purchases/data/postgres_purchase_invoice_posting_repository.dart';
+import '../../inventory_and_purchases/data/postgres_purchase_return_posting_repository.dart';
 import '../../inventory_and_purchases/domain/purchase_and_fefo_calculator.dart';
 import '../domain/sales_sync_domain.dart';
 
@@ -217,6 +221,34 @@ class PostgresSalesSyncRepository implements SalesSyncRepository {
               break;
             case 'VOUCHER':
               await _applyVoucher(ctx, command.branchId, operation.operationId, operation.payload);
+              break;
+            case 'PURCHASE_INVOICE':
+              await PostgresPurchaseInvoicePostingRepository(_connection)
+                  .postPurchaseInvoiceInTransaction(
+                ctx,
+                PurchaseInvoiceCommand(
+                  branchId: command.branchId,
+                  operationId: operation.operationId,
+                  idempotencyKey: command.idempotencyKey,
+                  requestHash: _operationPayloadHash(operation.payload),
+                  request: operation.payload,
+                ),
+                manageIdempotency: false,
+              );
+              break;
+            case 'PURCHASE_RETURN':
+              await PostgresPurchaseReturnPostingRepository(_connection)
+                  .postPurchaseReturnInTransaction(
+                ctx,
+                PurchaseReturnCommand(
+                  branchId: command.branchId,
+                  operationId: operation.operationId,
+                  idempotencyKey: command.idempotencyKey,
+                  requestHash: _operationPayloadHash(operation.payload),
+                  request: operation.payload,
+                ),
+                manageIdempotency: false,
+              );
               break;
             default:
               throw FormatException('Unsupported operation type: ${operation.operationType}');

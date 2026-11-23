@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:postgres/postgres.dart';
 import 'package:test/test.dart';
 import 'package:uuid/uuid.dart';
+import 'package:supermarket_erp_server/features/sales_and_sync/data/postgres_sales_sync_repository.dart';
+import 'package:supermarket_erp_server/features/sales_and_sync/domain/sales_sync_domain.dart';
 import 'package:supermarket_erp_server/features/inventory_and_purchases/application/purchase_invoice_posting.dart';
 import 'package:supermarket_erp_server/features/inventory_and_purchases/application/purchase_return_posting.dart';
 import 'package:supermarket_erp_server/features/inventory_and_purchases/data/postgres_purchase_invoice_posting_repository.dart';
@@ -444,6 +446,217 @@ void main() {
           substitutionValues: {'product': productId, 'branch': branchId},
         );
         expect(_flattenRow(finalProductRows.single)['stock'], '114.000000');
+        // The same purchase posting workflows must be callable from the
+        // Sync Batch transaction, without opening nested transactions.
+        final syncRepository = PostgresSalesSyncRepository(connection);
+        const baselineStock = '114.000000';
+        final rollbackInvoiceOperationId = uuid.v4();
+        final rollbackInvoiceRequest = Map<String, dynamic>.from(request)
+          ..['operationId'] = rollbackInvoiceOperationId
+          ..['invoiceNo'] = 'ROLLBACK-$suffix'
+          ..['items'] = [
+            Map<String, dynamic>.from((request['items'] as List).first as Map)
+              ..['batchNo'] = 'ROLLBACK-BATCH-$suffix',
+          ];
+
+        SyncBatchCommand syncCommand({
+          required String batchBranchId,
+          required List<SyncOperation> operations,
+          required String key,
+        }) =>
+            SyncBatchCommand(
+              branchId: batchBranchId,
+              batchId: uuid.v4(),
+              idempotencyKey: key,
+              requestHash: List.filled(64, 'f').join(),
+              operations: operations,
+            );
+
+        await expectLater(
+          syncRepository.processBatch(
+            syncCommand(
+              batchBranchId: branchId,
+              key: 'sync-rollback-$branchId',
+              operations: [
+                SyncOperation(
+                  operationId: rollbackInvoiceOperationId,
+                  operationType: 'PURCHASE_INVOICE',
+                  payload: rollbackInvoiceRequest,
+                ),
+                SyncOperation(
+                  operationId: uuid.v4(),
+                  operationType: 'PURCHASE_RETURN',
+                  payload: {
+                    'returnNo': 'INVALID-$suffix',
+                    'purchaseInvoiceId': uuid.v4(),
+                    'items': [
+                      {
+                        'purchaseInvoiceItemId': uuid.v4(),
+                        'productBatchId': uuid.v4(),
+                        'qtyBase': '1.000000',
+                      },
+                    ],
+                  },
+                ),
+              ],
+            ),
+          ),
+          throwsA(isA<StateError>()),
+        );
+
+        final rolledBackInvoiceRows = await connection.mappedResultsQuery(
+          '''SELECT COUNT(*)::int AS count FROM purchase_invoices
+             WHERE branch_id = @branch AND operation_id = @operation''',
+          substitutionValues: {
+            'branch': branchId,
+            'operation': rollbackInvoiceOperationId,
+          },
+        );
+        expect(_flattenRow(rolledBackInvoiceRows.single)['count'], 0);
+        final stockAfterRollbackRows = await connection.mappedResultsQuery(
+          '''SELECT stock_base_qty::text AS stock FROM products
+             WHERE id = @product AND branch_id = @branch''',
+          substitutionValues: {'product': productId, 'branch': branchId},
+        );
+        expect(_flattenRow(stockAfterRollbackRows.single)['stock'], baselineStock);
+
+        final batchInvoiceOperationId = uuid.v4();
+        final batchInvoiceRequest = Map<String, dynamic>.from(request)
+          ..['operationId'] = batchInvoiceOperationId
+          ..['invoiceNo'] = 'SYNC-$suffix'
+          ..['items'] = [
+            Map<String, dynamic>.from((request['items'] as List).first as Map)
+              ..['batchNo'] = 'SYNC-BATCH-$suffix',
+          ];
+        final invoiceBatchResult = await syncRepository.processBatch(
+          syncCommand(
+            batchBranchId: branchId,
+            key: 'sync-invoice-$branchId',
+            operations: [
+              SyncOperation(
+                operationId: batchInvoiceOperationId,
+                operationType: 'PURCHASE_INVOICE',
+                payload: batchInvoiceRequest,
+              ),
+            ],
+          ),
+        );
+        expect(invoiceBatchResult['acceptedIds'], [batchInvoiceOperationId]);
+
+        final batchInvoiceRows = await connection.mappedResultsQuery(
+          '''SELECT id::text AS id FROM purchase_invoices
+             WHERE branch_id = @branch AND operation_id = @operation''',
+          substitutionValues: {
+            'branch': branchId,
+            'operation': batchInvoiceOperationId,
+          },
+        );
+        final batchInvoiceId = _flattenRow(batchInvoiceRows.single)['id'] as String;
+        final batchItemRows = await connection.mappedResultsQuery(
+          '''SELECT i.id::text AS id, b.id::text AS "batchId"
+             FROM purchase_invoice_items i
+             JOIN product_batches_fefo b
+               ON b.purchase_invoice_item_id = i.id AND b.branch_id = i.branch_id
+             WHERE i.purchase_invoice_id = @invoice AND i.branch_id = @branch''',
+          substitutionValues: {'invoice': batchInvoiceId, 'branch': branchId},
+        );
+        final batchItem = _flattenRow(batchItemRows.single);
+
+        final batchReturnOperationId = uuid.v4();
+        final batchReturnPayload = {
+          'returnNo': 'SYNC-RET-$suffix',
+          'purchaseInvoiceId': batchInvoiceId,
+          'items': [
+            {
+              'purchaseInvoiceItemId': batchItem['id'],
+              'productBatchId': batchItem['batchId'],
+              'qtyBase': '6.000000',
+            },
+          ],
+        };
+        final returnBatchResult = await syncRepository.processBatch(
+          syncCommand(
+            batchBranchId: branchId,
+            key: 'sync-return-$branchId',
+            operations: [
+              SyncOperation(
+                operationId: batchReturnOperationId,
+                operationType: 'PURCHASE_RETURN',
+                payload: batchReturnPayload,
+              ),
+            ],
+          ),
+        );
+        expect(returnBatchResult['acceptedIds'], [batchReturnOperationId]);
+
+        // A new batch key may replay the same operation without posting twice.
+        final returnRetry = await syncRepository.processBatch(
+          syncCommand(
+            batchBranchId: branchId,
+            key: 'sync-return-retry-$branchId',
+            operations: [
+              SyncOperation(
+                operationId: batchReturnOperationId,
+                operationType: 'PURCHASE_RETURN',
+                payload: batchReturnPayload,
+              ),
+            ],
+          ),
+        );
+        expect(returnRetry['acceptedIds'], [batchReturnOperationId]);
+
+        final batchReturnRows = await connection.mappedResultsQuery(
+          '''SELECT COUNT(*)::int AS count
+             FROM purchase_returns
+             WHERE branch_id = @branch AND operation_id = @operation''',
+          substitutionValues: {
+            'branch': branchId,
+            'operation': batchReturnOperationId,
+          },
+        );
+        expect(_flattenRow(batchReturnRows.single)['count'], 1);
+
+        final secondBranchId = uuid.v4();
+        final secondBranchPartyId = uuid.v4();
+        await connection.execute(
+          '''INSERT INTO branches (id, code, name_ar)
+             VALUES (@id, @code, 'Second sync branch')''',
+          substitutionValues: {
+            'id': secondBranchId,
+            'code': 'SB-$suffix',
+          },
+        );
+        final isolatedResult = await syncRepository.processBatch(
+          syncCommand(
+            batchBranchId: secondBranchId,
+            key: 'sync-isolation-$secondBranchId',
+            operations: [
+              SyncOperation(
+                // Operation IDs are scoped by branch, not globally.
+                operationId: batchInvoiceOperationId,
+                operationType: 'PARTY_CREATE',
+                payload: {
+                  'id': secondBranchPartyId,
+                  'partyType': 'SUPPLIER',
+                  'code': 'ISOLATED-$suffix',
+                  'name': 'Second branch supplier',
+                  'creditLimit': '0.0000',
+                  'paymentTermsDays': 0,
+                  'priceTier': 'RETAIL',
+                },
+              ),
+            ],
+          ),
+        );
+        expect(isolatedResult['acceptedIds'], [batchInvoiceOperationId]);
+
+        final finalBatchStockRows = await connection.mappedResultsQuery(
+          '''SELECT stock_base_qty::text AS stock FROM products
+             WHERE id = @product AND branch_id = @branch''',
+          substitutionValues: {'product': productId, 'branch': branchId},
+        );
+        expect(_flattenRow(finalBatchStockRows.single)['stock'], '180.000000');
+
       } finally {
         await connection.close();
       }
