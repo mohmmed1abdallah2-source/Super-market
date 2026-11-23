@@ -12,6 +12,7 @@ import '../../inventory_and_purchases/data/postgres_purchase_invoice_posting_rep
 import '../../inventory_and_purchases/data/postgres_purchase_return_posting_repository.dart';
 import '../../inventory_and_purchases/data/postgres_inventory_approval_repository.dart';
 import '../../inventory_and_purchases/domain/purchase_and_fefo_calculator.dart';
+import '../domain/sale_money_calculator.dart';
 import '../domain/sales_sync_domain.dart';
 
 /// PostgreSQL implementation for sale posting and batch synchronization.
@@ -654,7 +655,7 @@ class PostgresSalesSyncRepository implements SalesSyncRepository {
     if (paidTotal + creditTotal != netTotal) {
       throw const FormatException('Payments, change and outstanding amount do not match invoice total.');
     }
-    if (creditTotal > 0) {
+    if (!creditTotal.isZero) {
       if (customerId == null) throw const FormatException('A customer is required for credit sales.');
       final customerRows = await ctx.mappedResultsQuery(
         '''SELECT p.credit_limit::text AS "creditLimit", p.is_blocked AS blocked,
@@ -727,7 +728,7 @@ class PostgresSalesSyncRepository implements SalesSyncRepository {
       );
     }
 
-    if (remaining > 0) {
+    if (!remaining.isZero) {
       final ar = await _accountId(ctx, branchId, '1100');
       await ctx.execute(
         '''INSERT INTO journal_lines (journal_entry_id, gl_account_id, dr_amount, cr_amount)
@@ -741,7 +742,7 @@ class PostgresSalesSyncRepository implements SalesSyncRepository {
          VALUES (@entry, @gl, 0, @amount)''',
       substitutionValues: {'entry': journalId, 'gl': revenue, 'amount': netTotal.toFixedString()},
     );
-    if (costTotal > 0) {
+    if (!costTotal.isZero) {
       final cogs = await _accountId(ctx, branchId, '5000');
       final inventory = await _accountId(ctx, branchId, '1200');
       await ctx.execute(
@@ -868,7 +869,7 @@ class PostgresSalesSyncRepository implements SalesSyncRepository {
       );
     }
 
-    if (remaining > 0) {
+    if (!remaining.isZero) {
       await ctx.execute(
         '''INSERT INTO lah_alayh_ledger
           (branch_id, party_id, entry_date, entry_type, alayh_amount, lah_amount,
