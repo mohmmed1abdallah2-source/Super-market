@@ -168,3 +168,10 @@ The existing sync batch accepted any previously receipted operation UUID without
 Validation: PostgreSQL-enabled Flutter Validation run #208 applied migration 010 on disposable PostgreSQL 18 and passed all 26 server tests. The new integration test submits the same operation concurrently, confirms idempotent acceptance, and rejects changed-payload reuse. Purchase invoice/return, sale retry, voucher and mixed-tender integration tests passed in the same run. Flutter analyze/tests and Web build passed; Windows and APK jobs were still running at documentation time. Delivery Gates #138 passed Dart server analysis/tests and shared contract tests, with PostgreSQL-only tests skipped there because PGTEST_HOST is not configured.
 
 Compatibility note: receipts created before migration 010 have NULL payload_hash. Same-type replay remains accepted for these legacy receipts, but their payload identity cannot be verified retroactively. Sync Batch still supports only PARTY_CREATE, SALE_INVOICE and VOUCHER; inventory/purchase batch operation types and full offline replay remain open. No production database or deployment action was performed.
+
+
+## 2026-11-23 — Purchase receipt identity follow-up
+
+Purchase invoice and purchase return posting now use the migration 010 payload-hash column when creating operation receipts. Before returning an existing document for a repeated operation ID, the repositories compare the recorded operation type and canonical request hash. Changed payload reuse returns HTTP 409 through the inventory routes. The supplier-return transaction lock key was corrected to include the actual branch and operation identifiers.
+
+The PostgreSQL integration test now covers replay using a new idempotency key and changed-payload rejection for both document types. Delivery Gates #141 passed server analysis/tests and shared-contract tests, but skips PostgreSQL integration because it has no PGTEST_HOST. PostgreSQL-enabled validation #211 is pending for source commit c36c130f. The earlier run #208 passed 26 server tests before this purchase-specific change and is not evidence for the new assertions. No production database action was performed.

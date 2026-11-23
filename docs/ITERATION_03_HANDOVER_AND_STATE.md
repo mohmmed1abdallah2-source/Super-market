@@ -360,3 +360,13 @@ These early calculator commits are on `feature/multi-store-isolation-foundation`
 - Previous source CI failures were caused by a missing payloadHash argument in the direct-sale receipt call; corrected in f91389f8. The route's 409 conflict mapping is in b3351ced.
 - Remaining sync operations are still PARTY_CREATE, SALE_INVOICE and VOUCHER only. Purchase invoice/return, stocktake, disposal and transfer are not yet supported by Sync Batch. Offline queue acknowledgment/recovery, inventory workflows, sale money double removal, FEFO sale concurrency tests, Flutter inventory UI and official reports remain open.
 - No production Neon migration/DML, deployment, restore, endpoint mutation, or branch deletion was performed.
+
+
+## 2026-11-23 — Purchase receipt identity extension (validation pending)
+
+- Current source commit for this extension: c36c130f0e7611d535f6b1ced4e43e85997ad03d.
+- Purchase invoice and purchase return posting now store SHA-256 hashes of canonical JSON payloads in sync_operation_receipts. Before replaying an existing invoice/return operation, each repository checks the receipt's operation type and, for non-legacy receipts, the payload hash. Mismatched reuse raises OPERATION_ID_REUSED and the inventory route returns HTTP 409.
+- Both posting paths retain branch+operation transaction advisory locks. Corrected the supplier-return lock key to interpolate the actual branch and operation IDs.
+- Extended the PostgreSQL integration test to retry each purchase document with a new idempotency key and reject a changed payload under the same operation ID.
+- Delivery Gates #141 passed Dart server analysis/tests and shared-contract tests; five PostgreSQL-only tests were skipped in that workflow. PostgreSQL-enabled validation #211 is pending for this exact source commit. Earlier run #208 passed 26 server tests on the previous source revision, but it does not validate this purchase-specific receipt-hash extension.
+- Legacy receipts with NULL payload_hash remain same-type replayable because their original payload cannot be reconstructed. No Neon production migration/DML or deployment.

@@ -371,3 +371,11 @@
 - Delivery Gates run #138 passed Dart server analysis/tests and shared contract tests; its server suite had 21 unit tests pass and 5 PostgreSQL-only tests skipped because it has no PGTEST_HOST. Flutter analysis/tests passed. In Flutter validation #208, Flutter analyze/tests and Web build passed; Android APK and Windows build were still running when this log entry was written.
 - Earlier Delivery Gates attempts #133/#135 exposed the missing payloadHash argument in the separate direct-sale receipt call; fixed in source commit f91389f8 and the HTTP 409 mapping completed in b3351ced. The latest source commit's server analysis/tests passed.
 - No Neon production migration, DML, deployment, endpoint change, or branch cleanup was performed.
+
+
+## 2026-11-23 — Purchase operation receipt identity (PostgreSQL validation pending)
+- Extended migration 010 payload identity to purchase invoice and purchase return receipts. Both repositories now store canonical JSON SHA-256 hashes, verify receipt type/hash before replay, and retain their existing branch+operation advisory lock. Corrected the purchase-return lock key so it interpolates branch and operation IDs rather than using one literal lock key.
+- Inventory/purchase API maps OPERATION_ID_REUSED to HTTP 409. PostgreSQL integration test now checks same-operation replay with a new idempotency key and rejects changed payloads for both purchase invoices and returns.
+- Source commit c36c130f0e7611d535f6b1ced4e43e85997ad03d includes this change. Delivery Gates #141 passed server analysis/tests (21 server tests passed, five PostgreSQL-only tests skipped in this workflow) and shared contracts (five tests passed). PostgreSQL-enabled validation #211 is pending; do not treat the purchase receipt change as PostgreSQL-verified yet.
+- Earlier PostgreSQL Validation #208 passed all 26 server tests for sales/batch operation identity, migration 010 and existing purchase invoice/return posting, but it predates this purchase receipt-hash extension.
+- No production database or deployment changes.

@@ -254,3 +254,10 @@ The format follows Keep a Changelog. Version numbers will be assigned when relea
 - PostgreSQL 18 CI run #208 applied migration 010 on a disposable database and passed all 26 server tests, including the new sync replay test and purchase invoice/return tests. Flutter analyze/tests and Web build passed; Android and Windows build jobs were still running at documentation time.
 - Delivery Gates #138 passed server analysis/unit tests and shared-contract tests; five PostgreSQL integration tests were skipped in that workflow because PGTEST_HOST is not configured.
 - Legacy receipts with NULL payload hashes retain same-type replay compatibility; their historic payload identity cannot be reconstructed. No production database changes.
+
+
+## 2026-11-23 — Purchase receipt payload identity (validation pending)
+- Purchase invoice and purchase return receipts now persist canonical JSON payload hashes in migration 010 and reject operation-ID reuse with a different type/payload. Both posting paths check the receipt before returning an existing document. Purchase return advisory lock key interpolation was corrected.
+- Added PostgreSQL integration assertions for same-payload replay with a new idempotency key and changed-payload rejection for invoices and returns.
+- Delivery Gates #141 passed server analysis/tests and shared contracts; PostgreSQL-only tests were skipped in that workflow. The PostgreSQL-enabled run for current source commit c36c130f is pending. Run #208 passed 26 PostgreSQL tests on the earlier sales/batch identity implementation, before this purchase-specific extension.
+- No production database changes.

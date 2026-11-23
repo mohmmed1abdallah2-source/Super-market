@@ -179,3 +179,12 @@ This is a schema-level invariant only; it does not integrate the pure FEFO plann
 - Legacy receipts retain NULL payload_hash and same-type replay compatibility; historical payload identity cannot be checked retroactively.
 - PostgreSQL 18 run #208 passed all 26 server tests, including concurrent same-operation replay and changed-payload rejection. Migration 010 was applied only to the disposable CI database. Purchase invoice/return, sale retry, voucher and mixed-tender integration coverage passed.
 - Sale invoice/COGS/journal money aggregation still uses double. This sync change does not resolve financial precision. Remaining Sync Batch types, SQLite offline replay, inventory write workflows and rollback tests remain open.
+
+
+## 2026-11-23 — Purchase receipt identity extension
+
+- Purchase invoice and purchase return receipt writes now store the SHA-256 of canonical JSON payloads in migration 010. Replays check operation type and payload identity; mismatches map to HTTP 409.
+- Both purchase posting repositories retain branch+operation advisory locks; corrected the return lock key interpolation.
+- Added PostgreSQL integration assertions for replay with a new idempotency key and changed-payload rejection on both purchase invoice and return operations.
+- The current source commit c36c130f has passed Delivery Gates server analysis/tests and shared-contract tests. PostgreSQL integration for this exact revision remains pending; the earlier 26-test PostgreSQL pass #208 predates this purchase-specific change.
+- Financial sale calculations still use double in the live sales posting path. This change does not resolve financial precision.
