@@ -227,6 +227,12 @@ class PostgresLedgerRepository implements LedgerRepository {
       );
       if (cashRows.isEmpty) throw StateError('Cash account was not found.');
       final cash = _flatten(cashRows.single);
+      if (command.method == 'WALLET' && cash['accountKind'] != 'WALLET') {
+        throw StateError('Wallet vouchers require a wallet account.');
+      }
+      if (command.method == 'CASH' && cash['accountKind'] == 'WALLET') {
+        throw StateError('Cash vouchers cannot use a wallet account.');
+      }
       final oldBalance = MoneyAmount.parse(cash['currentBalance']);
       final isReceipt = command.voucherType == LedgerVoucherType.receipt;
       if (!isReceipt && oldBalance.compareTo(command.amount) < 0) {
