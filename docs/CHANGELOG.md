@@ -352,3 +352,14 @@ The format follows Keep a Changelog. Version numbers will be assigned when relea
 - Added unit tests for password verification, malformed/weak inputs and token uniqueness.
 - These primitives are not yet connected to account/session HTTP endpoints. Rate limiting, account lockout, TLS and secret-store integration remain release requirements.
 - CI is pending for this exact branch head; no test pass is claimed until logs are inspected.
+
+
+### 2026-11-24 — Control-plane runtime and store routing foundation
+
+- Added PostgreSQL control-plane repository operations for password-authenticated sign-in, active membership listing, one-time identity ticket exchange, store-scoped access/refresh token issuance, access-token resolution and session revocation.
+- Added HTTP routes: `POST /v1/auth/sign-in`, `GET /v1/stores`, `POST /v1/stores/activate`, and `POST /v1/auth/sign-out`.
+- Added optional separate control-plane database bootstrap configuration (`CONTROL_PLANE_PGHOST/PGPORT/PGDATABASE/PGUSER/PGPASSWORD`) without changing the existing store/business database connection.
+- Added `StoreDatabaseRouter`, which resolves database locators only from the verified server context, validates database/role names against the opaque store UUID, resolves the password through a secret-store interface, and opens/closes a dedicated connection per operation.
+- The secret-store adapter, database provisioning saga, refresh-token rotation, and integration of all existing business routes with the store context are not complete. Legacy branch-token routes remain and are not production multi-store authorization.
+- CI has verified the earlier schema/security primitive slice; the latest runtime wiring CI is still running. No tests are claimed for the newest code until its exact-head logs complete.
+- No production Neon migration, store database creation, credential generation, deployment or release was performed.
