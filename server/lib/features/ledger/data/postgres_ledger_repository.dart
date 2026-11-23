@@ -41,7 +41,7 @@ class PostgresLedgerRepository implements LedgerRepository {
           'name': command.name.trim(),
           'phone': command.phone,
           'address': command.address,
-          'limit': command.creditLimit,
+          'limit': command.creditLimit.toFixedString(),
           'terms': command.paymentTermsDays,
           'tier': command.priceTier,
         },
