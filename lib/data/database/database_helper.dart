@@ -9,6 +9,10 @@ import 'seed_data.dart';
 class DatabaseHelper {
   DatabaseHelper._();
 
+  /// Creates a helper around an already-open database, primarily for isolated
+  /// tests and controlled database lifecycle management.
+  DatabaseHelper.forDatabase(Database database) : _database = database;
+
   static final DatabaseHelper instance = DatabaseHelper._();
   static const String _databaseName = 'supermarket_erp.db';
   Database? _database;
