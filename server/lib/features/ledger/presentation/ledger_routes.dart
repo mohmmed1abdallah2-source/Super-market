@@ -1,3 +1,4 @@
+import 'package:core_contracts/core_contracts.dart';
 import 'dart:convert';
 
 import 'package:shelf/shelf.dart';
@@ -117,7 +118,7 @@ class LedgerRoutes {
               : LedgerVoucherType.payment,
           partyId: _requiredText(body, 'partyId'),
           cashAccountId: _requiredText(body, 'cashAccountId'),
-          amount: _decimal(body['amount']),
+          amount: MoneyAmount.parse(body['amount']),
           method: _requiredText(body, 'method').toUpperCase(),
           idempotencyKey: key,
           requestHash: PostgresLedgerRepository.hashRequest(body),
