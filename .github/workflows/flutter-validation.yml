@@ -143,6 +143,11 @@ jobs:
       PGTEST_DATABASE: supermarket_test
       PGTEST_USER: erp_test
       PGTEST_PASSWORD: erp_test_password
+      CONTROL_PLANE_TEST_HOST: 127.0.0.1
+      CONTROL_PLANE_TEST_PORT: 5432
+      CONTROL_PLANE_TEST_DATABASE: control_plane_test
+      CONTROL_PLANE_TEST_USER: erp_test
+      CONTROL_PLANE_TEST_PASSWORD: erp_test_password
     steps:
       - name: Checkout
         uses: actions/checkout@v4
