@@ -331,3 +331,15 @@ The format follows Keep a Changelog. Version numbers will be assigned when relea
 - Enforced cash-vs-wallet account-kind validation in sale and voucher posting.
 - Normalized legacy SQLite numeric payloads to explicit decimal strings at the sync boundary and added FAILED queue recovery coverage.
 - Added fractional-sale, journal-balance, and payment-account mismatch regression assertions. PostgreSQL-enabled CI verification remains pending on source commit `20043d15`.
+
+
+## 2026-11-24 — Control-plane schema foundation
+
+- Created isolated work branch `feature/control-plane-store-sessions` from `feature/multi-store-isolation-foundation` at base `04bc6850f922461bbb96227bc444fd1795b7295c`.
+- Added `server/control_plane_migrations/20261124_001_control_plane.sql` for accounts, store directory, memberships, store-scoped session token hashes and provisioning operation state. This migration is explicitly for a separate control-plane database, not a store database.
+- Bound each session to the exact account, store and membership tuple with a composite foreign key, preventing mismatched account/store membership sessions at the database layer.
+- Added `server/test/control_plane_schema_assertions.sql` for owner-to-many-stores, valid session binding and cross-account/store session rejection assertions.
+- Updated Flutter Validation workflow to run on this feature branch and create a separate disposable `control_plane_test` database for migration/assertion checks.
+- CI execution is pending; no test pass is claimed until the run for this branch is inspected.
+- Runtime account authentication, password KDF, store provisioning saga, secret-store adapter, connection-pool router, session endpoints, and business-route integration remain pending.
+- No production Neon DDL/DML, persistent database creation, credential generation, deployment or release was performed.
