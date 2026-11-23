@@ -383,7 +383,7 @@ class LocalPosAndLedgerEngine {
       });
     });
     unawaited(_syncAfterCommit(branchId));
-    return queueId;
+    return _stableUuid('uuid-$queueId');
   }
 
   /// Sends at most 100 pending local events through the idempotent batch API.
