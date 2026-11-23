@@ -11,7 +11,8 @@ final class PostgresInventoryApprovalRepository {
     required String branchId,
     required Map<String, dynamic> payload,
   }) => connection.transaction((ctx) => approveStocktakeInTransaction(
-        ctx, branchId: branchId, payload: payload));
+        ctx, branchId: branchId, payload: payload))
+      .then((value) => Map<String, Object?>.from(value as Map));
 
   Future<Map<String, Object?>> approveStocktakeInTransaction(
     PostgreSQLExecutionContext ctx, {
@@ -167,7 +168,8 @@ final class PostgresInventoryApprovalRepository {
     required String branchId,
     required Map<String, dynamic> payload,
   }) => connection.transaction((ctx) => postDisposalInTransaction(
-        ctx, branchId: branchId, payload: payload));
+        ctx, branchId: branchId, payload: payload))
+      .then((value) => Map<String, Object?>.from(value as Map));
 
   Future<Map<String, Object?>> postDisposalInTransaction(
     PostgreSQLExecutionContext ctx, {
