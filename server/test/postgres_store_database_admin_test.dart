@@ -9,7 +9,7 @@ void main() {
         storeId: '20000000-0000-4000-8000-000000000001',
         databaseName: 'store_20000000000040008000000000000001',
         databaseRole: 'store_20000000000040008000000000000001',
-        password: 'a' * 43,
+        password: List.filled(43, 'a').join(),
       ),
       returnsNormally,
     );
