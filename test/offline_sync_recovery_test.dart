@@ -114,9 +114,10 @@ void main() {
           .value;
       return acceptedResponse(request);
     }));
-    restoredEngine.configureApiClient(connectedApi);
-
-    final accepted = await restoredEngine.resumePendingSync('branch-a');
+    final accepted = await restoredEngine.configureApiClient(
+      connectedApi,
+      branchId: 'branch-a',
+    );
     expect(accepted, 1);
     expect((firstBody!['operations'] as List).single['operationId'], operationId);
     expect((retryBody!['operations'] as List).single['operationId'], operationId);
