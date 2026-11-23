@@ -52,8 +52,47 @@ class LocalPosAndLedgerEngine {
   static const Uuid _uuid = Uuid();
 
   /// Attaches an authenticated API client after the user session is established.
-  void configureApiClient(ApiClient client) {
+  void configureApiClient(ApiClient client, {String? branchId}) {
     _apiClient = client;
+    // The authenticated session knows the active branch. Supplying it here
+    // resumes durable work left by a previous process before new writes occur.
+    if (branchId != null && branchId.trim().isNotEmpty) {
+      unawaited(resumePendingSync(branchId));
+    }
+  }
+
+  /// Drains durable PENDING/FAILED operations after login or app restart.
+  ///
+  /// Every batch is acknowledged atomically. If the network fails or the
+  /// acknowledgement is incomplete, the current batch remains retryable and
+  /// this method propagates the error instead of losing queued work.
+  Future<int> resumePendingSync(
+    String branchId, {
+    int batchSize = 100,
+    int maxBatches = 100,
+  }) async {
+    if (branchId.trim().isEmpty) {
+      throw ArgumentError.value(branchId, 'branchId', 'A branch is required.');
+    }
+    if (batchSize < 1 || batchSize > 100) {
+      throw RangeError.range(batchSize, 1, 100, 'batchSize');
+    }
+    if (maxBatches < 1) {
+      throw RangeError.value(maxBatches, 'maxBatches', 'Must be positive.');
+    }
+    if (_apiClient == null) return 0;
+
+    var acceptedCount = 0;
+    for (var batch = 0; batch < maxBatches; batch++) {
+      final result = await syncPendingBatch(branchId, maxEvents: batchSize);
+      if (result == null) return acceptedCount;
+      acceptedCount += result.acceptedIds.length;
+      if (result.acceptedIds.isEmpty || result.acceptedIds.length < batchSize) {
+        // A short batch means the queue was drained at the time it was read.
+        return acceptedCount;
+      }
+    }
+    return acceptedCount;
   }
 
   /// Resolves a barcode locally without requiring an API connection.
