@@ -4,8 +4,8 @@ import 'package:core_contracts/core_contracts.dart';
 ///
 /// Monetary values use scale four. Sale quantities use scale four, while
 /// conversion factors and base inventory quantities use scale six, matching
-/// migrations 001 and 002. This helper is not yet wired into the repository's
-/// live SQL transaction.
+/// migrations 001 and 002. The live PostgreSQL sale transaction uses these
+/// helpers for exact line totals and inventory cost valuation.
 final class SaleMoneyCalculator {
   const SaleMoneyCalculator._();
 
