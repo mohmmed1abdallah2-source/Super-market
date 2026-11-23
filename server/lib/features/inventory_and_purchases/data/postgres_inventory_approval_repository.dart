@@ -427,7 +427,7 @@ final class PostgresInventoryApprovalRepository {
            SET sealed_cartons=FLOOR(@remaining/pack_conversion_factor)::integer,
                loose_base_qty=@remaining -
                  FLOOR(@remaining/pack_conversion_factor)*pack_conversion_factor,
-               status=CASE WHEN @remaining=0 THEN 'DEPLETED'
+               status=CASE WHEN @remaining::numeric=0 THEN 'DEPLETED'
                  WHEN expiry_date<CURRENT_DATE THEN 'EXPIRED' ELSE status END,
                updated_at=@now
          WHERE id=@batch AND branch_id=@branch AND warehouse_id=@source''',
