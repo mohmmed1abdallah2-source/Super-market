@@ -247,12 +247,28 @@ void main() {
       expect(movements.map((row) => row.values.first['type']).toSet(),
         {'TRANSFER_IN', 'TRANSFER_OUT'});
 
-      // A later invalid transfer in a mixed batch must roll back earlier work in that batch.
+      // A valid stocktake followed by an invalid transfer must roll back as one batch.
+      final rollbackSession = uuid.v4();
+      await db.execute(
+        '''INSERT INTO stocktaking_sessions
+          (id,branch_id,warehouse_id,session_no,status,completed_at)
+         VALUES (@id,@branch,@warehouse,@number,'COUNTING',now())''',
+        substitutionValues: {'id': rollbackSession, 'branch': branch, 'warehouse': source,
+          'number': 'STK-ROLLBACK-$suffix'});
+      await db.execute(
+        '''INSERT INTO stocktaking_lines
+          (id,branch_id,session_id,product_id,product_batch_id,expected_base_qty,
+           counted_sealed_cartons,counted_loose_base_qty,pack_conversion_factor,counted_at)
+         VALUES (@id,@branch,@session,@product,@batch,9,0,8,10,now())''',
+        substitutionValues: {'id': uuid.v4(), 'branch': branch, 'session': rollbackSession,
+          'product': product, 'batch': batchDisposal});
       final rollbackTransfer = uuid.v4();
       final rollbackCommand = SyncBatchCommand(
         branchId: branch, batchId: uuid.v4(), idempotencyKey: 'inventory-rollback-$suffix-key',
         requestHash: List.filled(64, 'b').join(),
         operations: [
+          SyncOperation(operationId: uuid.v4(), operationType: 'STOCKTAKE_APPROVE',
+            payload: {'sessionId': rollbackSession, 'approvedByUserId': user}),
           SyncOperation(operationId: uuid.v4(), operationType: 'STOCK_TRANSFER',
             payload: {'transferId': rollbackTransfer, 'transferNo': 'TRF-BAD-$suffix',
               'sourceWarehouseId': source, 'destinationWarehouseId': destination,
@@ -263,6 +279,15 @@ void main() {
         'SELECT id FROM stock_transfers WHERE id=@id AND branch_id=@branch',
         substitutionValues: {'id': rollbackTransfer, 'branch': branch});
       expect(rolledBack, isEmpty);
+      final rollbackState = await db.mappedResultsQuery(
+        '''SELECT status FROM stocktaking_sessions
+           WHERE id=@id AND branch_id=@branch''',
+        substitutionValues: {'id': rollbackSession, 'branch': branch});
+      expect(rollbackState.single.values.first['status'], 'COUNTING');
+      final postRollbackStock = await db.mappedResultsQuery(
+        'SELECT stock_base_qty::text AS qty FROM products WHERE id=@id AND branch_id=@branch',
+        substitutionValues: {'id': product, 'branch': branch});
+      expect(postRollbackStock.single.values.first['qty'], '28.000000');
     } finally {
       await db.close();
     }
