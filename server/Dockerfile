@@ -6,8 +6,11 @@ COPY server/ ./
 RUN dart compile exe bin/server.dart -o /out/supermarket-erp-server
 
 FROM dart:stable
+RUN apt-get update && apt-get install -y --no-install-recommends postgresql-client \
+    && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=build /out/supermarket-erp-server /app/supermarket-erp-server
+COPY --from=build /src/server/migrations /app/migrations
 EXPOSE 8080
 ENV ERP_HOST=0.0.0.0
 ENV PORT=8080
