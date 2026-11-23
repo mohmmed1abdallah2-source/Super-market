@@ -202,6 +202,27 @@ void main() {
       expect(first['results'], contains(operations[2].operationId));
       expect(retry['replayed'], isTrue);
 
+      // A new batch envelope with the same operation IDs must replay the receipts,
+      // not apply the inventory effects a second time.
+      final operationReplay = await repository.processBatch(SyncBatchCommand(
+        branchId: branch, batchId: uuid.v4(),
+        idempotencyKey: 'inventory-operation-replay-$suffix',
+        requestHash: List.filled(64, 'c').join(), operations: operations));
+      expect((operationReplay['acceptedIds'] as List).length, 3);
+
+      final mismatchedTransfer = Map<String, dynamic>.from(operations[2].payload)
+        ..['items'] = [{'productBatchId': batchTransfer, 'qtyBase': '5.000000'}];
+      await expectLater(repository.processBatch(SyncBatchCommand(
+        branchId: branch, batchId: uuid.v4(),
+        idempotencyKey: 'inventory-operation-mismatch-$suffix',
+        requestHash: List.filled(64, 'd').join(),
+        operations: [SyncOperation(
+          operationId: operations[2].operationId,
+          operationType: 'STOCK_TRANSFER',
+          payload: mismatchedTransfer,
+        )],
+      )), throwsA(isA<StateError>()));
+
       final totals = await db.mappedResultsQuery(
         '''SELECT stock_base_qty::text AS qty FROM products
            WHERE id=@product AND branch_id=@branch''',
