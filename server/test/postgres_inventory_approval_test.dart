@@ -298,6 +298,90 @@ void main() {
       await db.close();
     }
   }, skip: !enabled ? 'PGTEST_HOST is not configured' : false);
+
+  test('stocktake session creation stores counted lines, replays safely, then approves', () async {
+    if (!enabled) return;
+    final env = Platform.environment;
+    final db = PostgreSQLConnection(env['PGTEST_HOST']!,
+      int.tryParse(env['PGTEST_PORT'] ?? '5432') ?? 5432,
+      env['PGTEST_DATABASE']!, username: env['PGTEST_USER']!,
+      password: env['PGTEST_PASSWORD']!, timeoutInSeconds: 30);
+    await db.open();
+    try {
+      const uuid = Uuid();
+      final branch = uuid.v4(), user = uuid.v4(), product = uuid.v4();
+      final warehouse = uuid.v4(), batch = uuid.v4(), session = uuid.v4();
+      final suffix = branch.substring(0, 8);
+      await _fixture(db, branch, user, product, warehouse, batch, suffix);
+      final repository = PostgresInventoryApprovalRepository(db);
+      final payload = {
+        'sessionId': session,
+        'warehouseId': warehouse,
+        'sessionNo': 'STK-CREATE-$suffix',
+        'blindCount': true,
+        'lines': [
+          {
+            'id': uuid.v4(),
+            'productId': product,
+            'productBatchId': batch,
+            'countedSealedCartons': 0,
+            'countedLooseBaseQty': '8.000000',
+          },
+        ],
+      };
+
+      final created = await repository.createStocktakeSession(
+        branchId: branch,
+        payload: payload,
+      );
+      expect(created['status'], 'COUNTING');
+      expect(created['replayed'], isFalse);
+      expect(created['approvedAt'], isNull);
+
+      final replay = await repository.createStocktakeSession(
+        branchId: branch,
+        payload: payload,
+      );
+      expect(replay['id'], session);
+      expect(replay['replayed'], isTrue);
+
+      final changedPayload = Map<String, dynamic>.from(payload)
+        ..['lines'] = [
+          Map<String, dynamic>.from(payload['lines']!.first as Map)
+            ..['countedLooseBaseQty'] = '7.000000',
+        ];
+      await expectLater(
+        repository.createStocktakeSession(branchId: branch, payload: changedPayload),
+        throwsA(isA<StateError>()),
+      );
+
+      final storedLines = await db.mappedResultsQuery(
+        '''SELECT expected_base_qty::text AS expected,
+                  counted_base_qty::text AS counted,
+                  variance_base_qty::text AS variance
+           FROM stocktaking_lines WHERE session_id=@session AND branch_id=@branch''',
+        substitutionValues: {'session': session, 'branch': branch},
+      );
+      expect(storedLines.single.values.first['expected'], '10.000000');
+      expect(storedLines.single.values.first['counted'], '8.000000');
+      expect(storedLines.single.values.first['variance'], '-2.000000');
+
+      final approved = await repository.approveStocktake(
+        branchId: branch,
+        payload: {'sessionId': session, 'approvedByUserId': user},
+      );
+      expect(approved['status'], 'APPROVED');
+      expect(approved['lossValue'], '4.2469');
+      final productRows = await db.mappedResultsQuery(
+        'SELECT stock_base_qty::text AS qty FROM products WHERE id=@id AND branch_id=@branch',
+        substitutionValues: {'id': product, 'branch': branch},
+      );
+      expect(productRows.single.values.first['qty'], '8.000000');
+    } finally {
+      await db.close();
+    }
+  }, skip: !enabled ? 'PGTEST_HOST is not configured' : false);
+
 }
 
 Future<void> _fixture(PostgreSQLConnection db, String branch, String user,

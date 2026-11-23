@@ -16,6 +16,7 @@ tags:
   - name: Parties
   - name: Ledger
   - name: Sales
+  - name: Inventory
   - name: Synchronization
 paths:
   /v1/parties:
@@ -204,6 +205,54 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/SaleInvoice' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /v1/inventory/stocktaking:
+    parameters:
+      - $ref: '#/components/parameters/BranchId'
+    get:
+      tags: [Inventory]
+      operationId: listStocktakingSessions
+      summary: List stocktaking sessions in the authenticated branch
+      responses:
+        '200':
+          description: Stocktaking sessions
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/StocktakingSession' }
+    post:
+      tags: [Inventory]
+      operationId: createStocktakingSession
+      summary: Create a counted stocktaking session without applying adjustments
+      description: >
+        Creates the session and persists all counted lines in one transaction.
+        The server snapshots expected batch quantities and conversion factors.
+        Replaying the same session ID and line IDs with identical content is safe;
+        reusing them with different content returns 409. Approval is a separate action.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateStocktakingSessionRequest' }
+      responses:
+        '201':
+          description: Counted session created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StocktakingSession' }
+        '200':
+          description: Identical create request replayed
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StocktakingSession' }
         '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/ValidationError' }
   /v1/sync/batch:
@@ -482,6 +531,59 @@ components:
               message: { type: string }
         serverTime: { type: string, format: date-time }
         replayed: { type: boolean }
+    StocktakingSession:
+      type: object
+      required: [id, warehouseId, sessionNo, status, blindCount, startedAt]
+      properties:
+        id: { type: string, format: uuid }
+        warehouseId: { type: string, format: uuid }
+        sessionNo: { type: string, minLength: 1, maxLength: 64 }
+        status: { type: string, enum: [COUNTING, APPROVED, CANCELLED] }
+        blindCount: { type: boolean }
+        startedAt: { type: string, format: date-time }
+        completedAt: { type: [string, 'null'], format: date-time }
+        approvedAt: { type: [string, 'null'], format: date-time }
+    CreateStocktakingSessionRequest:
+      type: object
+      required: [sessionId, warehouseId, sessionNo, lines]
+      properties:
+        sessionId: { type: string, format: uuid }
+        warehouseId: { type: string, format: uuid }
+        sessionNo: { type: string, minLength: 1, maxLength: 64 }
+        blindCount: { type: boolean, default: true }
+        lines:
+          type: array
+          minItems: 1
+          maxItems: 500
+          items:
+            type: object
+            required: [id, productId, productBatchId, countedSealedCartons, countedLooseBaseQty]
+            properties:
+              id: { type: string, format: uuid }
+              productId: { type: string, format: uuid }
+              productBatchId: { type: string, format: uuid }
+              expectedBaseQty: { type: string, pattern: '^[0-9]+(\\.[0-9]{1,6})?      type: object
+      required: [code, message]
+      properties:
+        code: { type: string }
+        message: { type: string }
+        details: { type: object, additionalProperties: true }
+ }
+              packConversionFactor: { type: string, pattern: '^[0-9]+(\\.[0-9]{1,6})?      type: object
+      required: [code, message]
+      properties:
+        code: { type: string }
+        message: { type: string }
+        details: { type: object, additionalProperties: true }
+ }
+              countedSealedCartons: { type: integer, minimum: 0 }
+              countedLooseBaseQty: { type: string, pattern: '^[0-9]+(\\.[0-9]{1,6})?      type: object
+      required: [code, message]
+      properties:
+        code: { type: string }
+        message: { type: string }
+        details: { type: object, additionalProperties: true }
+ }
     ApiError:
       type: object
       required: [code, message]
