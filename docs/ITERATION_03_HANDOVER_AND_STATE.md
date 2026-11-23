@@ -347,3 +347,16 @@ These early calculator commits are on `feature/multi-store-isolation-foundation`
 - Legacy receipts with NULL hashes retain same-type acceptance for backward compatibility. Their payload identity cannot be retroactively verified; this is an explicit migration-era limitation.
 - Remaining Sync Batch operations are still only PARTY_CREATE, SALE_INVOICE, and VOUCHER; purchases, returns, stocktake, disposal and transfer are not yet batch-enabled.
 - Neon production was not accessed for migration execution; no production DDL/DML or deployment was performed.
+
+
+## 2026-11-23 — Sync receipt identity and validation update
+
+- Current verified implementation source commit: b3351ced877c29095aa995739690c54066f43f8b.
+- Migration 010 adds nullable payload_hash CHAR(64) to sync_operation_receipts. New operation receipts persist the SHA-256 of canonical JSON payloads. Replays verify operation type and hash; mismatches return HTTP 409 (OPERATION_ID_REUSED).
+- A transaction-scoped advisory lock keyed by branch_id and operation_id serializes concurrent batches before the receipt check. The direct sale route uses the same lock and receipt identity check.
+- Legacy receipts with NULL hashes remain replayable when their operation type matches; their old payload cannot be compared because it was never stored. This is a documented compatibility limitation.
+- PostgreSQL Validation run #208 applied migration 010 on disposable PostgreSQL 18 and passed all 26 server tests. The new test executes two concurrent same-operation requests, verifies same-payload replay, and rejects a changed payload. Purchase invoice/return integration, sale retry, voucher and mixed-tender tests also passed.
+- Delivery Gates run #138 passed Dart analysis/tests and shared contracts; 21 server unit tests and 5 shared-contract tests passed, while five PostgreSQL integration tests were skipped in that workflow. Flutter analysis/tests passed. In run #208, Flutter analysis/tests and Web build passed; Android APK and Windows build were still in progress at the time of this update.
+- Previous source CI failures were caused by a missing payloadHash argument in the direct-sale receipt call; corrected in f91389f8. The route's 409 conflict mapping is in b3351ced.
+- Remaining sync operations are still PARTY_CREATE, SALE_INVOICE and VOUCHER only. Purchase invoice/return, stocktake, disposal and transfer are not yet supported by Sync Batch. Offline queue acknowledgment/recovery, inventory workflows, sale money double removal, FEFO sale concurrency tests, Flutter inventory UI and official reports remain open.
+- No production Neon migration/DML, deployment, restore, endpoint mutation, or branch deletion was performed.

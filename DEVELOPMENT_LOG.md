@@ -360,3 +360,14 @@
 - Commit f7ce679384e49ea626405f03e57864b12e8ea35a exposed a missing payload-hash argument in the direct-sale receipt call; fixed in e85b8551148a3e077916777bfb5fc81c8230b521.
 - PostgreSQL schema workflow #8 passed on disposable PostgreSQL 18. The first Delivery Gates run for the change failed at server test compilation because of that missing argument. The follow-up commit is awaiting a fresh full validation; do not record the sync receipt change as test-passed yet.
 - Migration 010 was added to the PostgreSQL-enabled Flutter validation workflow. No Neon production migration or DML was run; no deployment occurred.
+
+
+## 2026-11-23 — Sync operation identity and PostgreSQL verification
+- Hardened sync operation receipts with migration 010: new receipts store a SHA-256 hash of canonical JSON payloads. Replay checks both operation type and payload hash; mismatches raise OPERATION_ID_REUSED and return HTTP 409.
+- Added a transaction-scoped advisory lock keyed by branch plus operation ID before receipt checks, preventing concurrent batches from racing through the same operation before recording its receipt. Direct sale posting uses the same lock and checks an existing sale receipt before replay.
+- Existing pre-migration receipts retain NULL payload_hash. Same-type replay remains backward compatible for those rows because the historical payload is unavailable; no claim is made that their old payload identity can be verified.
+- Added a PostgreSQL integration test that runs two concurrent same-operation requests, confirms same-payload replay, and rejects changed-payload reuse without altering the original party row.
+- PostgreSQL-enabled Flutter validation run #208 on source commit b3351ced877c29095aa995739690c54066f43f8b applied migration 010 to disposable PostgreSQL 18, passed server analysis and all 26 server tests, including the new replay test, purchase invoice/return integration, sale retry, voucher and mixed-tender integration tests.
+- Delivery Gates run #138 passed Dart server analysis/tests and shared contract tests; its server suite had 21 unit tests pass and 5 PostgreSQL-only tests skipped because it has no PGTEST_HOST. Flutter analysis/tests passed. In Flutter validation #208, Flutter analyze/tests and Web build passed; Android APK and Windows build were still running when this log entry was written.
+- Earlier Delivery Gates attempts #133/#135 exposed the missing payloadHash argument in the separate direct-sale receipt call; fixed in source commit f91389f8 and the HTTP 409 mapping completed in b3351ced. The latest source commit's server analysis/tests passed.
+- No Neon production migration, DML, deployment, endpoint change, or branch cleanup was performed.

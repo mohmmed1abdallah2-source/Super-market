@@ -170,3 +170,12 @@ This is a schema-level invariant only; it does not integrate the pure FEFO plann
 - Added a PostgreSQL integration test for changed-payload reuse. CI initially exposed a missing hash parameter in direct-sale receipt creation; the follow-up fix is in e85b8551148a3e077916777bfb5fc81c8230b521.
 - Sale invoice, COGS and journal money aggregation still uses double; this change only hardens sync operation identity and does not alter financial arithmetic.
 - PostgreSQL schema validation #8 passed on disposable PostgreSQL 18; full application tests for the follow-up source commit remain pending.
+
+
+## 2026-11-23 — Sync operation payload identity and replay safety
+
+- New sync receipts store SHA-256 of canonical JSON payloads in migration 010. Replays check both operation type and payload hash and reject mismatched operation-ID reuse with HTTP 409.
+- A branch+operation transaction advisory lock serializes concurrent batch attempts before checking/creating receipts; direct sale posting shares this identity guard.
+- Legacy receipts retain NULL payload_hash and same-type replay compatibility; historical payload identity cannot be checked retroactively.
+- PostgreSQL 18 run #208 passed all 26 server tests, including concurrent same-operation replay and changed-payload rejection. Migration 010 was applied only to the disposable CI database. Purchase invoice/return, sale retry, voucher and mixed-tender integration coverage passed.
+- Sale invoice/COGS/journal money aggregation still uses double. This sync change does not resolve financial precision. Remaining Sync Batch types, SQLite offline replay, inventory write workflows and rollback tests remain open.

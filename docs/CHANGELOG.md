@@ -245,3 +245,12 @@ The format follows Keep a Changelog. Version numbers will be assigned when relea
 - Existing operation UUID replay now checks operation type and canonical payload hash for receipts written after migration 010; mismatches return an operation-ID conflict instead of being silently acknowledged.
 - Added PostgreSQL integration coverage for same-payload replay and changed-payload rejection. First CI attempt found a missing hash argument in direct sale receipt creation; follow-up fix is awaiting CI verification.
 - Disposable PostgreSQL 18 schema workflow #8 passed. No production database changes.
+
+
+## 2026-11-23 — Sync operation receipt identity
+- Added migration 010 and canonical payload hashing for sync operation receipts. Operation UUID replay now checks the operation type and stored payload hash; mismatched reuse returns HTTP 409.
+- Added a transaction-scoped advisory lock by branch and operation UUID to serialize concurrent batch replay and avoid duplicate application before receipt creation. Direct sale posting uses the same identity guard.
+- Added a PostgreSQL integration test for concurrent same-payload requests and changed-payload rejection.
+- PostgreSQL 18 CI run #208 applied migration 010 on a disposable database and passed all 26 server tests, including the new sync replay test and purchase invoice/return tests. Flutter analyze/tests and Web build passed; Android and Windows build jobs were still running at documentation time.
+- Delivery Gates #138 passed server analysis/unit tests and shared-contract tests; five PostgreSQL integration tests were skipped in that workflow because PGTEST_HOST is not configured.
+- Legacy receipts with NULL payload hashes retain same-type replay compatibility; their historic payload identity cannot be reconstructed. No production database changes.
