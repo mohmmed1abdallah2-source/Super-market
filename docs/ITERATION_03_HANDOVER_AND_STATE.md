@@ -1,8 +1,8 @@
 # Iteration 03 — Handover and implementation state
 
 **Branch:** `feature/multi-store-isolation-foundation`  
-**Status:** In progress — purchase invoice/return posting and FEFO sale integration implemented; sync receipt identity/replay hardening added; inventory sync operation types, remaining workflows, UI/PDF and financial precision closure remain  
-**Last updated:** 2026-11-23
+**Status:** In progress — inventory Sync Batch includes purchase/return, stocktake create/approve, disposal, transfer and fridge-temperature writes; offline restart recovery is implemented in the engine/provider, while live authenticated API bootstrap, UI/PDF and financial precision closure remain  
+**Last updated:** 2026-11-24
 
 ## 1. Baseline inspected before implementation
 
@@ -433,3 +433,18 @@ These early calculator commits are on `feature/multi-store-isolation-foundation`
 - Added the transfer operation to SQLite `sync_queue`; stable queue UUIDs continue to provide the same operation identity across offline retries. Queue rows move to `BATCHED_SENT` only for IDs explicitly accepted by the server.
 - Added a PostgreSQL integration scenario for a mixed three-operation batch, duplicate batch replay, transfer movement/batch assertions, and rollback on insufficient source stock. Do not treat the implementation as validated until CI confirms PostgreSQL migration setup, analysis, and integration tests.
 - No production Neon migration, DML, deployment, or release was performed.
+
+
+## 2026-11-24 — Offline inventory completion and restart-recovery milestone
+
+- Added `STOCKTAKE_CREATE` and `FRIDGE_TEMPERATURE_LOG` to the server Sync Batch allowlist and transaction dispatcher. Stocktake creation remains a non-posting COUNTING phase; approval remains separate.
+- Extracted stocktake creation into `createStocktakeSessionInTransaction` so it can participate in the batch's all-or-nothing PostgreSQL transaction.
+- Added branch-safe fridge temperature posting with warehouse/location/recorder ownership checks and fixed two-place temperature parsing.
+- Added SQLite-first `createStocktakingSessionOffline` and `recordFridgeTemperatureOffline`. Each local business write and its durable queue envelope commit in the same SQLite transaction.
+- Added provider wrappers for both local inventory operations.
+- Added awaited `configureApiClient(..., branchId: ...)` recovery and bounded `resumePendingSync` draining. The queue preserves stable operation IDs and retries after transport failure; acknowledgement IDs must exactly match the submitted set.
+- Updated `PosAndLedgerProvider.syncNow` to drain multiple batches.
+- Added SQLite recovery tests and PostgreSQL mixed-batch/replay tests as recorded in `docs/CURRENT_SYNC_AND_ISOLATION_AUDIT.md`.
+- **Not yet proven:** CI has not yet been confirmed for this exact source revision in this handover entry. Inspect the GitHub Actions logs before marking tests or builds passed.
+- **Not yet wired to a live online session:** `lib/main.dart` currently uses local SQLite credentials and does not construct an authenticated `ApiClient`. The provider recovery hook must be called with the active branch after a real authenticated API client is supplied.
+- No Neon production DDL/DML, deployment, release, or production restore was performed.
