@@ -125,6 +125,36 @@ void main() {
 
         expect(first['id'], isNotNull);
         expect(replay['id'], first['id']);
+        final replayWithNewKey = await repository.postPurchaseInvoice(
+          PurchaseInvoiceCommand(
+            branchId: branchId,
+            operationId: operationId,
+            idempotencyKey: 'purchase-same-payload-$branchId',
+            requestHash: command.requestHash,
+            request: request,
+          ),
+        );
+        expect(replayWithNewKey['id'], first['id']);
+        final changedInvoiceRequest = Map<String, dynamic>.from(request)
+          ..['notes'] = 'different payload';
+        await expectLater(
+          repository.postPurchaseInvoice(
+            PurchaseInvoiceCommand(
+              branchId: branchId,
+              operationId: operationId,
+              idempotencyKey: 'purchase-changed-payload-$branchId',
+              requestHash: List.filled(64, 'b').join(),
+              request: changedInvoiceRequest,
+            ),
+          ),
+          throwsA(
+            isA<StateError>().having(
+              (error) => error.message,
+              'message',
+              'OPERATION_ID_REUSED',
+            ),
+          ),
+        );
         expect(first['netTotal'], '20.0000');
 
         final productRows = await connection.mappedResultsQuery(
@@ -336,6 +366,36 @@ void main() {
         final firstReturn = await returnRepository.postPurchaseReturn(returnCommand);
         final replayedReturn = await returnRepository.postPurchaseReturn(returnCommand);
         expect(replayedReturn['id'], firstReturn['id']);
+        final returnReplayWithNewKey = await returnRepository.postPurchaseReturn(
+          PurchaseReturnCommand(
+            branchId: branchId,
+            operationId: returnOperationId,
+            idempotencyKey: 'purchase-return-same-$branchId',
+            requestHash: returnCommand.requestHash,
+            request: returnRequest,
+          ),
+        );
+        expect(returnReplayWithNewKey['id'], firstReturn['id']);
+        final changedReturnRequest = Map<String, dynamic>.from(returnRequest)
+          ..['notes'] = 'different return payload';
+        await expectLater(
+          returnRepository.postPurchaseReturn(
+            PurchaseReturnCommand(
+              branchId: branchId,
+              operationId: returnOperationId,
+              idempotencyKey: 'purchase-return-changed-$branchId',
+              requestHash: List.filled(64, 'e').join(),
+              request: changedReturnRequest,
+            ),
+          ),
+          throwsA(
+            isA<StateError>().having(
+              (error) => error.message,
+              'message',
+              'OPERATION_ID_REUSED',
+            ),
+          ),
+        );
         expect(firstReturn['netTotal'], '1.7500');
         expect(firstReturn['status'], 'POSTED');
 

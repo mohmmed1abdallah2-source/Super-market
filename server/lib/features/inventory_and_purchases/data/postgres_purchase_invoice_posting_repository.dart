@@ -1,4 +1,7 @@
 import 'dart:convert';
+import 'dart:collection';
+
+import 'package:crypto/crypto.dart';
 
 import 'package:core_contracts/core_contracts.dart';
 import 'package:postgres/postgres.dart';
@@ -34,6 +37,25 @@ final class PostgresPurchaseInvoicePostingRepository
             'lockKey': '${command.branchId}|${command.operationId}',
           },
         );
+
+        final existingReceipt = await ctx.mappedResultsQuery(
+          '''SELECT operation_type AS "operationType",
+                    payload_hash AS "payloadHash"
+             FROM sync_operation_receipts
+             WHERE branch_id = @branch AND operation_id = @operation''',
+          substitutionValues: {
+            'branch': command.branchId,
+            'operation': command.operationId,
+          },
+        );
+        if (existingReceipt.isNotEmpty) {
+          final receipt = _flatten(existingReceipt.single);
+          if (receipt['operationType'] != 'PURCHASE_INVOICE' ||
+              (receipt['payloadHash'] != null &&
+                  receipt['payloadHash'] != _payloadHash(command.request))) {
+            throw StateError('OPERATION_ID_REUSED');
+          }
+        }
 
         final previous = await ctx.mappedResultsQuery(
           '''SELECT id::text AS id, invoice_no AS "invoiceNo",
@@ -656,12 +678,13 @@ final class PostgresPurchaseInvoicePostingRepository
 
         await ctx.execute(
           '''INSERT INTO sync_operation_receipts
-            (branch_id, operation_id, operation_type, idempotency_key, result_status)
-           VALUES (@branch, @operation, 'PURCHASE_INVOICE', @key, 'ACCEPTED')
+            (branch_id, operation_id, operation_type, payload_hash, idempotency_key, result_status)
+           VALUES (@branch, @operation, 'PURCHASE_INVOICE', @payloadHash, @key, 'ACCEPTED')
            ON CONFLICT (branch_id, operation_id) DO NOTHING''',
           substitutionValues: {
             'branch': command.branchId,
             'operation': command.operationId,
+            'payloadHash': _payloadHash(command.request),
             'key': command.idempotencyKey,
           },
         );
@@ -747,6 +770,28 @@ final class PostgresPurchaseInvoicePostingRepository
         'key': key,
       },
     );
+  }
+
+  String _payloadHash(Map<String, dynamic> payload) =>
+      sha256
+          .convert(utf8.encode(jsonEncode(_canonicalizeJson(payload))))
+          .toString();
+
+  Object? _canonicalizeJson(Object? value) {
+    if (value is Map) {
+      final entries = value.entries.toList()
+        ..sort((left, right) => left.key.toString().compareTo(right.key.toString()));
+      return Map<String, Object?>.fromEntries(
+        entries.map((entry) => MapEntry(
+              entry.key.toString(),
+              _canonicalizeJson(entry.value),
+            )),
+      );
+    }
+    if (value is List) {
+      return value.map(_canonicalizeJson).toList(growable: false);
+    }
+    return value;
   }
 
   Map<String, Object?> _flatten(Map<String, Map<String, dynamic>> row) =>

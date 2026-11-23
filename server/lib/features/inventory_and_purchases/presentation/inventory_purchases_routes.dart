@@ -149,9 +149,14 @@ final class InventoryPurchasesRoutes {
       });
     } on StateError catch (error) {
       final message = error.message;
-      final conflict = message == 'IDEMPOTENCY_KEY_REUSED';
+      final conflict = message == 'IDEMPOTENCY_KEY_REUSED' ||
+          message == 'OPERATION_ID_REUSED';
       return _json(conflict ? 409 : 422, {
-        'code': conflict ? 'IDEMPOTENCY_KEY_REUSED' : 'BUSINESS_RULE_VIOLATION',
+        'code': conflict
+            ? (message == 'OPERATION_ID_REUSED'
+                ? 'OPERATION_ID_REUSED'
+                : 'IDEMPOTENCY_KEY_REUSED')
+            : 'BUSINESS_RULE_VIOLATION',
         'message': message,
       });
     } catch (_) {
