@@ -466,3 +466,12 @@
 - بقيت مصادقة المستخدم والصلاحيات وربط جلسة التطبيق الفعلية بالخادم غير مثبتة. وجود API-client injection في محرك المزامنة لا يثبت إعداد جلسة تشغيل حقيقية.
 - أنشأت `docs/CURRENT_SYNC_AND_ISOLATION_AUDIT.md`، وحدّثت README وخارطة الحالة وسجل التغييرات لتمييز المنفذ من المتبقي.
 - لا Neon Production DDL/DML، ولا نشر API أو التطبيق.
+
+
+## 2026-11-23 — اختبارات حدود مصادقة مسارات المزامنة ومراجعة عقد المخزون
+
+- أضفت `server/test/sales_sync_routes_auth_test.dart` بأربعة اختبارات HTTP على `SalesSyncRoutes`: رفض غياب بيانات الفرع، رفض token تابع لفرع آخر، قبول token الفرع الصحيح في القراءة، وتمرير branch الصحيح إلى Sync Batch.
+- في Delivery Gates run #174 على commit `1f22cfb8c102a6a73d28385401330027c3515040` نجح تحليل Dart، ونجحت اختبارات الخادم: 27 passed و8 skipped، كما نجحت 5 اختبارات العقود المشتركة. بناء Flutter/Android في نفس التشغيل كان لا يزال قيد التنفيذ عند كتابة هذا السجل.
+- اكتشفت عدم تطابق إضافيًا بين العميل والخادم: `ApiClient.createStocktakingSession` يرسل POST إلى `/v1/inventory/stocktaking`، لكن `InventoryPurchasesRoutes` لا يسجل POST لهذا المسار؛ الموجود حاليًا GET للقائمة وPOST للموافقة فقط. لم أضف endpoint شكليًا؛ يلزم تحديد دورة إنشاء/تعديل/عد جلسة الجرد ومعاملة idempotency قبل تنفيذ العقد الناقص.
+- هذا الاختبار يثبت حدود token/branch في مسارات المبيعات والمزامنة فقط، ولا يثبت مصادقة المستخدم أو عزل المتاجر. يلزم توسيع اختبارات HTTP إلى مسارات الدفتر والمخزون والمشتريات، ثم اختبار cross-branch IDs وcross-store بعد بناء control plane.
+- لا Neon Production DDL/DML، ولا نشر API أو التطبيق.
