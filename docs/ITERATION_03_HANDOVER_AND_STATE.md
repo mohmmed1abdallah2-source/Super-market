@@ -1,8 +1,8 @@
 # Iteration 03 — Handover and implementation state
 
 **Branch:** `feature/multi-store-isolation-foundation`  
-**Status:** In progress — purchase invoice/return posting and FEFO sale integration implemented; sync write operations, remaining inventory workflows, UI/PDF and financial precision closure remain  
-**Last updated:** 2026-11-15
+**Status:** In progress — purchase invoice/return posting and FEFO sale integration implemented; sync receipt identity/replay hardening added; inventory sync operation types, remaining workflows, UI/PDF and financial precision closure remain  
+**Last updated:** 2026-11-23
 
 ## 1. Baseline inspected before implementation
 
