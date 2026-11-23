@@ -276,3 +276,11 @@ The format follows Keep a Changelog. Version numbers will be assigned when relea
 - Delivery Gates #141 passed Dart analysis/tests and shared-contract tests for source c36c130f. Delivery Gates #142 also passed the Dart job; its Android APK build hit Maven Central HTTP 429 rate limiting while fetching Kotlin Gradle artifacts. The failed APK job was re-run; this is an external dependency throttling failure, not a source compilation failure.
 - Latest branch commit 4da4118c only updates documentation after the tested application source; no source changes occurred after c36c130f.
 - No Neon Production DDL/DML, deployment, or release was performed.
+
+
+## 2026-11-23 — Purchase Sync Batch and offline queue
+
+- Added atomic Sync Batch dispatch for purchase invoices and supplier returns by reusing the existing posting repositories inside the batch transaction.
+- Added PostgreSQL rollback, retry, payload-conflict and branch-scope integration coverage. Flutter Validation #219 passed all 26 server tests against disposable PostgreSQL 18.
+- Added a generic local queue envelope for the five operation types currently accepted by the server batch endpoint; validation is pending in Flutter Validation #223 and Delivery Gates #153.
+- Stocktake approval, disposal and warehouse transfer posting/sync remain outstanding; client DTOs and local tables alone do not establish server support.

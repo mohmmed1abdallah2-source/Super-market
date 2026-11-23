@@ -385,3 +385,14 @@ These early calculator commits are on `feature/multi-store-isolation-foundation`
 - Delivery Gates #141 passed Dart analysis/tests and shared-contract tests for source c36c130f. Delivery Gates #142 also passed the Dart job; its Android APK build hit Maven Central HTTP 429 rate limiting while fetching Kotlin Gradle artifacts. The failed APK job was re-run; this is an external dependency throttling failure, not a source compilation failure.
 - Latest branch commit 4da4118c only updates documentation after the tested application source; no source changes occurred after c36c130f.
 - No Neon Production DDL/DML, deployment, or release was performed.
+
+
+## 2026-11-23 — Sync Batch purchase operations and offline queue progress
+
+- Purchase invoice and supplier return operations are now accepted by `ProcessSyncBatchUseCase` and dispatched by `PostgresSalesSyncRepository.processBatch` to the existing purchase posting repositories through the caller-owned PostgreSQL transaction. Per-document idempotency claiming is disabled inside the batch; the batch owns its idempotency key while the existing posting rules and receipt checks remain in use.
+- Added PostgreSQL integration coverage in `server/test/postgres_purchase_invoice_posting_test.dart` for a mixed purchase-invoice/return batch, rollback of an earlier invoice when a later return fails, retry using a new batch idempotency key, changed-payload rejection, and branch-scoped operation identity. Added malformed purchase payload validation tests.
+- Flutter Validation #219 on commit 52560f8 passed all 26 server tests with a disposable PostgreSQL 18 service; this source revision includes the purchase batch implementation and integration assertions. Delivery Gates #151 on commit 6c4044c passed server analysis/tests and Flutter analyze/tests/Android APK; its server workflow has no PostgreSQL service and therefore does not replace the PG-enabled run.
+- Added `LocalPosAndLedgerEngine.enqueueSyncOperation` and a `sync_operations` queue envelope so supported server operation types can be persisted locally and delivered by the existing retryable Sync Batch path. The returned operation identity is stable from the durable queue UUID. Current generic queue allowlist is PARTY_CREATE, SALE_INVOICE, VOUCHER, PURCHASE_INVOICE and PURCHASE_RETURN.
+- Validation for the offline queue change is pending in Flutter Validation #223 and Delivery Gates #153. Do not count either as passed until completed.
+- Remaining work: implement server-side transactional posting and batch support for stocktake approval, disposal and warehouse transfer; add matching offline queue payload contracts and tests; complete end-to-end retry/acknowledgment coverage. The client has local schema and DTO/API method declarations for these workflows, but the current server route/repository does not yet provide their posting endpoints.
+- No production Neon DDL/DML, deployment, release, restore, or branch deletion was performed.

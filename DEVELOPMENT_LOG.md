@@ -394,3 +394,13 @@
 - Delivery Gates #141 passed Dart analysis/tests and shared-contract tests for source c36c130f. Delivery Gates #142 also passed the Dart job; its Android APK build hit Maven Central HTTP 429 rate limiting while fetching Kotlin Gradle artifacts. The failed APK job was re-run; this is an external dependency throttling failure, not a source compilation failure.
 - Latest branch commit 4da4118c only updates documentation after the tested application source; no source changes occurred after c36c130f.
 - No Neon Production DDL/DML, deployment, or release was performed.
+
+
+## 2026-11-23 — Purchase operations added to atomic Sync Batch; offline queue adapter
+
+- Added PURCHASE_INVOICE and PURCHASE_RETURN to the Sync Batch allowlist and repository dispatch. The existing purchase invoice/return posting repositories now expose caller-transaction methods, and the batch invokes those methods with idempotency management disabled so the batch transaction is the single transaction boundary.
+- Added mixed purchase batch integration assertions for rollback, retry with a new idempotency key, payload conflict, and branch-scoped receipt identity. Added use-case validation for malformed purchase operation payloads.
+- Flutter Validation #219 (source commit 52560f8) applied the Iteration 3 migrations to disposable PostgreSQL 18 and passed all 26 server tests. Delivery Gates #151 (commit 6c4044c) passed Dart server analysis/tests and Flutter analysis/tests/Android APK.
+- Added a generic offline operation queue envelope in LocalPosAndLedgerEngine for the five currently server-supported operation types. This makes purchase operations queueable without changing their durable operation identity on retry. Flutter Validation #223 and Delivery Gates #153 are pending for this last client-side change at the time of this entry.
+- Still not implemented: server posting logic for stocktake approval, disposal and warehouse transfer; their Sync Batch operation types and offline payload adapters. Existing client DTO/API declarations and local schema must not be mistaken for working server endpoints.
+- No production database or deployment changes.
