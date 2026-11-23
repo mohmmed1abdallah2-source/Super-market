@@ -306,3 +306,12 @@ The format follows Keep a Changelog. Version numbers will be assigned when relea
 - Enabled transfer operations in the durable SQLite offline queue using stable operation IDs and accepted-ID-based acknowledgment.
 - Added a PostgreSQL integration test covering all three operations in one batch, idempotent replay, batch/cost/expiry preservation, and rollback. CI is pending; this entry will be updated with the actual result after workflow inspection.
 - Production Neon and deployments remain untouched.
+
+
+## 2026-11-23 — Current sync and isolation review
+
+- Added `docs/CURRENT_SYNC_AND_ISOLATION_AUDIT.md` documenting the current Sync Batch contract, the successful 31-test PostgreSQL CI run, and the distinction between branch isolation and the approved multi-store architecture.
+- Updated README architecture and verification statements to distinguish the PostgreSQL API path from retained Firebase code and to avoid claiming production-ready authentication or database-per-store isolation.
+- Clarified that the current server uses one PostgreSQL connection and static branch tokens; a control plane, user/membership authentication, database-per-store routing, and independent local SQLite context per store remain unfinished.
+- CI evidence reviewed: Flutter Validation #45255890755 and Delivery Gates #45255891002 both passed on source commit `12e1e9fe7c08aebb315909cec37ade56646d0397`; PostgreSQL integration suite reported 31 passed tests.
+- No production database changes, Neon migrations, deployment, or release.
