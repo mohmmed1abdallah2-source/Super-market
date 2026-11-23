@@ -13,6 +13,7 @@ final class PostgresStoreProvisioningRepository
   Future<void> registerProvisioning({
     required String storeId,
     required String operationId,
+    required String membershipId,
     required String ownerAccountId,
     required String displayName,
     required String databaseName,
@@ -40,7 +41,7 @@ final class PostgresStoreProvisioningRepository
              (membership_id, account_id, store_id, role, status, created_by_account_id)
            VALUES (@membership, @owner, @store, 'OWNER', 'ACTIVE', @owner)''',
         substitutionValues: {
-          'membership': operationId,
+          'membership': membershipId,
           'owner': ownerAccountId,
           'store': storeId,
         },
