@@ -382,6 +382,114 @@ void main() {
     }
   }, skip: !enabled ? 'PGTEST_HOST is not configured' : false);
 
+
+  test('sync batch creates stocktake and records fridge temperature idempotently', () async {
+    if (!enabled) return;
+    final env = Platform.environment;
+    final db = PostgreSQLConnection(env['PGTEST_HOST']!,
+      int.tryParse(env['PGTEST_PORT'] ?? '5432') ?? 5432,
+      env['PGTEST_DATABASE']!, username: env['PGTEST_USER']!,
+      password: env['PGTEST_PASSWORD']!, timeoutInSeconds: 30);
+    await db.open();
+    try {
+      const uuid = Uuid();
+      final branch = uuid.v4(), user = uuid.v4(), product = uuid.v4();
+      final warehouse = uuid.v4(), batch = uuid.v4();
+      final session = uuid.v4(), line = uuid.v4(), log = uuid.v4();
+      final suffix = branch.substring(0, 8);
+      await _fixture(db, branch, user, product, warehouse, batch, suffix);
+
+      final operations = [
+        SyncOperation(
+          operationId: uuid.v4(),
+          operationType: 'STOCKTAKE_CREATE',
+          payload: {
+            'sessionId': session,
+            'warehouseId': warehouse,
+            'sessionNo': 'STK-SYNC-$suffix',
+            'blindCount': true,
+            'lines': [
+              {
+                'id': line,
+                'productId': product,
+                'productBatchId': batch,
+                'countedSealedCartons': 0,
+                'countedLooseBaseQty': '9.000000',
+                'expectedBaseQty': '10.000000',
+                'packConversionFactor': '10.000000',
+              },
+            ],
+          },
+        ),
+        SyncOperation(
+          operationId: uuid.v4(),
+          operationType: 'FRIDGE_TEMPERATURE_LOG',
+          payload: {
+            'logId': log,
+            'warehouseId': warehouse,
+            'temperatureC': '4.25',
+            'recordedByUserId': user,
+            'note': 'offline sync test',
+          },
+        ),
+      ];
+      final repository = PostgresSalesSyncRepository(db);
+      final first = await repository.processBatch(SyncBatchCommand(
+        branchId: branch,
+        batchId: uuid.v4(),
+        idempotencyKey: 'inventory-create-temp-$suffix-1',
+        requestHash: List.filled(64, 'e').join(),
+        operations: operations,
+      ));
+      expect((first['acceptedIds'] as List).length, 2);
+
+      final retry = await repository.processBatch(SyncBatchCommand(
+        branchId: branch,
+        batchId: uuid.v4(),
+        idempotencyKey: 'inventory-create-temp-$suffix-2',
+        requestHash: List.filled(64, 'f').join(),
+        operations: operations,
+      ));
+      expect((retry['acceptedIds'] as List).length, 2);
+
+      final sessionRows = await db.mappedResultsQuery(
+        '''SELECT status FROM stocktaking_sessions
+           WHERE id=@id AND branch_id=@branch''',
+        substitutionValues: {'id': session, 'branch': branch},
+      );
+      expect(sessionRows.single.values.first['status'], 'COUNTING');
+      final logRows = await db.mappedResultsQuery(
+        '''SELECT temperature_c::text AS temperature, note
+           FROM fridge_temp_logs WHERE id=@id AND branch_id=@branch''',
+        substitutionValues: {'id': log, 'branch': branch},
+      );
+      expect(logRows, hasLength(1));
+      expect(logRows.single.values.first['temperature'], '4.25');
+      expect(logRows.single.values.first['note'], 'offline sync test');
+
+      final changedLog = Map<String, dynamic>.from(operations[1].payload)
+        ..['temperatureC'] = '5.00';
+      await expectLater(
+        repository.processBatch(SyncBatchCommand(
+          branchId: branch,
+          batchId: uuid.v4(),
+          idempotencyKey: 'inventory-create-temp-$suffix-3',
+          requestHash: List.filled(64, 'a').join(),
+          operations: [
+            SyncOperation(
+              operationId: operations[1].operationId,
+              operationType: 'FRIDGE_TEMPERATURE_LOG',
+              payload: changedLog,
+            ),
+          ],
+        )),
+        throwsA(isA<StateError>()),
+      );
+    } finally {
+      await db.close();
+    }
+  }, skip: !enabled ? 'PGTEST_HOST is not configured' : false);
+
 }
 
 Future<void> _fixture(PostgreSQLConnection db, String branch, String user,
