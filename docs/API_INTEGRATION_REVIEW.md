@@ -182,3 +182,11 @@ The PostgreSQL integration test now covers replay using a new idempotency key an
 - Run #212 is queued for the same application source as commit c36c130f0e7611d535f6b1ced4e43e85997ad03d; subsequent commits 8bcc22c and 606a5cd only updated documentation. Run #212 is the pending PostgreSQL verification for the purchase invoice/return payload-hash changes.
 - Delivery Gates #141 passed server analysis/unit tests and shared-contract tests on source c36c130f. The PostgreSQL integration suite was skipped in that workflow because PGTEST_HOST is not configured.
 - The earlier PostgreSQL-enabled run #208 passed all 26 server tests, but it predates the purchase-specific payload-hash extension.
+
+
+## 2026-11-23 — PostgreSQL validation completed for purchase receipt identity
+- Flutter Validation run #212 (commit 8bcc22c; application source c36c130f) successfully applied migrations including 010 to disposable PostgreSQL 18 and passed all 26 server tests. This includes the new same-operation/new-idempotency-key replay and changed-payload rejection assertions for purchase invoices and purchase returns, plus sync batch operation identity, sale retry, voucher and mixed-tender tests.
+- In the same run, Dart server analysis passed, Flutter analysis/tests passed, and the Web build/artifact passed. Android release APK and Windows build were still in progress when this note was written; therefore the full workflow was not yet complete.
+- Delivery Gates #141 passed Dart analysis/tests and shared-contract tests for source c36c130f. Delivery Gates #142 also passed the Dart job; its Android APK build hit Maven Central HTTP 429 rate limiting while fetching Kotlin Gradle artifacts. The failed APK job was re-run; this is an external dependency throttling failure, not a source compilation failure.
+- Latest branch commit 4da4118c only updates documentation after the tested application source; no source changes occurred after c36c130f.
+- No Neon Production DDL/DML, deployment, or release was performed.
