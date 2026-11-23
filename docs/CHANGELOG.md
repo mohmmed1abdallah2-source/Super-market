@@ -363,3 +363,10 @@ The format follows Keep a Changelog. Version numbers will be assigned when relea
 - The secret-store adapter, database provisioning saga, refresh-token rotation, and integration of all existing business routes with the store context are not complete. Legacy branch-token routes remain and are not production multi-store authorization.
 - CI has verified the earlier schema/security primitive slice; the latest runtime wiring CI is still running. No tests are claimed for the newest code until its exact-head logs complete.
 - No production Neon migration, store database creation, credential generation, deployment or release was performed.
+
+
+### 2026-11-24 — Control-plane PostgreSQL session integration test
+
+- Added a disposable PostgreSQL integration test covering password sign-in, normalized email lookup, active membership listing, one-time login-ticket consumption, rejection of an unassigned store, store-scoped session issuance, access-token context resolution and revocation.
+- Updated Flutter Validation to run the test against the separate disposable `control_plane_test` database created earlier in the job.
+- Latest exact-head CI verification is pending. No production control-plane database has been created or modified.
