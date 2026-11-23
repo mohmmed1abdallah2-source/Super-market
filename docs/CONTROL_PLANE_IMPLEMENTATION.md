@@ -2,7 +2,7 @@
 
 **Branch:** `feature/control-plane-store-sessions`  
 **Base:** `04bc6850f922461bbb96227bc444fd1795b7295c`  
-**Status:** Schema foundation added; runtime authentication, provisioning, routing and session endpoints are not yet complete.
+**Status:** Control-plane schema, membership/session integrity constraints, disposable-PostgreSQL assertions, and branch CI wiring added. Runtime authentication, provisioning, routing and session endpoints are not yet complete.
 
 ## Scope and separation
 
@@ -43,4 +43,4 @@ must resolve through a server-side secret-store adapter. A secret reference is n
 
 ## Validation boundary
 
-This commit adds a migration file and this implementation record only. It has not been applied to any database. No production Neon DDL/DML, database creation, credentials, deployment, or live session was performed. Runtime support is not complete and no tests are claimed as passed.
+The branch now includes a disposable PostgreSQL schema assertion script and a CI step that creates a separate `control_plane_test` database, applies this migration there, and runs the assertions. The migration has not been applied to any persistent or production database. No production Neon DDL/DML, database creation, credentials, deployment, or live session was performed. Runtime support is not complete and no tests are claimed as passed.
