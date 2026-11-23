@@ -279,6 +279,44 @@ void main() {
     await helper.close();
   });
 
+  test('FAILED offline operations are retried when connectivity returns', () async {
+    final directory = await Directory.systemTemp.createTemp('erp-sync-failed-');
+    addTearDown(() => directory.delete(recursive: true));
+    final db = await openDatabaseAt('${directory.path}/failed.db', create: true);
+    final helper = DatabaseHelper.forDatabase(db);
+    final engine = LocalPosAndLedgerEngine(databaseHelper: helper);
+    final operationId = await engine.enqueueSyncOperation(
+      branchId: 'branch-a',
+      operationType: 'STOCK_TRANSFER',
+      payload: transferPayload(3),
+    );
+    await db.update(
+      'sync_queue',
+      {'status': 'FAILED'},
+      where: 'branch_id=?',
+      whereArgs: ['branch-a'],
+    );
+
+    Map<String, dynamic>? submittedBody;
+    final api = clientFor(MockClient((request) async {
+      submittedBody = jsonDecode(request.body) as Map<String, dynamic>;
+      return acceptedResponse(request);
+    }));
+    await engine.configureApiClient(api);
+    final accepted = await engine.resumePendingSync('branch-a');
+
+    expect(accepted, 1);
+    expect(
+      (submittedBody!['operations'] as List).single['operationId'],
+      operationId,
+    );
+    final rows = await db.query('sync_queue');
+    expect(rows.single['status'], 'BATCHED_SENT');
+
+    api.close();
+    await helper.close();
+  });
+
   test('recovery drains more than one server batch without changing operation IDs', () async {
     final directory = await Directory.systemTemp.createTemp('erp-sync-drain-');
     addTearDown(() => directory.delete(recursive: true));
