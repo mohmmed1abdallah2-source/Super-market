@@ -623,6 +623,26 @@ class PostgresSalesSyncRepository implements SalesSyncRepository {
       }
       final cashId = raw['cashAccountId'] as String?;
       final walletRef = raw['walletRefNo'] as String?;
+      if (method == 'CASH' || method == 'WALLET') {
+        if (cashId == null || cashId.trim().isEmpty) {
+          throw const FormatException('Cash or wallet account is required.');
+        }
+        final accountRows = await ctx.mappedResultsQuery(
+          '''SELECT account_kind AS kind FROM cash_accounts
+             WHERE id=@id AND branch_id=@branch AND is_active=TRUE FOR UPDATE''',
+          substitutionValues: {'id': cashId, 'branch': branchId},
+        );
+        if (accountRows.isEmpty) {
+          throw StateError('Cash or wallet account not found.');
+        }
+        final accountKind = _flatten(accountRows.single)['kind'];
+        if (method == 'WALLET' && accountKind != 'WALLET') {
+          throw StateError('Wallet payments require a wallet account.');
+        }
+        if (method == 'CASH' && accountKind == 'WALLET') {
+          throw StateError('Cash payments cannot use a wallet account.');
+        }
+      }
       if (method == 'CASH') {
         if (cashId == null) throw const FormatException('Cash account is required.');
         cashGross = cashGross + amount;
