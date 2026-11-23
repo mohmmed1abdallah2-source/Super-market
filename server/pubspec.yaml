@@ -8,6 +8,7 @@ dependencies:
   core_contracts:
     path: ../packages/core_contracts
   crypto: ^3.0.6
+  cryptography: ^2.7.0
   postgres: ^2.6.4
   shelf: ^1.4.2
   shelf_router: ^1.1.4
