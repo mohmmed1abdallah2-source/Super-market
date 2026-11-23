@@ -1,5 +1,6 @@
-import 'package:core_contracts/core_contracts.dart';
 import 'dart:convert';
+
+import 'package:core_contracts/core_contracts.dart';
 
 import 'package:shelf/shelf.dart';
 import 'package:shelf_router/shelf_router.dart';
@@ -64,7 +65,7 @@ class LedgerRoutes {
           name: _requiredText(body, 'name'),
           phone: body['phone'] as String?,
           address: body['address'] as String?,
-          creditLimit: _decimal(body['creditLimit']),
+          creditLimit: MoneyAmount.parse(body['creditLimit']),
           paymentTermsDays: _integer(body['paymentTermsDays']),
           priceTier: (body['priceTier'] as String? ?? 'RETAIL').toUpperCase(),
         );
@@ -206,14 +207,6 @@ class LedgerRoutes {
       throw FormatException('$key is required.');
     }
     return value.trim();
-  }
-
-  double _decimal(Object? value) {
-    final result = value is num ? value.toDouble() : double.tryParse(value?.toString() ?? '');
-    if (result == null || !result.isFinite) {
-      throw FormatException('Invalid decimal value: $value');
-    }
-    return result;
   }
 
   int _integer(Object? value) {
