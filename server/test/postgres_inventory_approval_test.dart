@@ -40,6 +40,7 @@ void main() {
       final first = await repository.approveStocktake(branchId: branch, payload: payload);
       final retry = await repository.approveStocktake(branchId: branch, payload: payload);
       expect(first['status'], 'APPROVED');
+      expect(first['lossValue'], '4.2469');
       expect(retry['replayed'], isTrue);
       final productRows = await db.mappedResultsQuery(
         'SELECT stock_base_qty::text AS qty FROM products WHERE id=@id AND branch_id=@branch',
@@ -94,7 +95,7 @@ void main() {
       final first = await repository.postDisposal(branchId: branch, payload: payload);
       final retry = await repository.postDisposal(branchId: branch, payload: payload);
       expect(first['status'], 'APPROVED');
-      expect(first['netValue'], '6.0000');
+      expect(first['netValue'], '6.3704');
       expect(retry['replayed'], isTrue);
       final productRows = await db.mappedResultsQuery(
         'SELECT stock_base_qty::text AS qty FROM products WHERE id=@id AND branch_id=@branch',
@@ -141,7 +142,7 @@ Future<void> _fixture(PostgreSQLConnection db, String branch, String user,
     '''INSERT INTO product_batches_fefo
        (id,branch_id,product_id,warehouse_id,batch_no,expiry_date,
         pack_conversion_factor,sealed_cartons,loose_base_qty,status,unit_cost_base)
-       VALUES (@id,@branch,@product,@warehouse,@batch,CURRENT_DATE+90,10,1,0,'ACTIVE',2)''',
+       VALUES (@id,@branch,@product,@warehouse,@batch,CURRENT_DATE+90,10,1,0,'ACTIVE',2.123456)''',
     substitutionValues: {'id': batch, 'branch': branch, 'product': product,
       'warehouse': warehouse, 'batch': 'IA-BATCH-$suffix'});
   await db.execute(
