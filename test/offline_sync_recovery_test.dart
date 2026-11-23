@@ -64,6 +64,115 @@ void main() {
         branchIdProvider: () async => 'branch-a',
       );
 
+  test('stocktake and fridge readings persist locally with matching sync envelopes', () async {
+    final directory = await Directory.systemTemp.createTemp('erp-inventory-offline-');
+    addTearDown(() => directory.delete(recursive: true));
+    final db = await openDatabaseAt('${directory.path}/inventory.db', create: true);
+    final helper = DatabaseHelper.forDatabase(db);
+    final engine = LocalPosAndLedgerEngine(databaseHelper: helper);
+    final now = DateTime.now().toUtc().toIso8601String();
+
+    await db.insert('branches', {
+      'id': 'branch-a',
+      'uuid': 'branch-uuid',
+      'code': 'BR-A',
+      'name_ar': 'Branch A',
+      'created_at': now,
+      'updated_at': now,
+    });
+    await db.insert('warehouses', {
+      'id': 'warehouse-a',
+      'uuid': 'warehouse-uuid',
+      'branch_id': 'branch-a',
+      'code': 'WH-A',
+      'name_ar': 'Warehouse A',
+      'created_at': now,
+      'updated_at': now,
+    });
+    await db.insert('products', {
+      'id': 'product-a',
+      'uuid': 'product-uuid',
+      'branch_id': 'branch-a',
+      'sku_code': 'SKU-A',
+      'name_ar': 'Product A',
+      'base_unit_name': 'piece',
+      'created_at': now,
+      'updated_at': now,
+    });
+    await db.insert('product_batches_fefo', {
+      'id': 'batch-a',
+      'uuid': 'batch-uuid',
+      'branch_id': 'branch-a',
+      'product_id': 'product-a',
+      'warehouse_id': 'warehouse-a',
+      'batch_no': 'LOT-A',
+      'expiry_date': '2027-12-31',
+      'pack_conversion_factor': '10.000000',
+      'sealed_cartons': 2,
+      'loose_base_qty': '0.000000',
+      'total_base_qty': '20.000000',
+      'status': 'ACTIVE',
+      'unit_cost_base': '1.000000',
+      'created_at': now,
+      'updated_at': now,
+    });
+
+    final sessionId = await engine.createStocktakingSessionOffline(
+      branchId: 'branch-a',
+      warehouseId: 'warehouse-a',
+      sessionNo: 'STK-OFFLINE-1',
+      lines: [
+        {
+          'productId': 'product-a',
+          'productBatchId': 'batch-a',
+          'countedSealedCartons': 1,
+          'countedLooseBaseQty': '2.500000',
+        },
+      ],
+    );
+    final logId = await engine.recordFridgeTemperatureOffline(
+      branchId: 'branch-a',
+      warehouseId: 'warehouse-a',
+      temperatureC: '4.25',
+      note: 'offline reading',
+    );
+
+    final sessionRows = await db.query(
+      'stocktaking_sessions',
+      where: 'id=? AND branch_id=?',
+      whereArgs: [sessionId, 'branch-a'],
+    );
+    final countRows = await db.query(
+      'stocktaking_lines',
+      where: 'session_id=? AND branch_id=?',
+      whereArgs: [sessionId, 'branch-a'],
+    );
+    final temperatureRows = await db.query(
+      'fridge_temp_logs',
+      where: 'id=? AND branch_id=?',
+      whereArgs: [logId, 'branch-a'],
+    );
+    expect(sessionRows.single['status'], 'COUNTING');
+    expect(countRows.single['counted_base_qty'], '12.500000');
+    expect(countRows.single['variance_base_qty'], '-7.500000');
+    expect(temperatureRows.single['temperature_c'], '4.25');
+
+    final queued = await db.query(
+      'sync_queue',
+      where: 'branch_id=?',
+      whereArgs: ['branch-a'],
+      orderBy: 'queued_at ASC',
+    );
+    final queuedTypes = queued
+        .map((row) => (jsonDecode(row['payload_json'] as String)
+            as Map<String, dynamic>)['operationType'])
+        .toSet();
+    expect(queuedTypes, containsAll({'STOCKTAKE_CREATE', 'FRIDGE_TEMPERATURE_LOG'}));
+    expect(queued, hasLength(2));
+
+    await helper.close();
+  });
+
   test('offline operation survives process restart and retries with identical identities', () async {
     final directory = await Directory.systemTemp.createTemp('erp-sync-recovery-');
     addTearDown(() => directory.delete(recursive: true));
