@@ -1,3 +1,4 @@
+import 'package:core_contracts/core_contracts.dart';
 import 'dart:convert';
 import 'dart:io';
 
@@ -44,7 +45,7 @@ void main() {
             partyType: LedgerPartyType.customer,
             code: partyCode,
             name: 'عميل اختبار الدفع المختلط',
-            creditLimit: 100,
+            creditLimit: MoneyAmount.parse('100.0000'),
             paymentTermsDays: 0,
             priceTier: 'RETAIL',
           ),
@@ -165,7 +166,7 @@ void main() {
           'voucherType': 'RECEIPT',
           'partyId': party['id'],
           'cashAccountId': 'cash-drawer',
-          'amount': 2,
+          'amount': '2.0000',
           'method': 'CASH',
           'description': 'تسوية رصيد فاتورة الدفع المختلط',
         };
@@ -175,7 +176,7 @@ void main() {
           voucherType: LedgerVoucherType.receipt,
           partyId: party['id'] as String,
           cashAccountId: 'cash-drawer',
-          amount: 2,
+          amount: MoneyAmount.parse('2.0000'),
           method: 'CASH',
           idempotencyKey: 'settlement-' + uuid.v4(),
           requestHash: sha256.convert(utf8.encode(jsonEncode(settlementRequest))).toString(),
