@@ -1,6 +1,7 @@
-import 'package:core_contracts/core_contracts.dart';
 import 'dart:convert';
 import 'dart:io';
+
+import 'package:core_contracts/core_contracts.dart';
 
 import 'package:crypto/crypto.dart';
 import 'package:postgres/postgres.dart';
@@ -72,23 +73,23 @@ void main() {
               'id': uuid.v4(),
               'productId': productId,
               'unitName': 'حبة',
-              'qtySold': 1,
-              'conversionFactor': 1,
-              'unitPrice': 5,
-              'lineTotal': 5,
+              'qtySold': '1.0000',
+              'conversionFactor': '1.000000',
+              'unitPrice': '5.0000',
+              'lineTotal': '5.0000',
             }
           ],
           'payments': [
             {
               'id': uuid.v4(),
               'method': 'CASH',
-              'amount': 2,
+              'amount': '2.0000',
               'cashAccountId': 'cash-drawer',
             },
             {
               'id': uuid.v4(),
               'method': 'WALLET',
-              'amount': 1,
+              'amount': '1.0000',
               'cashAccountId': 'wallet-jaib',
               'walletProvider': 'JEEB',
               'walletRefNo': 'REF-123456',
@@ -96,12 +97,12 @@ void main() {
             {
               'id': uuid.v4(),
               'method': 'CREDIT',
-              'amount': 2,
+              'amount': '2.0000',
               'cashAccountId': null,
             },
           ],
-          'discountAmount': 0,
-          'changeReturned': 0,
+          'discountAmount': '0.0000',
+          'changeReturned': '0.0000',
         };
         final saleCommand = SaleInvoiceCommand(
           branchId: 'branch-main',
@@ -114,9 +115,9 @@ void main() {
         final firstSale = await sales.postSale(saleCommand);
         final replayedSale = await sales.postSale(saleCommand);
         expect(replayedSale['id'], firstSale['id']);
-        expect(double.parse(firstSale['netTotal'] as String), 5);
-        expect(double.parse(firstSale['paidTotal'] as String), 3);
-        expect(double.parse(firstSale['remainingAlayh'] as String), 2);
+        expect(firstSale['netTotal'], '5.0000');
+        expect(firstSale['paidTotal'], '3.0000');
+        expect(firstSale['remainingAlayh'], '2.0000');
 
         final invoiceRows = await connection.mappedResultsQuery(
           '''SELECT sale_type AS "saleType", paid_total::text AS paid,
@@ -126,8 +127,8 @@ void main() {
         );
         final invoice = _flattenRow(invoiceRows.single);
         expect(invoice['saleType'], 'MIXED');
-        expect(double.parse(invoice['paid'] as String), 3);
-        expect(double.parse(invoice['remaining'] as String), 2);
+        expect(invoice['paid'], '3.0000');
+        expect(invoice['remaining'], '2.0000');
 
         final paymentRows = await connection.mappedResultsQuery(
           '''SELECT method, amount::text AS amount FROM sales_payments
@@ -144,8 +145,8 @@ void main() {
           substitutionValues: {'party': party['id']},
         );
         expect(
-          double.parse(_flattenRow(ledgerBeforeSettlement.single)['alayh'] as String),
-          2,
+          _flattenRow(ledgerBeforeSettlement.single)['alayh'],
+          '2.0000',
         );
 
         final saleJournal = await connection.mappedResultsQuery(
@@ -156,10 +157,8 @@ void main() {
           substitutionValues: {'id': firstSale['id']},
         );
         final saleTotals = _flattenRow(saleJournal.single);
-        expect(
-          double.parse(saleTotals['dr'] as String),
-          closeTo(double.parse(saleTotals['cr'] as String), 0.0001),
-        );
+        expect(saleTotals['dr'], '6.0000');
+        expect(saleTotals['cr'], '6.0000');
 
         // Settle the customer's remaining balance with an idempotent receipt voucher.
         final settlementRequest = {
@@ -193,9 +192,9 @@ void main() {
           substitutionValues: {'party': party['id']},
         );
         final balance = _flattenRow(finalBalance.single);
-        expect(double.parse(balance['alayh'] as String), 2);
-        expect(double.parse(balance['lah'] as String), 2);
-        expect(double.parse(balance['balance'] as String), 0);
+        expect(balance['alayh'], '2.0000');
+        expect(balance['lah'], '2.0000');
+        expect(balance['balance'], '0.0000');
 
         final voucherCount = await connection.mappedResultsQuery(
           '''SELECT COUNT(*)::text AS count FROM vouchers
