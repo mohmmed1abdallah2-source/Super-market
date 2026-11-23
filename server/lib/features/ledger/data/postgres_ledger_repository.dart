@@ -219,7 +219,7 @@ class PostgresLedgerRepository implements LedgerRepository {
 
       final cashRows = await ctx.mappedResultsQuery(
         '''SELECT id::text AS id, gl_account_id::text AS "glAccountId",
-                  current_balance::text AS "currentBalance", account_kind AS "accountKind"
+                  COALESCE(current_balance, 0)::text AS current_balance, account_kind AS "accountKind"
            FROM cash_accounts
            WHERE id = @cash AND branch_id = @branch AND is_active = TRUE
            FOR UPDATE''',
@@ -233,7 +233,7 @@ class PostgresLedgerRepository implements LedgerRepository {
       if (command.method == 'CASH' && cash['accountKind'] == 'WALLET') {
         throw StateError('Cash vouchers cannot use a wallet account.');
       }
-      final oldBalance = MoneyAmount.parse(cash['currentBalance']);
+      final oldBalance = MoneyAmount.parse(cash['current_balance']);
       final isReceipt = command.voucherType == LedgerVoucherType.receipt;
       if (!isReceipt && oldBalance.compareTo(command.amount) < 0) {
         throw StateError('Insufficient cash-account balance.');
