@@ -93,3 +93,36 @@ The client already exposed `createStocktakingSession` and sent POST `/v1/invento
 - creation does not adjust stock or post a journal; the existing approval operation remains the only posting step.
 
 A PostgreSQL integration test now covers creation, persistence, replay, changed-payload rejection, and approval. CI verification is pending on the latest source commit. No production database change or deployment was made.
+
+
+## Update — durable offline inventory operations and restart recovery (2026-11-24)
+
+**Implementation source:** `a4ae6b9be5757e4af0e1e123efd4bb9e6e144473` and its preceding commits on this branch.
+
+The Sync Batch contract now includes the two inventory write operations that were missing from the earlier allowlist:
+
+- `STOCKTAKE_CREATE`: creates the COUNTING session and its counted lines inside the caller-owned batch transaction. It does not change stock or post accounting; approval remains a separate `STOCKTAKE_APPROVE` operation.
+- `FRIDGE_TEMPERATURE_LOG`: records a temperature reading after validating the branch-owned active warehouse, optional location, and optional recorder.
+
+Both operations use the same branch-scoped operation receipt and canonical payload hash as the existing Sync Batch operations. The server rejects changed-payload reuse of an operation identity and commits the whole batch atomically.
+
+SQLite now has explicit local-first entry points for these two operations:
+
+- `LocalPosAndLedgerEngine.createStocktakingSessionOffline` writes the session, counted lines, and `sync_queue` envelope in one SQLite transaction. Expected batch quantities and pack conversion are snapshotted from local FEFO data; the server rechecks them on replay.
+- `LocalPosAndLedgerEngine.recordFridgeTemperatureOffline` writes the local temperature log and queue envelope in one transaction.
+- `PosAndLedgerProvider` exposes both operations and refreshes pending counters after local commits.
+
+Restart recovery is now explicit and drain-capable:
+
+- `configureApiClient(client, branchId: ...)` returns a Future and awaits recovery when a branch is supplied.
+- `resumePendingSync` sends bounded batches of up to 100 operations, preserves stable operation UUIDs and batch idempotency keys, validates exact acknowledgements, and leaves unacknowledged work retryable.
+- Recovery stops at a configured safety cap and reports remaining work instead of silently claiming that the queue was drained.
+- `PosAndLedgerProvider.syncNow` now drains all currently queued batches rather than sending only the first batch.
+
+New tests:
+- `test/offline_sync_recovery_test.dart`: local stocktake/temperature persistence, restart after a lost HTTP response, stable operation/batch/idempotency identity, partial-ack safety, and draining 101 operations over two batches.
+- `server/test/postgres_inventory_approval_test.dart`: mixed stocktake-create and fridge-temperature batch, same-operation replay, single persisted temperature row, and changed-payload rejection.
+
+**Important integration boundary:** the current `lib/main.dart` login is still local SQLite username/password authentication and does not construct an authenticated `ApiClient`. The provider now exposes the awaited branch-scoped recovery hook, but a real server URL/token/session source must be supplied by the authentication/bootstrap layer before automatic network recovery can occur in the running app. Do not claim the live app is online-connected until that integration exists and is tested.
+
+**Validation status:** source and tests are committed; CI verification for these exact commits must be inspected before marking the new tests/builds as passed. No Neon production migration, production DDL/DML, deployment, or release was performed.
