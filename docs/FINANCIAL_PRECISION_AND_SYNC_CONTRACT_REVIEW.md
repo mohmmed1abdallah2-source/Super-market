@@ -160,3 +160,13 @@ This is a schema-level invariant only; it does not integrate the pure FEFO plann
 - Supplier returns reduce inventory at the product's current moving-average carrying cost, not the historical batch cost. This matches the aggregate inventory valuation method currently used by the product master and prevents the quantity/value balance from drifting when a batch's original cost differs from the current average.
 - The supplier ledger receives an `alayh_amount` credit against the supplier's prior `lah_amount` payable; the journal debits supplier payable and credits inventory.
 - Purchase invoices and returns now use exact decimal contracts for their own quantity and money calculations. The sales invoice and journal aggregation path still contains `double` and remains open.
+
+
+## 2026-11-23 — Sync receipt payload identity update
+
+- sync_operation_receipts now has a nullable SHA-256 payload_hash via migration 010. New receipt writes store the hash of canonical JSON payloads.
+- Batch replay checks operation type and stored hash before acknowledging an existing operation ID. A changed operation type/payload returns an HTTP 409 conflict. Direct sale receipt writes use the same hash.
+- Legacy rows keep a NULL hash; their payload cannot be verified retroactively, so same-type replay remains backward compatible. This limitation is deliberate and should be considered when defining queue migration/retention policy.
+- Added a PostgreSQL integration test for changed-payload reuse. CI initially exposed a missing hash parameter in direct-sale receipt creation; the follow-up fix is in e85b8551148a3e077916777bfb5fc81c8230b521.
+- Sale invoice, COGS and journal money aggregation still uses double; this change only hardens sync operation identity and does not alter financial arithmetic.
+- PostgreSQL schema validation #8 passed on disposable PostgreSQL 18; full application tests for the follow-up source commit remain pending.

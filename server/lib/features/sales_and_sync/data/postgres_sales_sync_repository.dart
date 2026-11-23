@@ -123,7 +123,6 @@ class PostgresSalesSyncRepository implements SalesSyncRepository {
           branchId: command.branchId,
           operationId: command.operationId,
           operationType: 'SALE_INVOICE',
-          payloadHash: _operationPayloadHash(command.request),
           idempotencyKey: command.idempotencyKey,
         );
         return response;

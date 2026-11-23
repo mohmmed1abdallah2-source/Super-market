@@ -351,3 +351,12 @@
 - عولج اختلاف بوابة Delivery Gates في AAR الخاص بـ file_picker بإضافة خطوة compile SDK 36 المطابقة للبوابة الرئيسية؛ تحقق تشغيل #131 من نجاح التنسيق وتحليل/اختبارات Dart.
 - ما زالت الدورة الثالثة غير مكتملة: مزامنة عمليات الشراء والجرد والإتلاف والتحويل، ربط SQLite المحلي، شاشات Flutter، التقارير PDF، ودقة الأموال في مسار البيع ما زالت مفتوحة.
 - لم يتم تطبيق ترحيلات على Neon production ولم يتم نشر التطبيق.
+
+
+## 2026-11-23 — Sync operation receipt payload identity
+- Added migration 010 to store a SHA-256 payload hash on new sync operation receipts. Existing receipts retain NULL hashes for backward-compatible replay because their original payloads were not persisted.
+- Batch replay now verifies the stored operation type and, when available, the canonical JSON payload hash before accepting an existing operation UUID. Reuse with a different type or payload raises OPERATION_ID_REUSED and maps to HTTP 409.
+- Direct sale receipt creation now stores the same canonical payload hash. Added a PostgreSQL integration test for same-payload retry and changed-payload rejection.
+- Commit f7ce679384e49ea626405f03e57864b12e8ea35a exposed a missing payload-hash argument in the direct-sale receipt call; fixed in e85b8551148a3e077916777bfb5fc81c8230b521.
+- PostgreSQL schema workflow #8 passed on disposable PostgreSQL 18. The first Delivery Gates run for the change failed at server test compilation because of that missing argument. The follow-up commit is awaiting a fresh full validation; do not record the sync receipt change as test-passed yet.
+- Migration 010 was added to the PostgreSQL-enabled Flutter validation workflow. No Neon production migration or DML was run; no deployment occurred.

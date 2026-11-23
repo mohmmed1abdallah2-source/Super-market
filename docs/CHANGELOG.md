@@ -238,3 +238,10 @@ The format follows Keep a Changelog. Version numbers will be assigned when relea
 - PostgreSQL-enabled Flutter validation run #197 completed successfully: 25 server tests, Dart/Flutter analysis and tests, Android release APK, Windows and Web builds.
 - Added the file_picker compile SDK 36 workaround to Delivery Gates so its Android build uses the same SDK compatibility fix as the primary validation workflow.
 - Iteration 3 remains in progress; remaining sync, local SQLite, inventory write flows, UI/PDF and sales money precision work is still open.
+
+
+## 2026-11-23 — Sync operation payload identity
+- Added migration 010 for SHA-256 payload identity on sync operation receipts.
+- Existing operation UUID replay now checks operation type and canonical payload hash for receipts written after migration 010; mismatches return an operation-ID conflict instead of being silently acknowledged.
+- Added PostgreSQL integration coverage for same-payload replay and changed-payload rejection. First CI attempt found a missing hash argument in direct sale receipt creation; follow-up fix is awaiting CI verification.
+- Disposable PostgreSQL 18 schema workflow #8 passed. No production database changes.

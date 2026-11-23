@@ -335,3 +335,15 @@ These early calculator commits are on `feature/multi-store-isolation-foundation`
 - The PostgreSQL integration test includes purchase invoice posting, idempotent replay, fractional pack receipt, purchase-order receiving, supplier return posting, return replay, batch balance and journal checks.
 - Run URL: `https://github.com/mohmmed1abdallah2-source/Super-market/actions/runs/43724926715`.
 - This confirms the tested source revision only; it does not complete the remaining Iteration 3 scope or authorize a production migration/deployment.
+
+
+## 2026-11-23 — Sync receipt identity hardening (validation pending)
+
+- Current audited branch head before this documentation update: e85b8551148a3e077916777bfb5fc81c8230b521.
+- Added additive migration 010, docs/neon/010_sync_operation_payload_identity.sql, to add nullable payload_hash CHAR(64) to sync_operation_receipts. Existing rows remain NULL because historical payloads cannot be reconstructed.
+- Batch processing hashes canonical JSON payloads and compares the stored operation type/hash on replay. A changed type or payload for a new-format receipt is rejected as OPERATION_ID_REUSED; the route returns HTTP 409. Direct sale receipt writes also persist the hash.
+- Added a PostgreSQL integration test for first acceptance, same-payload retry, and changed-payload rejection. The first CI attempt identified a missing hash parameter in the separate direct-sale receipt call; follow-up fix is committed in e85b8551148a3e077916777bfb5fc81c8230b521.
+- Migration 010 was added to the PostgreSQL-enabled Flutter validation setup. Disposable PostgreSQL 18 schema validation run #8 passed. The new application/test commit has not yet received a successful full test run; status remains pending.
+- Legacy receipts with NULL hashes retain same-type acceptance for backward compatibility. Their payload identity cannot be retroactively verified; this is an explicit migration-era limitation.
+- Remaining Sync Batch operations are still only PARTY_CREATE, SALE_INVOICE, and VOUCHER; purchases, returns, stocktake, disposal and transfer are not yet batch-enabled.
+- Neon production was not accessed for migration execution; no production DDL/DML or deployment was performed.
