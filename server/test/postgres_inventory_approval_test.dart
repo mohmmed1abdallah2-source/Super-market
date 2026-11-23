@@ -347,7 +347,7 @@ void main() {
 
       final changedPayload = Map<String, dynamic>.from(payload)
         ..['lines'] = [
-          Map<String, dynamic>.from(payload['lines']!.first as Map)
+          Map<String, dynamic>.from((payload['lines'] as List).first as Map)
             ..['countedLooseBaseQty'] = '7.000000',
         ];
       await expectLater(
