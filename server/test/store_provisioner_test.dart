@@ -2,6 +2,7 @@ import 'package:test/test.dart';
 
 import '../lib/features/control_plane/application/store_provisioner.dart';
 import '../lib/features/control_plane/data/store_database_router.dart';
+import '../lib/features/control_plane/data/postgres_store_database_admin.dart';
 
 void main() {
   test('provisioning creates secret, database, migrations then activates store', () async {
