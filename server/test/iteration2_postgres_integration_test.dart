@@ -222,7 +222,7 @@ void main() {
             partyType: LedgerPartyType.customer,
             code: code,
             name: 'عميل تكامل',
-            creditLimit: 1000,
+            creditLimit: MoneyAmount.parse('1000.0000'),
             paymentTermsDays: 0,
             priceTier: 'RETAIL',
           ),
