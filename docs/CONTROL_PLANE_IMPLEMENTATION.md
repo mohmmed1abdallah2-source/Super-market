@@ -30,6 +30,13 @@ must resolve through a server-side secret-store adapter. A secret reference is n
 - Database routing must resolve `store_id` from the verified session, then load connection material by secret reference. It must not accept database names, roles, hosts or credentials from a request.
 - `branch_id` remains an in-store operational branch identifier.
 
+## Security primitives added
+
+- Added PBKDF2-HMAC-SHA256 password hashing with a versioned encoded format, per-password random 16-byte salt, 600,000 default iterations, bounded accepted iteration counts, and constant-time digest comparison.
+- Added 256-bit cryptographically random opaque session tokens; only SHA-256 token digests are intended for database persistence.
+- Unit tests cover correct/wrong passwords, malformed hashes, weak passwords, and token uniqueness. CI must verify these tests before this code is considered accepted.
+- These primitives are not yet wired into account sign-in or session endpoints. Rate limiting, account lockout policy, TLS enforcement and secret management remain mandatory.
+
 ## Required next implementation steps
 
 1. Implement password verification with a reviewed password KDF and rate limiting; never use a fast unsalted hash for passwords.
