@@ -283,6 +283,18 @@ class PostgresSalesSyncRepository implements SalesSyncRepository {
                       .executeStockTransferInTransaction(
                 ctx, branchId: command.branchId, payload: operation.payload);
               break;
+            case 'STOCKTAKE_CREATE':
+              operationResults[operation.operationId] =
+                  await PostgresInventoryApprovalRepository(_connection)
+                      .createStocktakeSessionInTransaction(
+                ctx, branchId: command.branchId, payload: operation.payload);
+              break;
+            case 'FRIDGE_TEMPERATURE_LOG':
+              operationResults[operation.operationId] =
+                  await PostgresInventoryApprovalRepository(_connection)
+                      .recordFridgeTemperatureInTransaction(
+                ctx, branchId: command.branchId, payload: operation.payload);
+              break;
             default:
               throw FormatException('Unsupported operation type: ${operation.operationType}');
           }
