@@ -23,7 +23,7 @@ final class PostgresPurchaseReturnPostingRepository
     PurchaseReturnCommand command,
   ) => _connection.transaction(
         (ctx) => postPurchaseReturnInTransaction(ctx, command),
-      );
+      ).then((value) => Map<String, Object?>.from(value as Map));
 
   /// Runs the existing posting workflow inside a caller-owned transaction.
   /// Batch callers own idempotency for the whole batch and disable the
