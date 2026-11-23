@@ -433,3 +433,12 @@
 - Added `STOCK_TRANSFER` to the durable SQLite `sync_queue` operation allowlist. It uses the existing stable queue UUID for operation identity and is acknowledged only when its operation ID appears in the server's accepted IDs; retries retain the same identity.
 - Added PostgreSQL integration coverage for a mixed stocktake + disposal + transfer batch, retry idempotency, preserved destination lot metadata, movement pair, and rollback on an invalid transfer. CI validation is pending for this source revision; no success is claimed until the PostgreSQL workflow logs are reviewed.
 - No Neon Production DDL/DML, deployment, or release was performed.
+
+
+## 2026-11-23 — إصلاح إخفاق اختبار التحويل وحماية إقرار طابور SQLite
+
+- فحص سجل Flutter Validation رقم 235 على commit `28c26947488cff477e4a9fc616d38b8a11f9a445`: تحليل Dart نجح، واختبارات Flutter وبناء Android وWeb وWindows نجحت، لكن اختبار PostgreSQL المختلط أخفق عند قراءة اسم دفعة الوجهة بسبب alias غير مقتبس في استعلام الاختبار؛ لم يكن الإخفاق في فحص الرصيد أو الحركات.
+- تصحيح alias الاختبار إلى `"batchNumber"` ومطابقة المفتاح نفسه في assertion لتجنب اختلاف حالة/تسمية الأعمدة في نتيجة PostgreSQL.
+- تقوية إقرار SQLite: لأن Sync Batch ذري بالكامل، لا تُحدّث أي صفوف إلى `BATCHED_SENT` أو `FAILED` إلا إذا طابقت قائمة `acceptedIds` جميع معرفات العمليات المرسلة تطابقًا تامًا، دون تكرار أو معرف مفقود/مجهول. عند استجابة جزئية أو مشوهة يُرفع خطأ وتبقى الصفوف قابلة لإعادة المحاولة.
+- لا تغيير في مخطط PostgreSQL أو Neon، ولا تنفيذ DDL/DML على قاعدة إنتاج، ولا نشر أو إصدار.
+- حالة التحقق: التعديلات أُضيفت للمصدر؛ يلزم انتظار CI جديد على commit الإصلاح قبل اعتبار اختبارات PostgreSQL ناجحة.

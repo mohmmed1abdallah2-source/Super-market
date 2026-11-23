@@ -465,7 +465,21 @@ class LocalPosAndLedgerEngine {
       request: request,
       idempotencyKey: 'sync-$batchId',
     );
-    final accepted = result.acceptedIds.toSet();
+    // The batch endpoint is all-or-nothing. Never mark a partial, duplicated,
+    // or unexpected acknowledgement as sent: leave every row retryable instead.
+    final expectedIds = queueByOperation.keys.toSet();
+    final acceptedIds = result.acceptedIds;
+    final accepted = acceptedIds.toSet();
+    if (acceptedIds.length != operations.length ||
+        expectedIds.length != operations.length ||
+        accepted.length != acceptedIds.length ||
+        !accepted.containsAll(expectedIds) ||
+        !expectedIds.containsAll(accepted)) {
+      throw StateError(
+        'Invalid sync batch acknowledgement: accepted operation IDs must exactly '
+        'match the submitted batch.',
+      );
+    }
     final now = DateTime.now().toIso8601String();
     await db.transaction((txn) async {
       for (final entry in queueByOperation.entries) {
