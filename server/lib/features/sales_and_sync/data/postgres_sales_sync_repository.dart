@@ -342,7 +342,7 @@ class PostgresSalesSyncRepository implements SalesSyncRepository {
         'name': _text(payload, 'name'),
         'phone': payload['phone'],
         'address': payload['address'],
-        'limit': _decimal(payload['creditLimit']),
+        'limit': MoneyAmount.parse(payload['creditLimit']).toFixedString(),
         'terms': _integer(payload['paymentTermsDays']),
         'tier': _text(payload, 'priceTier', fallback: 'RETAIL').toUpperCase(),
       },
@@ -362,8 +362,10 @@ class PostgresSalesSyncRepository implements SalesSyncRepository {
     }
     final partyId = _text(payload, 'partyId');
     final cashId = _text(payload, 'cashAccountId');
-    final amount = _decimal(payload['amount']);
-    if (amount <= 0) throw const FormatException('Voucher amount must be positive.');
+    final amount = MoneyAmount.parse(payload['amount']);
+    if (amount.isNegative || amount.isZero) {
+      throw const FormatException('Voucher amount must be positive.');
+    }
     final method = _text(payload, 'method', fallback: 'CASH').toUpperCase();
     final walletRef = payload['walletRefNo'] as String?;
     if (method == 'WALLET' && (walletRef == null || walletRef.trim().length < 6)) {
@@ -390,7 +392,8 @@ class PostgresSalesSyncRepository implements SalesSyncRepository {
     );
     if (cashRows.isEmpty) throw StateError('Cash account not found.');
     final cash = _flatten(cashRows.single);
-    if (type == 'PAYMENT' && _decimal(cash['balance']) < amount) {
+    if (type == 'PAYMENT' &&
+        MoneyAmount.parse(cash['balance']).compareTo(amount) < 0) {
       throw StateError('Insufficient cash-account balance.');
     }
     final contraCode = type == 'RECEIPT' ? '1100' : '2000';
@@ -426,11 +429,11 @@ class PostgresSalesSyncRepository implements SalesSyncRepository {
       substitutionValues: {
         'entry': journalId,
         'cashGl': cash['gl'],
-        'cashDr': receipt ? amount : 0,
-        'cashCr': receipt ? 0 : amount,
+        'cashDr': receipt ? amount.toFixedString() : '0.0000',
+        'cashCr': receipt ? '0.0000' : amount.toFixedString(),
         'contraGl': _flatten(contraRows.single)['id'],
-        'contraDr': receipt ? 0 : amount,
-        'contraCr': receipt ? amount : 0,
+        'contraDr': receipt ? '0.0000' : amount.toFixedString(),
+        'contraCr': receipt ? amount.toFixedString() : '0.0000',
       },
     );
     await ctx.execute(
@@ -440,7 +443,7 @@ class PostgresSalesSyncRepository implements SalesSyncRepository {
     await ctx.execute(
       'UPDATE cash_accounts SET current_balance = current_balance + @delta, updated_at = @now WHERE id = @id',
       substitutionValues: {
-        'delta': receipt ? amount : -amount,
+        'delta': (receipt ? amount : -amount).toFixedString(),
         'now': now,
         'id': cashId,
       },
@@ -460,7 +463,7 @@ class PostgresSalesSyncRepository implements SalesSyncRepository {
         'date': now,
         'party': partyId,
         'cash': cashId,
-        'amount': amount,
+        'amount': amount.toFixedString(),
         'method': method,
         'walletRef': walletRef,
         'description': _text(payload, 'description', fallback: ''),
@@ -479,8 +482,8 @@ class PostgresSalesSyncRepository implements SalesSyncRepository {
         'party': partyId,
         'date': now,
         'type': type,
-        'alayh': receipt ? 0 : amount,
-        'lah': receipt ? amount : 0,
+        'alayh': receipt ? '0.0000' : amount.toFixedString(),
+        'lah': receipt ? amount.toFixedString() : '0.0000',
         'doc': voucherId,
         'statement': _text(payload, 'description', fallback: ''),
         'journal': journalId,
@@ -492,7 +495,7 @@ class PostgresSalesSyncRepository implements SalesSyncRepository {
       'voucherType': type,
       'partyId': partyId,
       'cashAccountId': cashId,
-      'amount': amount.toStringAsFixed(4),
+      'amount': amount.toFixedString(),
       'method': method,
       'createdAt': now.toIso8601String(),
       'walletRefNo': walletRef,
@@ -518,26 +521,27 @@ class PostgresSalesSyncRepository implements SalesSyncRepository {
       throw const FormatException('Unsupported price tier.');
     }
 
-    var subtotal = 0.0;
-    var costTotal = 0.0;
+    var subtotal = MoneyAmount.zero;
+    var costTotal = MoneyAmount.zero;
     final parsedItems = <Map<String, Object?>>[];
     for (final raw in items) {
       if (raw is! Map<String, dynamic>) throw const FormatException('Invalid invoice item.');
       final productId = _text(raw, 'productId');
-      final qty = _decimal(raw['qtySold']);
-      final factor = _decimal(raw['conversionFactor']);
-      final price = _decimal(raw['unitPrice']);
-      if (qty <= 0 || factor <= 0 || price < 0) {
-        throw const FormatException('Invalid item quantity, conversion factor or price.');
-      }
       final qtyExact = ScaledDecimal.parse(raw['qtySold'], scale: 4);
       final factorExact = ScaledDecimal.parse(raw['conversionFactor'], scale: 6);
-      final qtyBase = qty * factor;
-      final qtyBaseExact = qtyExact.multiply(
-        factorExact,
-        resultScale: 6,
+      final priceExact = MoneyAmount.parse(raw['unitPrice']);
+      if (qtyExact.isNegative || qtyExact.isZero ||
+          factorExact.isNegative || factorExact.isZero || priceExact.isNegative) {
+        throw const FormatException('Invalid item quantity, conversion factor or price.');
+      }
+      final qtyBaseExact = SaleMoneyCalculator.baseQuantity(
+        quantity: qtyExact.toFixedString(),
+        conversionFactor: factorExact.toFixedString(),
       );
-      final lineTotal = qty * price;
+      final lineTotal = SaleMoneyCalculator.lineTotal(
+        quantity: qtyExact.toFixedString(),
+        unitPrice: priceExact.toFixedString(),
+      );
       final productRows = await ctx.mappedResultsQuery(
         '''SELECT stock_base_qty::text AS stock,
                   avg_cost_base_unit::text AS "unitCost"
@@ -572,17 +576,18 @@ class PostgresSalesSyncRepository implements SalesSyncRepository {
           'branch': branchId,
         },
       );
-      subtotal += lineTotal;
+      subtotal = subtotal + lineTotal;
       final itemCost = batchAllocations.isEmpty
-          ? qtyBase * _decimal(product['unitCost'])
-          : batchAllocations.fold<double>(
-              0,
-              (total, allocation) =>
-                  total +
-                  _decimal(allocation['quantityDeducted']) *
-                      _decimal(allocation['unitCostBase']),
-            );
-      costTotal += itemCost;
+          ? SaleMoneyCalculator.inventoryCost(
+              baseQuantity: qtyBaseExact,
+              averageUnitCost: product['unitCost'],
+            )
+          : SaleMoneyCalculator.sum(batchAllocations.map((allocation) =>
+              SaleMoneyCalculator.inventoryCost(
+                baseQuantity: allocation['quantityDeducted'],
+                averageUnitCost: allocation['unitCostBase'],
+              )));
+      costTotal = costTotal + itemCost;
       parsedItems.add({
         'id': _uuid.v4(),
         'productId': productId,
@@ -593,58 +598,60 @@ class PostgresSalesSyncRepository implements SalesSyncRepository {
         'qtyBaseExact': qtyBaseExact.toFixedString(),
         'unitCostBase': product['unitCost'],
         'batchAllocations': batchAllocations,
-        'unitPrice': price,
-        'lineTotal': lineTotal,
+        'unitPrice': priceExact.toFixedString(),
+        'lineTotal': lineTotal.toFixedString(),
       });
     }
 
-    final discount = _decimal(request['discountAmount']);
-    if (discount < 0 || discount > subtotal) {
+    final discount = MoneyAmount.parse(request['discountAmount']);
+    if (discount.isNegative || discount.compareTo(subtotal) > 0) {
       throw const FormatException('Discount is outside the permitted range.');
     }
     final netTotal = subtotal - discount;
-    var cashGross = 0.0;
-    var walletTotal = 0.0;
-    var creditTotal = 0.0;
-    var changeReturned = _decimal(request['changeReturned']);
+    var cashGross = MoneyAmount.zero;
+    var walletTotal = MoneyAmount.zero;
+    var creditTotal = MoneyAmount.zero;
+    final changeReturned = MoneyAmount.parse(request['changeReturned']);
     final parsedPayments = <Map<String, Object?>>[];
     for (final raw in payments) {
       if (raw is! Map<String, dynamic>) throw const FormatException('Invalid payment item.');
       final method = _text(raw, 'method').toUpperCase();
-      final amount = _decimal(raw['amount']);
-      if (amount <= 0) throw const FormatException('Payment amount must be positive.');
+      final amount = MoneyAmount.parse(raw['amount']);
+      if (amount.isNegative || amount.isZero) {
+        throw const FormatException('Payment amount must be positive.');
+      }
       final cashId = raw['cashAccountId'] as String?;
       final walletRef = raw['walletRefNo'] as String?;
       if (method == 'CASH') {
         if (cashId == null) throw const FormatException('Cash account is required.');
-        cashGross += amount;
+        cashGross = cashGross + amount;
       } else if (method == 'WALLET') {
         if (cashId == null) throw const FormatException('Wallet account is required.');
         if (walletRef == null || walletRef.trim().length < 6) {
           throw const FormatException('Wallet notification reference must contain at least 6 characters.');
         }
-        walletTotal += amount;
+        walletTotal = walletTotal + amount;
       } else if (method == 'CREDIT') {
-        creditTotal += amount;
+        creditTotal = creditTotal + amount;
       } else {
         throw FormatException('Unsupported payment method: $method');
       }
       parsedPayments.add({
         'id': _uuid.v4(),
         'method': method,
-        'amount': amount,
+        'amount': amount.toFixedString(),
         'cashAccountId': cashId,
         'walletProvider': raw['walletProvider'],
         'walletRefNo': walletRef,
       });
     }
-    if (changeReturned < 0) {
+    if (changeReturned.isNegative) {
       throw const FormatException('Change returned cannot be negative.');
     }
     // Local sales_payments contain the applied amounts after change is removed.
     // changeReturned is therefore informational and must not be subtracted twice.
     final paidTotal = cashGross + walletTotal;
-    if ((paidTotal + creditTotal - netTotal).abs() > 0.0001) {
+    if (paidTotal + creditTotal != netTotal) {
       throw const FormatException('Payments, change and outstanding amount do not match invoice total.');
     }
     if (creditTotal > 0) {
@@ -660,17 +667,18 @@ class PostgresSalesSyncRepository implements SalesSyncRepository {
       final customer = _flatten(customerRows.single);
       if (customer['blocked'] == true) throw StateError('Customer is blocked from credit sales.');
       final current = customer['balanceSide'] == 'ALAYH'
-          ? _decimal(customer['balance'])
-          : 0.0;
-      final limit = _decimal(customer['creditLimit']);
-      if (limit <= 0 || current + creditTotal > limit) {
+          ? MoneyAmount.parse(customer['balance'])
+          : MoneyAmount.zero;
+      final limit = MoneyAmount.parse(customer['creditLimit']);
+      if (limit.isNegative || limit.isZero ||
+          (current + creditTotal).compareTo(limit) > 0) {
         throw StateError('Customer credit limit would be exceeded.');
       }
     }
     final remaining = creditTotal;
-    final saleType = remaining > 0 && paidTotal > 0
+    final saleType = !remaining.isZero && !paidTotal.isZero
         ? 'MIXED'
-        : remaining > 0
+        : !remaining.isZero
             ? 'CREDIT'
             : 'CASH';
 
@@ -688,16 +696,18 @@ class PostgresSalesSyncRepository implements SalesSyncRepository {
       },
     );
 
-    final cashByAccount = <String, double>{};
+    final cashByAccount = <String, MoneyAmount>{};
     for (final payment in parsedPayments) {
       final method = payment['method'];
       if (method == 'CASH' || method == 'WALLET') {
         final cashId = payment['cashAccountId'] as String;
-        cashByAccount[cashId] = (cashByAccount[cashId] ?? 0) + (payment['amount'] as double);
+        cashByAccount[cashId] =
+            (cashByAccount[cashId] ?? MoneyAmount.zero) +
+                MoneyAmount.parse(payment['amount']);
       }
     }
     for (final entry in cashByAccount.entries) {
-      if (entry.value <= 0) continue;
+      if (entry.value.isNegative || entry.value.isZero) continue;
       final accountRows = await ctx.mappedResultsQuery(
         '''SELECT gl_account_id::text AS gl FROM cash_accounts
            WHERE id = @id AND branch_id = @branch AND is_active = TRUE FOR UPDATE''',
@@ -708,12 +718,12 @@ class PostgresSalesSyncRepository implements SalesSyncRepository {
       await ctx.execute(
         '''INSERT INTO journal_lines (journal_entry_id, gl_account_id, dr_amount, cr_amount)
            VALUES (@entry, @gl, @dr, 0)''',
-        substitutionValues: {'entry': journalId, 'gl': gl, 'dr': entry.value},
+        substitutionValues: {'entry': journalId, 'gl': gl, 'dr': entry.value.toFixedString()},
       );
       await ctx.execute(
         '''UPDATE cash_accounts SET current_balance = current_balance + @amount,
            updated_at = @now WHERE id = @id''',
-        substitutionValues: {'amount': entry.value, 'now': now, 'id': entry.key},
+        substitutionValues: {'amount': entry.value.toFixedString(), 'now': now, 'id': entry.key},
       );
     }
 
@@ -722,14 +732,14 @@ class PostgresSalesSyncRepository implements SalesSyncRepository {
       await ctx.execute(
         '''INSERT INTO journal_lines (journal_entry_id, gl_account_id, dr_amount, cr_amount)
            VALUES (@entry, @gl, @amount, 0)''',
-        substitutionValues: {'entry': journalId, 'gl': ar, 'amount': remaining},
+        substitutionValues: {'entry': journalId, 'gl': ar, 'amount': remaining.toFixedString()},
       );
     }
     final revenue = await _accountId(ctx, branchId, '4000');
     await ctx.execute(
       '''INSERT INTO journal_lines (journal_entry_id, gl_account_id, dr_amount, cr_amount)
          VALUES (@entry, @gl, 0, @amount)''',
-      substitutionValues: {'entry': journalId, 'gl': revenue, 'amount': netTotal},
+      substitutionValues: {'entry': journalId, 'gl': revenue, 'amount': netTotal.toFixedString()},
     );
     if (costTotal > 0) {
       final cogs = await _accountId(ctx, branchId, '5000');
@@ -741,7 +751,7 @@ class PostgresSalesSyncRepository implements SalesSyncRepository {
           'entry': journalId,
           'cogs': cogs,
           'inventory': inventory,
-          'cost': costTotal,
+          'cost': costTotal.toFixedString(),
         },
       );
     }
@@ -766,12 +776,12 @@ class PostgresSalesSyncRepository implements SalesSyncRepository {
         'customer': customerId,
         'tier': priceTier,
         'saleType': saleType,
-        'subtotal': subtotal,
-        'discount': discount,
-        'net': netTotal,
-        'paid': paidTotal,
-        'change': changeReturned,
-        'remaining': remaining,
+        'subtotal': subtotal.toFixedString(),
+        'discount': discount.toFixedString(),
+        'net': netTotal.toFixedString(),
+        'paid': paidTotal.toFixedString(),
+        'change': changeReturned.toFixedString(),
+        'remaining': remaining.toFixedString(),
         'journal': journalId,
         'operation': operationId,
       },
@@ -869,7 +879,7 @@ class PostgresSalesSyncRepository implements SalesSyncRepository {
           'branch': branchId,
           'party': customerId,
           'date': now,
-          'amount': remaining,
+          'amount': remaining.toFixedString(),
           'doc': invoiceId,
           'statement': 'متبقي فاتورة $invoiceNo',
           'journal': journalId,
@@ -901,10 +911,10 @@ class PostgresSalesSyncRepository implements SalesSyncRepository {
         'walletProvider': payment['walletProvider'],
         'walletRefNo': payment['walletRefNo'],
       }).toList(),
-      'netTotal': netTotal.toStringAsFixed(4),
-      'paidTotal': paidTotal.toStringAsFixed(4),
-      'changeReturned': changeReturned.toStringAsFixed(4),
-      'remainingAlayh': remaining.toStringAsFixed(4),
+      'netTotal': netTotal.toFixedString(),
+      'paidTotal': paidTotal.toFixedString(),
+      'changeReturned': changeReturned.toFixedString(),
+      'remainingAlayh': remaining.toFixedString(),
       'createdAt': now.toIso8601String(),
     };
   }
@@ -1176,11 +1186,7 @@ class PostgresSalesSyncRepository implements SalesSyncRepository {
     return value.trim();
   }
 
-  double _decimal(Object? value) {
-    final result = value is num ? value.toDouble() : double.tryParse(value?.toString() ?? '');
-    if (result == null || !result.isFinite) throw FormatException('Invalid decimal: $value');
-    return result;
-  }
+  
 
   int _integer(Object? value) {
     if (value == null) return 0;
