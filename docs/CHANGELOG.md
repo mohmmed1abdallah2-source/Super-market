@@ -317,3 +317,10 @@ The format follows Keep a Changelog. Version numbers will be assigned when relea
 - No production database changes, Neon migrations, deployment, or release.
 
 - Added transactional creation of counted stocktaking sessions, safe replay checks, API route wiring, OpenAPI contract, and PostgreSQL integration coverage. CI verification is pending on the new source commit.
+
+### 2026-11-24 — Live sale and voucher fixed-scale arithmetic
+
+- Migrated live sale invoice, discount, tender, credit-limit, cash-account, COGS and journal aggregation from binary floating point to `MoneyAmount` and `ScaledDecimal`.
+- Migrated voucher amount and cash-balance/journal/ledger writes to fixed-scale money strings.
+- Fixed the fridge-temperature note SQL binding after the current PostgreSQL integration run exposed a missing note value; CI verification is pending.
+- No production database or deployment changes.
