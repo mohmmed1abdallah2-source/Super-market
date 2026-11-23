@@ -331,3 +331,12 @@ The format follows Keep a Changelog. Version numbers will be assigned when relea
 - Enforced cash-vs-wallet account-kind validation in sale and voucher posting.
 - Normalized legacy SQLite numeric payloads to explicit decimal strings at the sync boundary and added FAILED queue recovery coverage.
 - Added fractional-sale, journal-balance, and payment-account mismatch regression assertions. PostgreSQL-enabled CI verification remains pending on source commit `20043d15`.
+
+
+## 2026-11-24 — Control-plane/account-management foundation (in progress)
+
+- Created isolated work branch `feature/control-plane-account-management` from `feature/multi-store-isolation-foundation` at reviewed HEAD `04bc6850f922461bbb96227bc444fd1795b7295c`.
+- Added a dedicated control-plane PostgreSQL migration for accounts, verified identity mappings, store directory, account/store memberships, opaque database-secret references and hashed store-scoped sessions.
+- Added Dart domain contracts for verified account identities, membership roles, store lifecycle and the control-plane repository boundary, plus unit tests.
+- Documented the deployment boundary: migration is for a separate control-plane database only; no production database was modified and no database provisioning or session issuance is claimed.
+- SQL execution, Dart test execution and API integration are pending CI and follow-up implementation.
