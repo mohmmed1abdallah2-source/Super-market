@@ -511,6 +511,15 @@ class LocalPosAndLedgerEngine {
       );
       if (warehouses.isEmpty) throw StateError('Warehouse is not active in this branch.');
 
+      await txn.insert('stocktaking_sessions', {
+        ..._base(sessionId, branchId, now),
+        'warehouse_id': warehouseId,
+        'session_no': sessionNo,
+        'status': 'COUNTING',
+        'blind_count': blindCount ? 1 : 0,
+        'started_at': now,
+      });
+
       final seenBatches = <String>{};
       for (final line in lines) {
         final productId = line['productId']?.toString();
@@ -571,14 +580,6 @@ class LocalPosAndLedgerEngine {
         });
       }
 
-      await txn.insert('stocktaking_sessions', {
-        ..._base(sessionId, branchId, now),
-        'warehouse_id': warehouseId,
-        'session_no': sessionNo,
-        'status': 'COUNTING',
-        'blind_count': blindCount ? 1 : 0,
-        'started_at': now,
-      });
       await txn.insert('sync_queue', {
         'id': queueId,
         'uuid': 'uuid-$queueId',
