@@ -7,6 +7,7 @@ abstract interface class StoreProvisioningRepository {
   Future<void> registerProvisioning({
     required String storeId,
     required String operationId,
+    required String membershipId,
     required String ownerAccountId,
     required String displayName,
     required String databaseName,
@@ -102,6 +103,7 @@ final class StoreProvisioner {
 
     final storeId = _uuid.v4();
     final operationId = _uuid.v4();
+    final membershipId = _uuid.v4();
     final compactId = storeId.replaceAll('-', '').toLowerCase();
     final databaseName = 'store_$compactId';
     final databaseRole = 'store_$compactId';
@@ -111,6 +113,7 @@ final class StoreProvisioner {
     await _repository.registerProvisioning(
       storeId: storeId,
       operationId: operationId,
+      membershipId: membershipId,
       ownerAccountId: ownerAccountId,
       displayName: normalizedName,
       databaseName: databaseName,
