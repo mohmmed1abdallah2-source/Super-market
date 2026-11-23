@@ -92,6 +92,31 @@ class PostgresSalesSyncRepository implements SalesSyncRepository {
         );
         if (replay != null) return replay;
 
+        await ctx.mappedResultsQuery(
+          'SELECT pg_advisory_xact_lock(hashtextextended(@lockKey, 0)) AS locked',
+          substitutionValues: {
+            'lockKey': '${command.branchId}|${command.operationId}',
+          },
+        );
+        final existingReceipt = await ctx.mappedResultsQuery(
+          '''SELECT operation_type AS "operationType",
+                    payload_hash AS "payloadHash"
+             FROM sync_operation_receipts
+             WHERE branch_id = @branch AND operation_id = @operation''',
+          substitutionValues: {
+            'branch': command.branchId,
+            'operation': command.operationId,
+          },
+        );
+        if (existingReceipt.isNotEmpty) {
+          final receipt = _flatten(existingReceipt.single);
+          if (receipt['operationType'] != 'SALE_INVOICE' ||
+              (receipt['payloadHash'] != null &&
+                  receipt['payloadHash'] != _operationPayloadHash(command.request))) {
+            throw StateError('OPERATION_ID_REUSED');
+          }
+        }
+
         final previous = await ctx.mappedResultsQuery(
           '''SELECT id::text AS id, invoice_no AS "invoiceNo",
                     net_total::text AS "netTotal", paid_total::text AS "paidTotal",
@@ -145,6 +170,12 @@ class PostgresSalesSyncRepository implements SalesSyncRepository {
 
         final accepted = <String>[];
         for (final operation in command.operations) {
+          await ctx.mappedResultsQuery(
+            'SELECT pg_advisory_xact_lock(hashtextextended(@lockKey, 0)) AS locked',
+            substitutionValues: {
+              'lockKey': '${command.branchId}|${operation.operationId}',
+            },
+          );
           final alreadyApplied = await ctx.mappedResultsQuery(
             '''SELECT operation_id::text AS "operationId",
                       operation_type AS "operationType",

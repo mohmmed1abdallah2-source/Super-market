@@ -144,8 +144,13 @@ void main() {
           );
         }
 
-        final first = await repository.processBatch(commandFor(payload));
-        expect(first['acceptedIds'], [operationId]);
+        final concurrentResults = await Future.wait([
+          repository.processBatch(commandFor(payload)),
+          repository.processBatch(commandFor(payload)),
+        ]);
+        for (final result in concurrentResults) {
+          expect(result['acceptedIds'], [operationId]);
+        }
 
         final samePayloadRetry =
             await repository.processBatch(commandFor(payload));
