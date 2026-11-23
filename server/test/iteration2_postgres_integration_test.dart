@@ -101,6 +101,45 @@ void main() {
           substitutionValues: {'id': first['id']},
         );
         expect(itemRows.single.values.first['total'], '0.0300');
+
+        final invalidTenderRequest = Map<String, dynamic>.from(request)
+          ..['operationId'] = uuid.v4()
+          ..['payments'] = [
+            {
+              'id': uuid.v4(),
+              'method': 'CASH',
+              'amount': '0.0100',
+              'cashAccountId': 'wallet-jaib',
+            },
+          ]
+          ..['items'] = [
+            {
+              'id': uuid.v4(),
+              'productId': productId,
+              'unitName': 'حبة',
+              'qtySold': '0.1000',
+              'conversionFactor': '1.000000',
+              'unitPrice': '0.1000',
+              'lineTotal': '0.0100',
+            },
+          ];
+        await expectLater(
+          repository.postSale(SaleInvoiceCommand(
+            branchId: 'branch-main',
+            operationId: invalidTenderRequest['operationId'] as String,
+            request: invalidTenderRequest,
+            idempotencyKey: 'integration-invalid-tender-' + uuid.v4(),
+            requestHash: sha256
+                .convert(utf8.encode(jsonEncode(invalidTenderRequest)))
+                .toString(),
+          )),
+          throwsA(isA<StateError>()),
+        );
+        final stockAfterRejectedTender = await connection.mappedResultsQuery(
+          'SELECT stock_base_qty::text AS stock FROM products WHERE id=@id',
+          substitutionValues: {'id': productId},
+        );
+        expect(stockAfterRejectedTender.single.values.first['stock'], '9.700000');
       } finally {
         await connection.close();
       }
@@ -251,6 +290,30 @@ void main() {
         final first = await ledger.postVoucher(command);
         final retry = await ledger.postVoucher(command);
         expect(retry['id'], first['id']);
+
+        await expectLater(
+          PostgresSalesSyncRepository(connection).processBatch(SyncBatchCommand(
+            branchId: 'branch-main',
+            batchId: 'batch-' + uuid.v4(),
+            idempotencyKey: 'integration-batch-voucher-kind-' + uuid.v4(),
+            requestHash: List.filled(64, 'c').join(),
+            operations: [
+              SyncOperation(
+                operationId: uuid.v4(),
+                operationType: 'VOUCHER',
+                payload: {
+                  'voucherType': 'RECEIPT',
+                  'partyId': party['id'],
+                  'cashAccountId': 'cash-drawer',
+                  'amount': '1.0000',
+                  'method': 'WALLET',
+                  'walletRefNo': 'REF-123456',
+                },
+              ),
+            ],
+          )),
+          throwsA(isA<StateError>()),
+        );
 
         await expectLater(
           ledger.postVoucher(PostVoucherCommand(
