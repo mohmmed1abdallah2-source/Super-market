@@ -404,3 +404,14 @@
 - Added a generic offline operation queue envelope in LocalPosAndLedgerEngine for the five currently server-supported operation types. This makes purchase operations queueable without changing their durable operation identity on retry. Flutter Validation #223 and Delivery Gates #153 are pending for this last client-side change at the time of this entry.
 - Still not implemented: server posting logic for stocktake approval, disposal and warehouse transfer; their Sync Batch operation types and offline payload adapters. Existing client DTO/API declarations and local schema must not be mistaken for working server endpoints.
 - No production database or deployment changes.
+
+
+## 2026-11-23 — Stocktake and disposal approval posting implementation (validation pending)
+
+- Added `PostgresInventoryApprovalRepository` with transaction-aware entry points for `STOCKTAKE_APPROVE` and `DISPOSAL_APPROVE`; direct calls own a transaction and Sync Batch callers reuse the outer transaction.
+- Stocktake approval locks the session, counted lines and FEFO batches; requires a counted line for each batch in the session warehouse, validates the recorded expected quantity against the current locked batch balance, applies counted carton/loose quantities, updates aggregate product stock, and appends signed stock movements. Duplicate batch lines, stale counts, uncounted lines, invalid approvers, and cross-branch references are rejected.
+- Disposal approval locks the draft document and its batches, checks warehouse ownership and available quantity, values items at the authoritative batch carrying cost (not client-supplied cost), reduces batch and aggregate stock, records disposal movements, and atomically posts the loss journal.
+- Added migration 011 to seed branch-scoped accounts 4100 (stocktake surplus) and 5100 (inventory shrinkage/disposal loss). Disposal is debited to 5100 and credited to inventory 1200; stocktake gains use 1200/4100 and shortages use 5100/1200. COGS 5000 is not reused for disposal losses.
+- Added approval routes and Sync Batch operation types, and extended the durable local sync queue allowlist. The stocktake request may carry `sessionId`, `warehouseId`, `sessionNo`, `approvedByUserId`, and counted `lines`; disposal may carry `disposalId`, `warehouseId`, `disposalNo`, `reason`, `approvedByUserId`, and `items`. Existing server-side draft documents are approved in place; missing documents are created from the complete payload.
+- Added PostgreSQL integration tests for stocktake/disposal balances, balanced journals, movement count, and repeated approval. Tests and CI are not yet observed for this revision; do not treat the feature as validated until the PostgreSQL-enabled workflow passes.
+- No Neon production DDL/DML, production data changes, deployment, or release were performed.

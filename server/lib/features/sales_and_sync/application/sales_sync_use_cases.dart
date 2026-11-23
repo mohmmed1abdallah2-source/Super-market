@@ -49,6 +49,8 @@ class ProcessSyncBatchUseCase {
       'VOUCHER',
       'PURCHASE_INVOICE',
       'PURCHASE_RETURN',
+      'STOCKTAKE_APPROVE',
+      'DISPOSAL_APPROVE',
     };
     for (final operation in command.operations) {
       if (!allowed.contains(operation.operationType)) {

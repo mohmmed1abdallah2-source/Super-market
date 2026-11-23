@@ -8,6 +8,8 @@ import 'package:shelf_router/shelf_router.dart';
 import '../application/purchase_invoice_posting.dart';
 import '../application/purchase_return_posting.dart';
 import '../data/postgres_inventory_purchases_read_repository.dart';
+import '../../sales_and_sync/application/sales_sync_use_cases.dart';
+import '../../sales_and_sync/domain/sales_sync_domain.dart';
 
 /// Read endpoints for the existing branch-scoped inventory/purchase API.
 final class InventoryPurchasesRoutes {
@@ -15,12 +17,14 @@ final class InventoryPurchasesRoutes {
     required this.repository,
     required this.postPurchaseInvoice,
     required this.postPurchaseReturn,
+    required this.processSyncBatch,
     required this.branchTokens,
   });
 
   final PostgresInventoryPurchasesReadRepository repository;
   final PostPurchaseInvoiceUseCase postPurchaseInvoice;
   final PostPurchaseReturnUseCase postPurchaseReturn;
+  final ProcessSyncBatchUseCase processSyncBatch;
   final Map<String, String> branchTokens;
 
   Router get router {
@@ -30,6 +34,8 @@ final class InventoryPurchasesRoutes {
     router.get('/v1/inventory/batches', _listBatches);
     router.get('/v1/inventory/movements', _listMovements);
     router.get('/v1/inventory/stocktaking', _listStocktaking);
+    router.post('/v1/inventory/stocktaking/<sessionId>/approve', _approveStocktake);
+    router.post('/v1/inventory/disposals', _approveDisposal);
     router.get('/v1/purchases/shortages', _listShortages);
     router.post('/v1/purchases/invoices', _postPurchaseInvoice);
     router.post('/v1/purchases/returns', _postPurchaseReturn);
@@ -95,6 +101,52 @@ final class InventoryPurchasesRoutes {
           ),
         }),
       );
+
+  Future<Response> _approveStocktake(Request request) => _guard(
+        request,
+        () async {
+          final body = await _body(request);
+          body['sessionId'] = request.params['sessionId'];
+          return _processApproval(request, body, 'STOCKTAKE_APPROVE');
+        },
+      );
+
+  Future<Response> _approveDisposal(Request request) => _guard(
+        request,
+        () async {
+          final body = await _body(request);
+          body['disposalId'] ??= body['id'];
+          return _processApproval(request, body, 'DISPOSAL_APPROVE');
+        },
+      );
+
+  Future<Response> _processApproval(
+    Request request,
+    Map<String, dynamic> body,
+    String operationType,
+  ) async {
+    final operationId = (body['operationId'] as String?)?.trim().isNotEmpty == true
+        ? (body['operationId'] as String).trim()
+        : _idempotencyKey(request);
+    final result = await processSyncBatch(SyncBatchCommand(
+      branchId: _branchId(request),
+      batchId: operationId,
+      idempotencyKey: _idempotencyKey(request),
+      requestHash: _hash(body),
+      operations: [
+        SyncOperation(
+          operationId: operationId,
+          operationType: operationType,
+          payload: body,
+        ),
+      ],
+    ));
+    final results = result['results'];
+    if (results is Map && results[operationId] is Map) {
+      return _json(200, Map<String, dynamic>.from(results[operationId] as Map));
+    }
+    return _json(200, result);
+  }
 
   Future<Response> _postPurchaseInvoice(Request request) => _guard(
         request,

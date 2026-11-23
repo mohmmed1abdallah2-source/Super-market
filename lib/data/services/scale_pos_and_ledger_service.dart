@@ -345,6 +345,8 @@ class LocalPosAndLedgerEngine {
       'VOUCHER',
       'PURCHASE_INVOICE',
       'PURCHASE_RETURN',
+      'STOCKTAKE_APPROVE',
+      'DISPOSAL_APPROVE',
     };
     final type = operationType.trim().toUpperCase();
     if (!supported.contains(type)) {

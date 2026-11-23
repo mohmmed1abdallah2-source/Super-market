@@ -284,3 +284,9 @@ The format follows Keep a Changelog. Version numbers will be assigned when relea
 - Added PostgreSQL rollback, retry, payload-conflict and branch-scope integration coverage. Flutter Validation #219 passed all 26 server tests against disposable PostgreSQL 18.
 - Added a generic local queue envelope for the five operation types currently accepted by the server batch endpoint; validation is pending in Flutter Validation #223 and Delivery Gates #153.
 - Stocktake approval, disposal and warehouse transfer posting/sync remain outstanding; client DTOs and local tables alone do not establish server support.
+
+
+## 2026-11-23
+
+- Implemented transactional server posting for stocktake approval and inventory disposal, including batch-level quantity reconciliation, aggregate stock updates, movement ledger entries, balanced journal entries, branch-scoped approval users, and replay-safe approved-document handling.
+- Added migration 011 for dedicated stocktake-surplus and inventory-loss accounts, wired both operations into Sync Batch and the offline queue, and added PostgreSQL integration coverage. Validation is pending; no CI pass is claimed yet.

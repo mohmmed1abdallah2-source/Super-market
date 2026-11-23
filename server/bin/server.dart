@@ -63,6 +63,7 @@ Future<void> main(List<String> arguments) async {
     postPurchaseInvoice: PostPurchaseInvoiceUseCase(purchasePostingRepository),
     postPurchaseReturn:
         PostPurchaseReturnUseCase(purchaseReturnPostingRepository),
+    processSyncBatch: ProcessSyncBatchUseCase(salesRepository),
     branchTokens: branchTokens,
   );
 

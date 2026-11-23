@@ -396,3 +396,23 @@ These early calculator commits are on `feature/multi-store-isolation-foundation`
 - Validation for the offline queue change is pending in Flutter Validation #223 and Delivery Gates #153. Do not count either as passed until completed.
 - Remaining work: implement server-side transactional posting and batch support for stocktake approval, disposal and warehouse transfer; add matching offline queue payload contracts and tests; complete end-to-end retry/acknowledgment coverage. The client has local schema and DTO/API method declarations for these workflows, but the current server route/repository does not yet provide their posting endpoints.
 - No production Neon DDL/DML, deployment, release, restore, or branch deletion was performed.
+
+
+## 2026-11-23 — Stocktake/disposal implementation handover
+
+### Implemented in source; validation pending
+
+- New server repository: `server/lib/features/inventory_and_purchases/data/postgres_inventory_approval_repository.dart`.
+- `STOCKTAKE_APPROVE`: locks session and batch rows, checks count completeness and snapshot freshness, reconciles counted carton/loose quantity against each batch, updates product aggregate stock, writes `STOCKTAKE_ADJUSTMENT` movements, and posts variance journals.
+- `DISPOSAL_APPROVE`: locks disposal and batch rows, validates warehouse and quantity, derives cost from the locked batch, reduces FEFO and aggregate stock, writes `DISPOSAL_OUT` movements, and posts debit 5100 / credit 1200.
+- Migration `docs/neon/011_inventory_adjustment_accounts.sql` creates branch accounts 4100 and 5100. Apply it only through the approved migration process; this implementation did not apply it to Neon Production.
+- Added direct routes `POST /v1/inventory/stocktaking/{sessionId}/approve` and `POST /v1/inventory/disposals`; both delegate to the same transactional Sync Batch path. Complete payloads can create the draft document and lines/items when absent.
+- Added Sync Batch allowlist and local queue support for `STOCKTAKE_APPROVE` and `DISPOSAL_APPROVE`; added `server/test/postgres_inventory_approval_test.dart` for approval/retry and stock/journal/movement assertions.
+
+### Important constraints and next verification
+
+- Stocktake approval currently requires FEFO batch-specific lines in the selected warehouse. It deliberately rejects aggregate-only lines because the server cannot safely attribute a warehouse-specific count to an unlocated global balance.
+- The server compares each stocktake expected quantity to the currently locked batch quantity; if stock moved after counting, the approval fails and requires a recount.
+- Each document must not list the same batch more than once. Disposal valuation always uses the locked batch unit cost.
+- CI must validate Dart formatting/analyzer, PostgreSQL 18 migrations including 011, stocktake/disposal integration tests, and all existing tests. Review the run logs before claiming success.
+- Next remaining Iteration 3 work includes stock transfer posting, full offline queue acknowledgment/recovery integration, and the outstanding financial-precision audit.

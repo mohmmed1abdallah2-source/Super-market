@@ -10,6 +10,7 @@ import '../../inventory_and_purchases/application/purchase_invoice_posting.dart'
 import '../../inventory_and_purchases/application/purchase_return_posting.dart';
 import '../../inventory_and_purchases/data/postgres_purchase_invoice_posting_repository.dart';
 import '../../inventory_and_purchases/data/postgres_purchase_return_posting_repository.dart';
+import '../../inventory_and_purchases/data/postgres_inventory_approval_repository.dart';
 import '../../inventory_and_purchases/domain/purchase_and_fefo_calculator.dart';
 import '../domain/sales_sync_domain.dart';
 
@@ -173,6 +174,7 @@ class PostgresSalesSyncRepository implements SalesSyncRepository {
         }
 
         final accepted = <String>[];
+        final operationResults = <String, Map<String, Object?>>{};
         for (final operation in command.operations) {
           await ctx.mappedResultsQuery(
             'SELECT pg_advisory_xact_lock(hashtextextended(@lockKey, 0)) AS locked',
@@ -202,6 +204,15 @@ class PostgresSalesSyncRepository implements SalesSyncRepository {
             if (storedPayloadHash != null &&
                 storedPayloadHash != _operationPayloadHash(operation.payload)) {
               throw StateError('OPERATION_ID_REUSED');
+            }
+            if (operation.operationType == 'STOCKTAKE_APPROVE') {
+              operationResults[operation.operationId] =
+                  await PostgresInventoryApprovalRepository(_connection)
+                      .approveStocktakeInTransaction(ctx, branchId: command.branchId, payload: operation.payload);
+            } else if (operation.operationType == 'DISPOSAL_APPROVE') {
+              operationResults[operation.operationId] =
+                  await PostgresInventoryApprovalRepository(_connection)
+                      .postDisposalInTransaction(ctx, branchId: command.branchId, payload: operation.payload);
             }
             accepted.add(operation.operationId);
             continue;
@@ -250,6 +261,18 @@ class PostgresSalesSyncRepository implements SalesSyncRepository {
                 manageIdempotency: false,
               );
               break;
+            case 'STOCKTAKE_APPROVE':
+              operationResults[operation.operationId] =
+                  await PostgresInventoryApprovalRepository(_connection)
+                      .approveStocktakeInTransaction(
+                ctx, branchId: command.branchId, payload: operation.payload);
+              break;
+            case 'DISPOSAL_APPROVE':
+              operationResults[operation.operationId] =
+                  await PostgresInventoryApprovalRepository(_connection)
+                      .postDisposalInTransaction(
+                ctx, branchId: command.branchId, payload: operation.payload);
+              break;
             default:
               throw FormatException('Unsupported operation type: ${operation.operationType}');
           }
@@ -267,6 +290,7 @@ class PostgresSalesSyncRepository implements SalesSyncRepository {
         final response = <String, Object?>{
           'batchId': command.batchId,
           'acceptedIds': accepted,
+          'results': operationResults,
           'rejected': const <Object>[],
           'serverTime': DateTime.now().toUtc().toIso8601String(),
           'replayed': false,
