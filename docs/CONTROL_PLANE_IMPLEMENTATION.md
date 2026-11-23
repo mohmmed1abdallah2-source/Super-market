@@ -73,5 +73,5 @@ The branch now includes a disposable PostgreSQL schema assertion script and a CI
 - Add rate limiting, account lockout/backoff, refresh-token rotation, password-reset/invitation lifecycle and audit events.
 - Implement the production secret-store adapter and the provisioning saga (create least-privilege role/database, run store migrations, save secret reference, mark store active; recover/compensate partial failure).
 - Wire every business route and sync batch to the verified context and remove static branch-token auth from production paths.
-- Add integration tests for sign-in, membership denial, token expiry/revocation, refresh replay, concurrent store switching and actual database A/B isolation.
+- Extend integration tests for token expiry/revocation, refresh replay, concurrent store switching and actual database A/B isolation. Sign-in, one-time activation, membership denial and session revocation now have a PostgreSQL integration test wired to the separate disposable control-plane database.
 - Run current CI on the exact head and fix any failures before considering this slice accepted.
