@@ -133,3 +133,12 @@ New tests:
 - The recovery query now uses a deterministic `queued_at, id` order and excludes soft-deleted queue rows, preserving the same batch envelope across retries when timestamps collide.
 - Local fridge-temperature capture now validates the active warehouse, optional warehouse location, and optional active recorder before writing the log and queue row.
 - Latest source commit for these follow-ups: `6853a7ea0af49f3fbc4ea0a774226fb3d7d64f87`. CI verification remains pending/unconfirmed for this exact revision.
+
+
+### Remaining scope — do not mark offline inventory fully closed
+
+- Purchase-order creation/editing is not yet a Sync Batch operation. Purchase invoices reconcile received quantities against existing orders, but that does not synchronize creation of the order itself.
+- Warehouse/location master-data writes are not part of the current Sync Batch contract.
+- The generic durable queue can carry the existing purchase invoice/return, stocktake approval, disposal approval and transfer payloads, but this milestone adds explicit local business-row + queue transactions only for stocktake creation and fridge-temperature readings. Do not infer that every remaining inventory workflow already has a complete local UI/write path.
+- The application login in `lib/main.dart` is local-only. The authenticated API client and branch must be supplied by a real session/bootstrap integration before automatic restart recovery can run in the live app.
+- Therefore this milestone closes the missing stocktake-create/fridge-log batch handlers and establishes/test-covers the queue recovery mechanism, but **does not certify every inventory UI workflow or the entire offline-first product scope as complete**.
