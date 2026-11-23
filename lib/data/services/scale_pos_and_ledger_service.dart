@@ -414,6 +414,26 @@ class LocalPosAndLedgerEngine {
     if (branchId.trim().isEmpty || payload.isEmpty) {
       throw ArgumentError('A branch and non-empty operation payload are required.');
     }
+    if (type == 'STOCKTAKE_CREATE') {
+      final lines = payload['lines'];
+      if (payload['sessionId'] is! String ||
+          payload['warehouseId'] is! String ||
+          payload['sessionNo'] is! String ||
+          lines is! List ||
+          lines.isEmpty ||
+          lines.length > 500 ||
+          lines.any((line) => line is! Map<String, dynamic>)) {
+        throw ArgumentError('A stocktake create operation requires its identity, warehouse and counted lines.');
+      }
+    }
+    if (type == 'FRIDGE_TEMPERATURE_LOG') {
+      if (payload['logId'] is! String ||
+          payload['warehouseId'] is! String ||
+          payload['temperatureC'] is! String) {
+        throw ArgumentError('A fridge temperature operation requires logId, warehouseId and temperatureC.');
+      }
+      ScaledDecimal.fromString(payload['temperatureC'] as String, scale: 2);
+    }
     if (type == 'STOCK_TRANSFER') {
       final items = payload['items'];
       if (payload['transferId'] is! String ||
@@ -456,6 +476,200 @@ class LocalPosAndLedgerEngine {
     });
     unawaited(_syncAfterCommit(branchId));
     return _stableUuid('uuid-$queueId');
+  }
+
+  /// Creates and stores a counted stocktake locally before queueing it.
+  ///
+  /// Expected batch quantities and conversion factors are snapshotted from the
+  /// local FEFO records. The server revalidates these snapshots when replayed.
+  Future<String> createStocktakingSessionOffline({
+    required String branchId,
+    required String warehouseId,
+    required String sessionNo,
+    required List<Map<String, dynamic>> lines,
+    bool blindCount = true,
+  }) async {
+    if (branchId.trim().isEmpty ||
+        warehouseId.trim().isEmpty ||
+        sessionNo.trim().isEmpty ||
+        lines.isEmpty ||
+        lines.length > 500) {
+      throw ArgumentError('A branch, warehouse, session number and 1-500 lines are required.');
+    }
+    final db = await _helper.database;
+    final sessionId = _localId('stocktake');
+    final queueId = _localId('sync-operation');
+    final now = DateTime.now().toUtc().toIso8601String();
+    final queuedLines = <Map<String, dynamic>>[];
+
+    await db.transaction((txn) async {
+      final warehouses = await txn.query(
+        'warehouses',
+        where: 'id=? AND branch_id=? AND is_active=1 AND is_deleted=0',
+        whereArgs: [warehouseId, branchId],
+        limit: 1,
+      );
+      if (warehouses.isEmpty) throw StateError('Warehouse is not active in this branch.');
+
+      final seenBatches = <String>{};
+      for (final line in lines) {
+        final productId = line['productId']?.toString();
+        final batchId = line['productBatchId']?.toString();
+        final cartons = line['countedSealedCartons'];
+        if (productId == null ||
+            productId.isEmpty ||
+            batchId == null ||
+            batchId.isEmpty ||
+            cartons is! int ||
+            cartons < 0 ||
+            !seenBatches.add(batchId)) {
+          throw ArgumentError('Each stocktake line needs a unique batch, product and non-negative carton count.');
+        }
+        final batches = await txn.query(
+          'product_batches_fefo',
+          where: 'id=? AND branch_id=? AND warehouse_id=? AND is_deleted=0',
+          whereArgs: [batchId, branchId, warehouseId],
+          limit: 1,
+        );
+        if (batches.isEmpty || batches.single['product_id'] != productId) {
+          throw StateError('Stocktake batch does not belong to the selected product and warehouse.');
+        }
+        final batch = batches.single;
+        final factor = ScaledDecimal.parse(batch['pack_conversion_factor'], scale: 6);
+        final expected = ScaledDecimal.parse(batch['total_base_qty'], scale: 6);
+        final loose = ScaledDecimal.parse(line['countedLooseBaseQty'], scale: 6);
+        if (loose.isNegative || loose.compareTo(factor) >= 0) {
+          throw ArgumentError('Loose counted quantity must be non-negative and below one pack.');
+        }
+        final counted = factor.multiply(
+          ScaledDecimal.parse(cartons, scale: 6),
+          resultScale: 6,
+        ) + loose;
+        final lineId = line['id']?.toString() ?? _localId('stocktake-line');
+        final snapshot = <String, dynamic>{
+          'id': lineId,
+          'productId': productId,
+          'productBatchId': batchId,
+          'countedSealedCartons': cartons,
+          'countedLooseBaseQty': loose.toFixedString(),
+          'expectedBaseQty': expected.toFixedString(),
+          'packConversionFactor': factor.toFixedString(),
+        };
+        queuedLines.add(snapshot);
+        await txn.insert('stocktaking_lines', {
+          ..._base(lineId, branchId, now),
+          'session_id': sessionId,
+          'product_id': productId,
+          'product_batch_id': batchId,
+          'expected_base_qty': expected.toFixedString(),
+          'counted_sealed_cartons': cartons,
+          'counted_loose_base_qty': loose.toFixedString(),
+          'pack_conversion_factor': factor.toFixedString(),
+          'counted_base_qty': counted.toFixedString(),
+          'variance_base_qty': (counted - expected).toFixedString(),
+          'counted_at': now,
+        });
+      }
+
+      await txn.insert('stocktaking_sessions', {
+        ..._base(sessionId, branchId, now),
+        'warehouse_id': warehouseId,
+        'session_no': sessionNo,
+        'status': 'COUNTING',
+        'blind_count': blindCount ? 1 : 0,
+        'started_at': now,
+      });
+      await txn.insert('sync_queue', {
+        'id': queueId,
+        'uuid': 'uuid-$queueId',
+        'branch_id': branchId,
+        'table_name': 'sync_operations',
+        'row_uuid': queueId,
+        'operation': 'INSERT',
+        'payload_json': jsonEncode({
+          'operationType': 'STOCKTAKE_CREATE',
+          'payload': {
+            'sessionId': sessionId,
+            'warehouseId': warehouseId,
+            'sessionNo': sessionNo,
+            'blindCount': blindCount,
+            'lines': queuedLines,
+          },
+        }),
+        'sync_version': 1,
+        'batch_id': null,
+        'status': 'PENDING',
+        'queued_at': now,
+        'created_at': now,
+        'updated_at': now,
+        'is_deleted': 0,
+      });
+    });
+    unawaited(_syncAfterCommit(branchId));
+    return sessionId;
+  }
+
+  /// Stores a cold-storage temperature reading locally and queues its upload.
+  Future<String> recordFridgeTemperatureOffline({
+    required String branchId,
+    required String warehouseId,
+    required String temperatureC,
+    String? locationId,
+    String? recordedByUserId,
+    String note = '',
+    DateTime? measuredAt,
+  }) async {
+    if (branchId.trim().isEmpty || warehouseId.trim().isEmpty) {
+      throw ArgumentError('A branch and warehouse are required.');
+    }
+    final temperature = ScaledDecimal.fromString(temperatureC, scale: 2);
+    final db = await _helper.database;
+    final logId = _localId('fridge-temp');
+    final queueId = _localId('sync-operation');
+    final now = DateTime.now().toUtc().toIso8601String();
+    final measured = (measuredAt ?? DateTime.now()).toUtc().toIso8601String();
+    final payload = <String, dynamic>{
+      'logId': logId,
+      'warehouseId': warehouseId,
+      'locationId': locationId,
+      'temperatureC': temperature.toFixedString(),
+      'measuredAt': measured,
+      'recordedByUserId': recordedByUserId,
+      'note': note,
+    };
+
+    await db.transaction((txn) async {
+      await txn.insert('fridge_temp_logs', {
+        ..._base(logId, branchId, now),
+        'warehouse_id': warehouseId,
+        'location_id': locationId,
+        'temperature_c': temperature.toFixedString(),
+        'measured_at': measured,
+        'recorded_by_user_id': recordedByUserId,
+        'note': note,
+      });
+      await txn.insert('sync_queue', {
+        'id': queueId,
+        'uuid': 'uuid-$queueId',
+        'branch_id': branchId,
+        'table_name': 'sync_operations',
+        'row_uuid': queueId,
+        'operation': 'INSERT',
+        'payload_json': jsonEncode({
+          'operationType': 'FRIDGE_TEMPERATURE_LOG',
+          'payload': payload,
+        }),
+        'sync_version': 1,
+        'batch_id': null,
+        'status': 'PENDING',
+        'queued_at': now,
+        'created_at': now,
+        'updated_at': now,
+        'is_deleted': 0,
+      });
+    });
+    unawaited(_syncAfterCommit(branchId));
+    return logId;
   }
 
   /// Sends at most 100 pending local events through the idempotent batch API.
