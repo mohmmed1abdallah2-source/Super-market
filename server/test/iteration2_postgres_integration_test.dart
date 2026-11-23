@@ -252,6 +252,22 @@ void main() {
         final retry = await ledger.postVoucher(command);
         expect(retry['id'], first['id']);
 
+        await expectLater(
+          ledger.postVoucher(PostVoucherCommand(
+            branchId: 'branch-main',
+            operationId: uuid.v4(),
+            voucherType: LedgerVoucherType.receipt,
+            partyId: party['id'] as String,
+            cashAccountId: 'cash-drawer',
+            amount: MoneyAmount.parse('1.0000'),
+            method: 'WALLET',
+            idempotencyKey: 'integration-voucher-kind-' + uuid.v4(),
+            requestHash: List.filled(64, 'b').join(),
+            walletRefNo: 'REF-123456',
+          )),
+          throwsA(isA<StateError>()),
+        );
+
         final balance = await connection.mappedResultsQuery(
           'SELECT total_lah::text AS lah, total_alayh::text AS alayh FROM v_party_balance WHERE party_id=@party',
           substitutionValues: {'party': party['id']},
