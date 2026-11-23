@@ -455,3 +455,12 @@ These early calculator commits are on `feature/multi-store-isolation-foundation`
 - Recovery ordering now has a deterministic secondary key and excludes soft-deleted queue rows.
 - Local fridge-temperature writes validate warehouse, location and recorder ownership before committing the temperature log and sync envelope.
 - Latest source commit: `6853a7ea0af49f3fbc4ea0a774226fb3d7d64f87`. CI results for this exact revision are not yet confirmed.
+
+## 2026-11-24 — Fixed-scale sale/voucher posting and CI follow-up
+
+- Live `_applySale` now uses `MoneyAmount` for invoice/tender/discount/credit/cash/COGS totals and `ScaledDecimal` for sale/base quantities; it calls the shared `SaleMoneyCalculator` for line totals and inventory cost.
+- Voucher posting now uses `MoneyAmount` for amount validation, cash balance checks, journal/cash/ledger writes. The sales/sync repository source no longer contains Dart `double` arithmetic/parsing.
+- A PostgreSQL CI failure on the preceding source revision was isolated to the fridge-temperature note assertion: the stored row did not return the supplied note. The INSERT binding was renamed to `noteText` and now accepts either `note` or `notes`; verification is pending.
+- These source changes are not considered validated until PostgreSQL integration CI passes on the exact head. Financial precision remains open pending the live sale/voucher regression suite.
+- The running app still has local SQLite sign-in and does not construct an authenticated `ApiClient`; the provider's awaited restart-recovery hook therefore remains unconnected to a real online session.
+- No Neon production DDL/DML, deployment, or release was performed.
