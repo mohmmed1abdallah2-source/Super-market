@@ -423,3 +423,13 @@
 - The inventory posting implementation uses `ScaledDecimal` for six-place quantity/cost multiplication and four-place journal amounts; no binary floating-point arithmetic is used for the new posting valuation.
 - In run #228, Flutter analyze/tests and Web build passed; Android APK and Windows build were still running at the time of this note.
 - Tested application source: `af1a60b0ddbd41fb8e647b1203d6541dae624bf5`. No Neon Production migration or DML was executed.
+
+
+## 2026-11-23 — Stock transfer and inventory sync batch implementation
+
+- Added transaction-aware `STOCK_TRANSFER` posting to the existing inventory approval repository. A transfer validates both active warehouses against the authenticated branch, locks source batches and destination lot identity, checks available quantity, and moves stock while preserving lot number, expiry, conversion factor, unit cost, purchase provenance, and original batch creation time.
+- Source and destination quantities are represented as separate rows in the existing append-only `stock_movements` ledger (`TRANSFER_OUT` / `TRANSFER_IN`). The destination batch is merged only when its lot metadata and provenance match; otherwise a new destination batch is created. Aggregate branch product stock is unchanged by an internal transfer.
+- Added `STOCK_TRANSFER` to the single-transaction Sync Batch dispatcher, including receipt replay and payload-hash conflict handling; added the authenticated `POST /v1/inventory/transfers` endpoint.
+- Added `STOCK_TRANSFER` to the durable SQLite `sync_queue` operation allowlist. It uses the existing stable queue UUID for operation identity and is acknowledged only when its operation ID appears in the server's accepted IDs; retries retain the same identity.
+- Added PostgreSQL integration coverage for a mixed stocktake + disposal + transfer batch, retry idempotency, preserved destination lot metadata, movement pair, and rollback on an invalid transfer. CI validation is pending for this source revision; no success is claimed until the PostgreSQL workflow logs are reviewed.
+- No Neon Production DDL/DML, deployment, or release was performed.

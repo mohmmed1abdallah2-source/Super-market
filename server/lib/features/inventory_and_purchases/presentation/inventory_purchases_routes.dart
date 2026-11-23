@@ -36,6 +36,7 @@ final class InventoryPurchasesRoutes {
     router.get('/v1/inventory/stocktaking', _listStocktaking);
     router.post('/v1/inventory/stocktaking/<sessionId>/approve', _approveStocktake);
     router.post('/v1/inventory/disposals', _approveDisposal);
+    router.post('/v1/inventory/transfers', _executeStockTransfer);
     router.get('/v1/purchases/shortages', _listShortages);
     router.post('/v1/purchases/invoices', _postPurchaseInvoice);
     router.post('/v1/purchases/returns', _postPurchaseReturn);
@@ -117,6 +118,15 @@ final class InventoryPurchasesRoutes {
           final body = await _body(request);
           body['disposalId'] ??= body['id'];
           return _processApproval(request, body, 'DISPOSAL_APPROVE');
+        },
+      );
+
+  Future<Response> _executeStockTransfer(Request request) => _guard(
+        request,
+        () async {
+          final body = await _body(request);
+          body['transferId'] ??= body['id'];
+          return _processApproval(request, body, 'STOCK_TRANSFER');
         },
       );
 

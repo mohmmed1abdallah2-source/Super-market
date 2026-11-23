@@ -347,6 +347,7 @@ class LocalPosAndLedgerEngine {
       'PURCHASE_RETURN',
       'STOCKTAKE_APPROVE',
       'DISPOSAL_APPROVE',
+      'STOCK_TRANSFER',
     };
     final type = operationType.trim().toUpperCase();
     if (!supported.contains(type)) {
@@ -358,6 +359,21 @@ class LocalPosAndLedgerEngine {
     }
     if (branchId.trim().isEmpty || payload.isEmpty) {
       throw ArgumentError('A branch and non-empty operation payload are required.');
+    }
+    if (type == 'STOCK_TRANSFER') {
+      final items = payload['items'];
+      if (payload['transferId'] is! String ||
+          (payload['transferId'] as String).trim().isEmpty ||
+          payload['transferNo'] is! String ||
+          payload['sourceWarehouseId'] is! String ||
+          payload['destinationWarehouseId'] is! String ||
+          items is! List || items.isEmpty ||
+          items.any((item) => item is! Map<String, dynamic>)) {
+        throw ArgumentError('A stock transfer requires its identity, both warehouses and batch items.');
+      }
+      if (payload['sourceWarehouseId'] == payload['destinationWarehouseId']) {
+        throw ArgumentError('A stock transfer must use two different warehouses.');
+      }
     }
 
     final db = await _helper.database;

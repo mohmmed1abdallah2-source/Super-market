@@ -297,3 +297,12 @@ The format follows Keep a Changelog. Version numbers will be assigned when relea
 - PostgreSQL-enabled Flutter Validation #228 passed migration/schema setup on PostgreSQL 18, Dart server analysis, and all 30 server tests, including both new stocktake/disposal approval integration tests and exact decimal valuation.
 - Flutter analyze/tests and Web build passed in the same run; Android APK and Windows build were still in progress when this note was added.
 - Verified source commit: `af1a60b0ddbd41fb8e647b1203d6541dae624bf5`. Production Neon was not migrated or modified.
+
+
+### 2026-11-23 — Inter-warehouse stock transfer and batch sync
+
+- Added branch-scoped, transactional `STOCK_TRANSFER` execution with source/destination warehouse validation, locked batch quantities, destination lot merge/create behavior, and paired `TRANSFER_OUT` / `TRANSFER_IN` movements in the existing stock ledger.
+- Wired stocktake approval, disposal approval, and stock transfer through the same atomic Sync Batch transaction and added the authenticated transfer endpoint.
+- Enabled transfer operations in the durable SQLite offline queue using stable operation IDs and accepted-ID-based acknowledgment.
+- Added a PostgreSQL integration test covering all three operations in one batch, idempotent replay, batch/cost/expiry preservation, and rollback. CI is pending; this entry will be updated with the actual result after workflow inspection.
+- Production Neon and deployments remain untouched.

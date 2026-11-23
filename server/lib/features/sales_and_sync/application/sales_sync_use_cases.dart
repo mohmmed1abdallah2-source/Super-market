@@ -51,10 +51,31 @@ class ProcessSyncBatchUseCase {
       'PURCHASE_RETURN',
       'STOCKTAKE_APPROVE',
       'DISPOSAL_APPROVE',
+      'STOCK_TRANSFER',
     };
     for (final operation in command.operations) {
       if (!allowed.contains(operation.operationType)) {
         throw FormatException('Unsupported operation type: ${operation.operationType}');
+      }
+      if (operation.operationType == 'STOCK_TRANSFER') {
+        final items = operation.payload['items'];
+        if (items is! List || items.isEmpty) {
+          throw const FormatException('STOCK_TRANSFER must contain at least one batch item.');
+        }
+        for (final key in const ['transferId', 'transferNo', 'sourceWarehouseId', 'destinationWarehouseId']) {
+          final value = operation.payload[key];
+          if (value is! String || value.trim().isEmpty) {
+            throw FormatException('STOCK_TRANSFER requires $key.');
+          }
+        }
+        if (operation.payload['sourceWarehouseId'] == operation.payload['destinationWarehouseId']) {
+          throw const FormatException('STOCK_TRANSFER warehouses must be different.');
+        }
+        for (final item in items) {
+          if (item is! Map<String, dynamic>) {
+            throw const FormatException('Every STOCK_TRANSFER item must be a JSON object.');
+          }
+        }
       }
       if (operation.operationType == 'PURCHASE_INVOICE' ||
           operation.operationType == 'PURCHASE_RETURN') {

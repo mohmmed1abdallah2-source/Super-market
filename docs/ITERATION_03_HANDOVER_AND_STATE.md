@@ -423,3 +423,13 @@ These early calculator commits are on `feature/multi-store-isolation-foundation`
 - Flutter Validation #228: PostgreSQL 18 migration/schema setup succeeded, Dart server analysis succeeded, and all 30 server tests passed. The stocktake and disposal PostgreSQL integration tests both passed, including retries and journal balance/valuation assertions.
 - Flutter analyze/tests and Web build passed. Android APK and Windows build were still running when this entry was written.
 - New posting valuation uses `ScaledDecimal` at quantity/cost scale 6 and journal amount scale 4. The dedicated account migration 011 was exercised only in the disposable CI database; Neon Production remains untouched.
+
+
+### 2026-11-23 — Stock transfer + unified inventory Sync Batch (implementation pending CI)
+
+- Implemented `STOCK_TRANSFER` as a transaction-aware posting operation. The transfer verifies that both warehouses are active and belong to the authenticated branch, prevents same-warehouse transfers, locks source batches and destination lot identity, validates available quantity, and creates or merges the destination batch only when lot metadata and purchase provenance match.
+- The transfer preserves lot number, expiry date, pack conversion, unit cost, purchase-invoice-item provenance, and original batch creation timestamp. It records paired signed movements in the existing `stock_movements` ledger and leaves aggregate branch stock unchanged.
+- Added `STOCK_TRANSFER` to Sync Batch dispatch and receipt replay; stocktake approval, disposal approval, and transfer all run under the same batch transaction. Added `POST /v1/inventory/transfers`.
+- Added the transfer operation to SQLite `sync_queue`; stable queue UUIDs continue to provide the same operation identity across offline retries. Queue rows move to `BATCHED_SENT` only for IDs explicitly accepted by the server.
+- Added a PostgreSQL integration scenario for a mixed three-operation batch, duplicate batch replay, transfer movement/batch assertions, and rollback on insufficient source stock. Do not treat the implementation as validated until CI confirms PostgreSQL migration setup, analysis, and integration tests.
+- No production Neon migration, DML, deployment, or release was performed.

@@ -213,6 +213,10 @@ class PostgresSalesSyncRepository implements SalesSyncRepository {
               operationResults[operation.operationId] =
                   await PostgresInventoryApprovalRepository(_connection)
                       .postDisposalInTransaction(ctx, branchId: command.branchId, payload: operation.payload);
+            } else if (operation.operationType == 'STOCK_TRANSFER') {
+              operationResults[operation.operationId] =
+                  await PostgresInventoryApprovalRepository(_connection)
+                      .executeStockTransferInTransaction(ctx, branchId: command.branchId, payload: operation.payload);
             }
             accepted.add(operation.operationId);
             continue;
@@ -271,6 +275,12 @@ class PostgresSalesSyncRepository implements SalesSyncRepository {
               operationResults[operation.operationId] =
                   await PostgresInventoryApprovalRepository(_connection)
                       .postDisposalInTransaction(
+                ctx, branchId: command.branchId, payload: operation.payload);
+              break;
+            case 'STOCK_TRANSFER':
+              operationResults[operation.operationId] =
+                  await PostgresInventoryApprovalRepository(_connection)
+                      .executeStockTransferInTransaction(
                 ctx, branchId: command.branchId, payload: operation.payload);
               break;
             default:
