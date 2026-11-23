@@ -391,11 +391,11 @@ final class PostgresInventoryApprovalRepository {
     final itemRows = await ctx.mappedResultsQuery(
       '''SELECT i.id, i.product_batch_id AS batch, i.qty_base::text AS quantity,
                 i.cartons_moved AS cartons, b.product_id AS product,
-                b.batch_no AS batchNo, b.expiry_date::text AS expiry,
+                b.batch_no AS "batchNo", b.expiry_date::text AS expiry,
                 b.pack_conversion_factor::text AS factor,
                 b.total_base_qty::text AS available,
-                b.unit_cost_base::text AS cost, b.status AS batchStatus,
-                b.purchase_invoice_item_id AS purchaseItem, b.created_at AS sourceCreated,
+                b.unit_cost_base::text AS cost, b.status AS "batchStatus",
+                b.purchase_invoice_item_id AS "purchaseItem", b.created_at AS "sourceCreated",
                 b.warehouse_id AS warehouse
          FROM stock_transfer_items i
          JOIN product_batches_fefo b
@@ -445,7 +445,7 @@ final class PostgresInventoryApprovalRepository {
         '''SELECT id, expiry_date::text AS expiry,
                   pack_conversion_factor::text AS factor,
                   unit_cost_base::text AS cost, status,
-                  purchase_invoice_item_id AS purchaseItem
+                  purchase_invoice_item_id AS "purchaseItem"
            FROM product_batches_fefo
            WHERE branch_id=@branch AND product_id=@product
              AND warehouse_id=@destination AND batch_no=@batchNo
@@ -482,8 +482,8 @@ final class PostgresInventoryApprovalRepository {
              batch_no,expiry_date,pack_conversion_factor,sealed_cartons,loose_base_qty,
              status,unit_cost_base,created_at,updated_at)
            SELECT @id,@branch,@product,@destination,NULL,@purchaseItem,@batchNo,@expiry,
-             @factor,FLOOR(@quantity/@factor)::integer,
-             @quantity-FLOOR(@quantity/@factor)*@factor,
+             @factor,FLOOR(@quantity::numeric/@factor::numeric)::integer,
+             @quantity::numeric-FLOOR(@quantity::numeric/@factor::numeric)*@factor::numeric,
              CASE WHEN @expiry::date<CURRENT_DATE OR @sourceStatus='EXPIRED' THEN 'EXPIRED'
                WHEN @sourceStatus='HOLD' THEN 'HOLD' ELSE 'ACTIVE' END,
              @cost,@createdAt,@now''',
