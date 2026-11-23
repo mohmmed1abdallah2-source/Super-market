@@ -229,14 +229,20 @@ void main() {
         substitutionValues: {'product': product, 'branch': branch});
       expect(totals.single.values.first['qty'], '28.000000');
       final destinationRows = await db.mappedResultsQuery(
-        '''SELECT total_base_qty::text AS qty, batch_no,
+        '''SELECT total_base_qty::text AS qty,
                   unit_cost_base::text AS cost
            FROM product_batches_fefo
            WHERE branch_id=@branch AND product_id=@product AND warehouse_id=@warehouse''',
         substitutionValues: {'branch': branch, 'product': product, 'warehouse': destination});
       expect(destinationRows.single.values.first['qty'], '4.000000');
-      expect(destinationRows.single.values.first['batch_no'], 'IA-TRF-$suffix');
       expect(destinationRows.single.values.first['cost'], '2.123456');
+      // Read the physical lot identifier positionally: mappedResultsQuery groups
+      // columns by table metadata and can omit an unqualified column key.
+      final destinationBatchRows = await db.query(
+        '''SELECT batch_no FROM product_batches_fefo
+           WHERE branch_id=@branch AND product_id=@product AND warehouse_id=@warehouse''',
+        substitutionValues: {'branch': branch, 'product': product, 'warehouse': destination});
+      expect(destinationBatchRows.single[0], 'IA-TRF-$suffix');
       final movements = await db.mappedResultsQuery(
         '''SELECT movement_type AS type, COUNT(*)::int AS count
            FROM stock_movements WHERE branch_id=@branch
