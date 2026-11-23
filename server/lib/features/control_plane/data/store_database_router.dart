@@ -43,6 +43,11 @@ abstract interface class StoreSecretStore {
   Future<String> readSecret(String secretRef);
 }
 
+/// Write capability required only by the privileged store-provisioning service.
+abstract interface class StoreSecretWriter implements StoreSecretStore {
+  Future<void> writeSecret(String secretRef, String secret);
+}
+
 typedef StorePostgresConnectionFactory = PostgreSQLConnection Function({
   required String host,
   required int port,
