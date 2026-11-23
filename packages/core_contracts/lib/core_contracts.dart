@@ -664,7 +664,7 @@ class SyncOperationDto {
   /// Stable UUID of the logical operation.
   final String operationId;
 
-  /// PARTY_CREATE, SALE_INVOICE or VOUCHER.
+  /// Stable server operation type, including purchase and inventory writes.
   final String operationType;
 
   /// Operation-specific JSON payload.
