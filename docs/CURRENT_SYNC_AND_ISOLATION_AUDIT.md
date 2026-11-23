@@ -126,3 +126,10 @@ New tests:
 **Important integration boundary:** the current `lib/main.dart` login is still local SQLite username/password authentication and does not construct an authenticated `ApiClient`. The provider now exposes the awaited branch-scoped recovery hook, but a real server URL/token/session source must be supplied by the authentication/bootstrap layer before automatic network recovery can occur in the running app. Do not claim the live app is online-connected until that integration exists and is tested.
 
 **Validation status:** source and tests are committed; CI verification for these exact commits must be inspected before marking the new tests/builds as passed. No Neon production migration, production DDL/DML, deployment, or release was performed.
+
+
+### Follow-up hardening — 2026-11-24
+
+- The recovery query now uses a deterministic `queued_at, id` order and excludes soft-deleted queue rows, preserving the same batch envelope across retries when timestamps collide.
+- Local fridge-temperature capture now validates the active warehouse, optional warehouse location, and optional active recorder before writing the log and queue row.
+- Latest source commit for these follow-ups: `6853a7ea0af49f3fbc4ea0a774226fb3d7d64f87`. CI verification remains pending/unconfirmed for this exact revision.
