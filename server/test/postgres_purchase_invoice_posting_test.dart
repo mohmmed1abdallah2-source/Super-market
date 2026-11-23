@@ -542,6 +542,46 @@ void main() {
           ),
         );
         expect(invoiceBatchResult['acceptedIds'], [batchInvoiceOperationId]);
+        final invoiceBatchRetry = await syncRepository.processBatch(
+          syncCommand(
+            batchBranchId: branchId,
+            key: 'sync-invoice-retry-$branchId',
+            operations: [
+              SyncOperation(
+                operationId: batchInvoiceOperationId,
+                operationType: 'PURCHASE_INVOICE',
+                payload: batchInvoiceRequest,
+              ),
+            ],
+          ),
+        );
+        expect(invoiceBatchRetry['acceptedIds'], [batchInvoiceOperationId]);
+
+        final conflictingBatchInvoice = Map<String, dynamic>.from(batchInvoiceRequest)
+          ..['notes'] = 'changed after posting';
+        await expectLater(
+          syncRepository.processBatch(
+            syncCommand(
+              batchBranchId: branchId,
+              key: 'sync-invoice-conflict-$branchId',
+              operations: [
+                SyncOperation(
+                  operationId: batchInvoiceOperationId,
+                  operationType: 'PURCHASE_INVOICE',
+                  payload: conflictingBatchInvoice,
+                ),
+              ],
+            ),
+          ),
+          throwsA(
+            isA<StateError>().having(
+              (error) => error.message,
+              'message',
+              'OPERATION_ID_REUSED',
+            ),
+          ),
+        );
+
 
         final batchInvoiceRows = await connection.mappedResultsQuery(
           '''SELECT id::text AS id FROM purchase_invoices
