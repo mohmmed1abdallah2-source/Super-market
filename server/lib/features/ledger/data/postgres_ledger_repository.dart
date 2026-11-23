@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
+import 'package:core_contracts/core_contracts.dart';
 import 'package:postgres/postgres.dart';
 import 'package:uuid/uuid.dart';
 
@@ -165,7 +166,7 @@ class PostgresLedgerRepository implements LedgerRepository {
     final entries = <Map<String, Object?>>[];
     for (final row in whereRows) {
       final item = _flatten(row);
-      final running = _number(item['runningNet']);
+      final running = MoneyAmount.parse(item['runningNet']);
       final entryAt = (item['entry_date'] as DateTime).toUtc().toIso8601String();
       entries.add({
         'id': item['id'],
@@ -174,8 +175,8 @@ class PostgresLedgerRepository implements LedgerRepository {
         'entryType': item['entryType'],
         'alayhAmount': item['alayhAmount'],
         'lahAmount': item['lahAmount'],
-        'runningBalance': running.abs().toStringAsFixed(4),
-        'balanceSide': running > 0 ? 'ALAYH' : running < 0 ? 'LAH' : 'ZERO',
+        'runningBalance': running.toFixedString().replaceFirst('-', ''),
+        'balanceSide': running.isNegative ? 'LAH' : running.isZero ? 'ZERO' : 'ALAYH',
         'statement': item['statement'],
         'documentType': item['documentType'],
         'documentId': item['documentId'],
@@ -226,9 +227,9 @@ class PostgresLedgerRepository implements LedgerRepository {
       );
       if (cashRows.isEmpty) throw StateError('Cash account was not found.');
       final cash = _flatten(cashRows.single);
-      final oldBalance = _number(cash['currentBalance']);
+      final oldBalance = MoneyAmount.parse(cash['currentBalance']);
       final isReceipt = command.voucherType == LedgerVoucherType.receipt;
-      if (!isReceipt && oldBalance < command.amount) {
+      if (!isReceipt && oldBalance.compareTo(command.amount) < 0) {
         throw StateError('Insufficient cash-account balance.');
       }
 
@@ -262,10 +263,10 @@ class PostgresLedgerRepository implements LedgerRepository {
         },
       );
 
-      final cashDr = isReceipt ? command.amount : 0;
-      final cashCr = isReceipt ? 0 : command.amount;
-      final counterDr = isReceipt ? 0 : command.amount;
-      final counterCr = isReceipt ? command.amount : 0;
+      final cashDr = isReceipt ? command.amount.toFixedString() : '0.0000';
+      final cashCr = isReceipt ? '0.0000' : command.amount.toFixedString();
+      final counterDr = isReceipt ? '0.0000' : command.amount.toFixedString();
+      final counterCr = isReceipt ? command.amount.toFixedString() : '0.0000';
       await ctx.execute(
         '''INSERT INTO journal_lines
           (journal_entry_id, gl_account_id, dr_amount, cr_amount)
@@ -290,7 +291,7 @@ class PostgresLedgerRepository implements LedgerRepository {
         '''UPDATE cash_accounts SET current_balance = current_balance + @delta,
            updated_at = @now WHERE id = @id''',
         substitutionValues: {
-          'delta': isReceipt ? command.amount : -command.amount,
+          'delta': (isReceipt ? command.amount : -command.amount).toFixedString(),
           'now': now,
           'id': command.cashAccountId,
         },
@@ -311,7 +312,7 @@ class PostgresLedgerRepository implements LedgerRepository {
           'date': now,
           'party': command.partyId,
           'cash': command.cashAccountId,
-          'amount': command.amount,
+          'amount': command.amount.toFixedString(),
           'method': command.method,
           'walletRef': command.walletRefNo,
           'description': command.description,
@@ -331,8 +332,8 @@ class PostgresLedgerRepository implements LedgerRepository {
           'party': command.partyId,
           'date': now,
           'type': isReceipt ? 'RECEIPT' : 'PAYMENT',
-          'alayh': isReceipt ? 0 : command.amount,
-          'lah': isReceipt ? command.amount : 0,
+          'alayh': isReceipt ? '0.0000' : command.amount.toFixedString(),
+          'lah': isReceipt ? command.amount.toFixedString() : '0.0000',
           'doc': voucherId,
           'statement': command.description,
           'journal': journalId,
@@ -357,7 +358,7 @@ class PostgresLedgerRepository implements LedgerRepository {
         'voucherType': command.voucherType.name.toUpperCase(),
         'partyId': command.partyId,
         'cashAccountId': command.cashAccountId,
-        'amount': command.amount.toStringAsFixed(4),
+        'amount': command.amount.toFixedString(),
         'method': command.method,
         'createdAt': now.toIso8601String(),
         'walletRefNo': command.walletRefNo,
@@ -474,11 +475,6 @@ class PostgresLedgerRepository implements LedgerRepository {
 
   Map<String, Object?> _flatten(Map<String, Map<String, dynamic>> row) =>
       Map<String, Object?>.from(row.values.first);
-
-  double _number(Object? value) {
-    if (value is num) return value.toDouble();
-    return double.tryParse(value?.toString() ?? '') ?? 0;
-  }
 
   /// Calculates a SHA-256 request digest for idempotency storage.
   static String hashRequest(Map<String, Object?> request) =>
