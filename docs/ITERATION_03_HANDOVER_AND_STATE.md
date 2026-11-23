@@ -448,3 +448,10 @@ These early calculator commits are on `feature/multi-store-isolation-foundation`
 - **Not yet proven:** CI has not yet been confirmed for this exact source revision in this handover entry. Inspect the GitHub Actions logs before marking tests or builds passed.
 - **Not yet wired to a live online session:** `lib/main.dart` currently uses local SQLite credentials and does not construct an authenticated `ApiClient`. The provider recovery hook must be called with the active branch after a real authenticated API client is supplied.
 - No Neon production DDL/DML, deployment, release, or production restore was performed.
+
+
+### Follow-up hardening — 2026-11-24
+
+- Recovery ordering now has a deterministic secondary key and excludes soft-deleted queue rows.
+- Local fridge-temperature writes validate warehouse, location and recorder ownership before committing the temperature log and sync envelope.
+- Latest source commit: `6853a7ea0af49f3fbc4ea0a774226fb3d7d64f87`. CI results for this exact revision are not yet confirmed.
