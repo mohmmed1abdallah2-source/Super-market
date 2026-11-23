@@ -4,6 +4,7 @@ import 'package:shelf/shelf.dart';
 import 'package:shelf_router/shelf_router.dart';
 
 import '../data/postgres_control_plane_repository.dart';
+import '../data/store_database_router.dart';
 
 /// Identity and store-selection endpoints backed by the separate control plane.
 final class ControlPlaneRoutes {
@@ -100,7 +101,7 @@ final class ControlPlaneRoutes {
     }
   }
 
-  Future<dynamic> _authenticatedContext(Request request) async {
+  Future<StoreRequestContext?> _authenticatedContext(Request request) async {
     final token = _bearer(request);
     if (token == null) return null;
     try {
