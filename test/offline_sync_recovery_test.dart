@@ -173,6 +173,85 @@ void main() {
     await helper.close();
   });
 
+  test('sale sync payload normalizes legacy SQLite REAL values to decimal strings', () async {
+    final directory = await Directory.systemTemp.createTemp('erp-sale-wire-');
+    addTearDown(() => directory.delete(recursive: true));
+    final db = await openDatabaseAt('${directory.path}/sale.db', create: true);
+    final helper = DatabaseHelper.forDatabase(db);
+    final engine = LocalPosAndLedgerEngine(databaseHelper: helper);
+    final now = DateTime.now().toUtc().toIso8601String();
+    await db.insert('sync_queue', {
+      'id': 'queue-sale-1',
+      'uuid': 'uuid-queue-sale-1',
+      'branch_id': 'branch-a',
+      'table_name': 'sales_invoices',
+      'row_uuid': 'invoice-1',
+      'operation': 'INSERT',
+      'payload_json': jsonEncode({
+        'invoice': {
+          'remaining_alayh': 0.0,
+          'customer_party_id': null,
+          'price_tier': 'RETAIL',
+          'discount_amount': 0.0,
+          'change_returned': 0.0,
+        },
+        'items': [
+          {
+            'uuid': 'line-1',
+            'id': 'line-1',
+            'product_id': 'product-a',
+            'unit_name': 'piece',
+            'qty_sold': 0.3,
+            'conversion_factor': 1.0,
+            'unit_price': 0.1,
+            'line_total': 0.03,
+          },
+        ],
+        'payments': [
+          {
+            'uuid': 'payment-1',
+            'id': 'payment-1',
+            'cash_account_id': 'cash-a',
+            'method': 'CASH',
+            'amount': 0.030000000000000002,
+            'wallet_ref_no': null,
+          },
+        ],
+      }),
+      'sync_version': 1,
+      'batch_id': null,
+      'status': 'PENDING',
+      'queued_at': now,
+      'created_at': now,
+      'updated_at': now,
+      'is_deleted': 0,
+    });
+
+    Map<String, dynamic>? submitted;
+    final api = clientFor(MockClient((request) async {
+      submitted = jsonDecode(request.body) as Map<String, dynamic>;
+      return acceptedResponse(request);
+    }));
+    await engine.configureApiClient(api);
+    final result = await engine.syncPendingBatch('branch-a');
+    expect(result?.acceptedIds, hasLength(1));
+
+    final operation = (submitted!['operations'] as List).single as Map<String, dynamic>;
+    final payload = operation['payload'] as Map<String, dynamic>;
+    final item = (payload['items'] as List).single as Map<String, dynamic>;
+    final payment = (payload['payments'] as List).single as Map<String, dynamic>;
+    expect(item['qtySold'], '0.3000');
+    expect(item['conversionFactor'], '1.000000');
+    expect(item['unitPrice'], '0.1000');
+    expect(item['lineTotal'], '0.0300');
+    expect(payment['amount'], '0.0300');
+    expect(payload['discountAmount'], '0.0000');
+    expect(payload['changeReturned'], '0.0000');
+
+    api.close();
+    await helper.close();
+  });
+
   test('offline operation survives process restart and retries with identical identities', () async {
     final directory = await Directory.systemTemp.createTemp('erp-sync-recovery-');
     addTearDown(() => directory.delete(recursive: true));
