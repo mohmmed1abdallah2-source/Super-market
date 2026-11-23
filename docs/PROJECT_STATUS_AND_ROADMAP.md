@@ -352,3 +352,20 @@ Still outstanding before Iteration 3 can be called complete:
 - Local-first purchase/stocktake/disposal/transfer services.
 - Write APIs, providers, screens, POS warnings, fridge temperature workflow and official PDF reports.
 - Full integration and concurrency tests, Flutter tests and Android release build.
+
+
+## 2026-11-23 — Current implementation and validation addendum
+
+This addendum supersedes earlier point-in-time statements in this document where they conflict with the current verified source state.
+
+- Reviewed branch: `feature/multi-store-isolation-foundation`.
+- Verified source commit at review start: `12e1e9fe7c08aebb315909cec37ade56646d0397`.
+- Flutter Validation run [45255890755](https://github.com/mohmmed1abdallah2-source/Super-market/actions/runs/45255890755) passed all jobs: Flutter validation, Android APK, Web, Windows, and PostgreSQL-enabled server validation. The PostgreSQL suite reported 31 passed tests.
+- Delivery Gates run [45255891002](https://github.com/mohmmed1abdallah2-source/Super-market/actions/runs/45255891002) passed all jobs.
+- Sync Batch currently accepts PARTY_CREATE, SALE_INVOICE, VOUCHER, PURCHASE_INVOICE, PURCHASE_RETURN, STOCKTAKE_APPROVE, DISPOSAL_APPROVE, and STOCK_TRANSFER. Batch processing is atomic; receipts use branch-scoped operation identity and payload hashes for new receipts; the SQLite client checks exact accepted-ID acknowledgement.
+- The mixed PostgreSQL test for stocktake + disposal + transfer now passes, including replay and rollback checks.
+- **Important boundary:** these are branch-scoped operations in one PostgreSQL database using static branch tokens. The agreed control-plane database, user/membership authentication, database-per-store routing, and independent SQLite database per store are not yet implemented. Do not describe the product as fully multi-store isolated or production-ready.
+- The Flutter sync engine exposes API-client injection and durable queue replay, but a configured real user session and deployed API have not been verified.
+- Existing Firebase/Firestore code remains in the repository; it is not proof that Firebase is the selected or deployed production sync path.
+- Next work is documented in [CURRENT_SYNC_AND_ISOLATION_AUDIT.md](CURRENT_SYNC_AND_ISOLATION_AUDIT.md): implement trusted identity/store context, per-store database routing and local data isolation, then add HTTP-level cross-branch/cross-store security and offline-restart tests.
+- No Neon production DDL/DML, deployment, or release was performed.
