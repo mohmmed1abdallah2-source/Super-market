@@ -1,3 +1,4 @@
+import 'package:core_contracts/core_contracts.dart';
 import 'package:test/test.dart';
 
 import '../lib/features/ledger/application/ledger_use_cases.dart';
@@ -15,7 +16,7 @@ void main() {
         voucherType: LedgerVoucherType.receipt,
         partyId: 'customer-1',
         cashAccountId: 'wallet-jawali',
-        amount: 10,
+        amount: MoneyAmount.parse('10.0000'),
         method: 'WALLET',
         idempotencyKey: 'idempotency-key-0001',
         requestHash: List.filled(64, '0').join(),
@@ -32,7 +33,7 @@ void main() {
         voucherType: LedgerVoucherType.receipt,
         partyId: 'customer-1',
         cashAccountId: 'cash-drawer',
-        amount: 0,
+        amount: MoneyAmount.zero,
         method: 'CASH',
         idempotencyKey: 'idempotency-key-0002',
         requestHash: List.filled(64, '1').join(),
