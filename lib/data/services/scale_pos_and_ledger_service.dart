@@ -813,10 +813,10 @@ class LocalPosAndLedgerEngine {
         'productId': row['product_id'],
         'barcode': null,
         'unitName': row['unit_name'],
-        'qtySold': row['qty_sold'],
-        'conversionFactor': row['conversion_factor'],
-        'unitPrice': row['unit_price'],
-        'lineTotal': row['line_total'],
+        'qtySold': _fixedDecimal(row['qty_sold'], scale: 4),
+        'conversionFactor': _fixedDecimal(row['conversion_factor'], scale: 6),
+        'unitPrice': _fixedDecimal(row['unit_price'], scale: 4),
+        'lineTotal': _fixedDecimal(row['line_total'], scale: 4),
       };
     }).toList();
 
@@ -840,19 +840,21 @@ class LocalPosAndLedgerEngine {
       payments.add({
         'id': _stableUuid(row['uuid']?.toString() ?? row['id'].toString()),
         'method': row['method'],
-        'amount': row['amount'],
+        'amount': _fixedDecimal(row['amount'], scale: 4),
         'cashAccountId': cashId,
         'walletProvider': provider,
         'walletRefNo': row['wallet_ref_no'],
       });
     }
 
-    final remainingAlayh = (invoice['remaining_alayh'] as num? ?? 0).toDouble();
-    if (remainingAlayh > 0) {
+    final remainingAlayh = MoneyAmount.parse(
+      _fixedDecimal(invoice['remaining_alayh'] ?? 0, scale: 4),
+    );
+    if (!remainingAlayh.isZero && !remainingAlayh.isNegative) {
       payments.add({
         'id': _stableUuid('credit-payment:$operationId'),
         'method': 'CREDIT',
-        'amount': remainingAlayh,
+        'amount': remainingAlayh.toFixedString(),
         'cashAccountId': null,
         'walletProvider': null,
         'walletRefNo': null,
@@ -865,8 +867,8 @@ class LocalPosAndLedgerEngine {
       'priceTier': invoice['price_tier'],
       'items': items,
       'payments': payments,
-      'discountAmount': invoice['discount_amount'] ?? 0,
-      'changeReturned': invoice['change_returned'] ?? 0,
+      'discountAmount': _fixedDecimal(invoice['discount_amount'] ?? 0, scale: 4),
+      'changeReturned': _fixedDecimal(invoice['change_returned'] ?? 0, scale: 4),
     };
   }
 
@@ -880,7 +882,7 @@ class LocalPosAndLedgerEngine {
       'voucherType': voucher['voucher_type'],
       'partyId': voucher['party_id'],
       'cashAccountId': voucher['cash_account_id'],
-      'amount': voucher['amount'],
+      'amount': _fixedDecimal(voucher['amount'], scale: 4),
       'method': voucher['method'],
       'walletRefNo': voucher['wallet_ref_no'],
       'description': voucher['description'],
@@ -898,7 +900,7 @@ class LocalPosAndLedgerEngine {
       'name': party['name_ar'] ?? party['name'],
       'phone': party['phone'],
       'address': party['address'],
-      'creditLimit': party['credit_limit'] ?? 0,
+      'creditLimit': _fixedDecimal(party['credit_limit'] ?? 0, scale: 4),
       'paymentTermsDays': party['payment_terms_days'] ?? 0,
       'priceTier': party['price_tier'] ?? 'RETAIL',
     };
@@ -946,6 +948,28 @@ class LocalPosAndLedgerEngine {
       'dr_amount': dr,
       'cr_amount': cr,
     });
+  }
+
+  /// Converts legacy SQLite numeric values to the API's fixed-scale strings.
+  ///
+  /// SQLite REAL columns may expose harmless binary representation noise. The
+  /// persisted business scales are four places for money and six for measured
+  /// quantities, so only legacy numeric values are normalized at this boundary.
+  /// Decimal strings are parsed strictly and are never silently rounded.
+  String _fixedDecimal(Object? value, {required int scale}) {
+    if (value is String) {
+      return ScaledDecimal.parse(value, scale: scale).toFixedString();
+    }
+    if (value is num) {
+      if (!value.isFinite) {
+        throw FormatException('Decimal value must be finite: $value');
+      }
+      return ScaledDecimal.parse(
+        value.toStringAsFixed(scale),
+        scale: scale,
+      ).toFixedString();
+    }
+    throw FormatException('Invalid decimal value: $value');
   }
 
   Map<String, Object?> _base(String id, String branchId, String now) => {
