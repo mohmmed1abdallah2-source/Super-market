@@ -73,9 +73,59 @@ class PosAndLedgerProvider extends ChangeNotifier {
   /// Current local synchronization state.
   String get syncState => _syncState;
 
-  /// Attaches an API client that obtains a valid session token from the auth layer.
-  void configureApiClient(ApiClient client) {
-    _engine.configureApiClient(client);
+  /// Attaches an authenticated API client and awaits restart recovery for its branch.
+  Future<int> configureApiClient(
+    ApiClient client, {
+    required String branchId,
+  }) async {
+    final restored = await _engine.configureApiClient(
+      client,
+      branchId: branchId,
+    );
+    await refresh(branchId);
+    return restored;
+  }
+
+  /// Creates a stocktake in SQLite and queues its immutable create operation.
+  Future<String> createStocktakingSessionOffline({
+    required String branchId,
+    required String warehouseId,
+    required String sessionNo,
+    required List<Map<String, dynamic>> lines,
+    bool blindCount = true,
+  }) async {
+    final id = await _engine.createStocktakingSessionOffline(
+      branchId: branchId,
+      warehouseId: warehouseId,
+      sessionNo: sessionNo,
+      lines: lines,
+      blindCount: blindCount,
+    );
+    await refresh(branchId);
+    return id;
+  }
+
+  /// Saves a fridge temperature reading locally and queues it for synchronization.
+  Future<String> recordFridgeTemperatureOffline({
+    required String branchId,
+    required String warehouseId,
+    required String temperatureC,
+    String? locationId,
+    String? recordedByUserId,
+    String note = '',
+    DateTime? measuredAt,
+  }) async {
+    final id = await _engine.recordFridgeTemperatureOffline(
+      branchId: branchId,
+      warehouseId: warehouseId,
+      temperatureC: temperatureC,
+      locationId: locationId,
+      recordedByUserId: recordedByUserId,
+      note: note,
+      measuredAt: measuredAt,
+    );
+    await refresh(branchId);
+    return id;
   }
 
   /// Loads party balances, cash accounts and sync queue counters.
@@ -236,12 +286,8 @@ class PosAndLedgerProvider extends ChangeNotifier {
     _syncState = 'SYNCING';
     _setBusy(true);
     try {
-      final result = await _engine.syncPendingBatch(branchId);
-      _syncState = result == null
-          ? 'LOCAL_ONLY'
-          : result.rejected.isEmpty
-              ? 'SYNCED'
-              : 'PARTIAL';
+      final acceptedCount = await _engine.resumePendingSync(branchId);
+      _syncState = acceptedCount == 0 ? 'LOCAL_ONLY' : 'SYNCED';
       await refresh(branchId);
       _lastError = null;
     } catch (error) {
