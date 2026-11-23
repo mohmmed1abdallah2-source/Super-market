@@ -121,40 +121,6 @@ void main() {
       await db.close();
     }
   }, skip: !enabled ? 'PGTEST_HOST is not configured' : false);
-}
-
-Future<void> _fixture(PostgreSQLConnection db, String branch, String user,
-    String product, String warehouse, String batch, String suffix) async {
-  await db.execute(
-    'INSERT INTO branches (id,code,name_ar) VALUES (@id,@code,@name)',
-    substitutionValues: {'id': branch, 'code': 'IA-$suffix', 'name': 'Inventory approval test'});
-  await db.execute(
-    '''INSERT INTO users (id,branch_id,username,full_name,role_code,is_active)
-       VALUES (@id,@branch,@username,'Inventory approver','OWNER',TRUE)''',
-    substitutionValues: {'id': user, 'branch': branch, 'username': 'ia-$suffix'});
-  await db.execute(
-    '''INSERT INTO products (id,branch_id,sku_code,name_ar,base_unit_name,stock_base_qty,avg_cost_base_unit)
-       VALUES (@id,@branch,@sku,'Approval test product','piece',10,2)''',
-    substitutionValues: {'id': product, 'branch': branch, 'sku': 'IA-SKU-$suffix'});
-  await db.execute(
-    '''INSERT INTO warehouses (id,branch_id,code,name_ar)
-       VALUES (@id,@branch,@code,'Approval test warehouse')''',
-    substitutionValues: {'id': warehouse, 'branch': branch, 'code': 'IA-WH-$suffix'});
-  await db.execute(
-    '''INSERT INTO product_batches_fefo
-       (id,branch_id,product_id,warehouse_id,batch_no,expiry_date,
-        pack_conversion_factor,sealed_cartons,loose_base_qty,status,unit_cost_base)
-       VALUES (@id,@branch,@product,@warehouse,@batch,CURRENT_DATE+90,10,1,0,'ACTIVE',2.123456)''',
-    substitutionValues: {'id': batch, 'branch': branch, 'product': product,
-      'warehouse': warehouse, 'batch': 'IA-BATCH-$suffix'});
-  await db.execute(
-    '''INSERT INTO chart_of_accounts (id,branch_id,code,name_ar,account_type)
-       VALUES (@inventory,@branch,'1200','Inventory','ASSET'),
-              (@gain,@branch,'4100','Stocktake gain','REVENUE'),
-              (@loss,@branch,'5100','Inventory loss','EXPENSE')''',
-    substitutionValues: {'inventory': 'coa-inv-$suffix', 'gain': 'coa-gain-$suffix',
-      'loss': 'coa-loss-$suffix', 'branch': branch});
-
   test('mixed stocktake, disposal and stock transfer batch is atomic and idempotent', () async {
     if (!enabled) return;
     final env = Platform.environment;
@@ -280,5 +246,40 @@ Future<void> _fixture(PostgreSQLConnection db, String branch, String user,
       await db.close();
     }
   }, skip: !enabled ? 'PGTEST_HOST is not configured' : false);
+}
+
+Future<void> _fixture(PostgreSQLConnection db, String branch, String user,
+    String product, String warehouse, String batch, String suffix) async {
+  await db.execute(
+    'INSERT INTO branches (id,code,name_ar) VALUES (@id,@code,@name)',
+    substitutionValues: {'id': branch, 'code': 'IA-$suffix', 'name': 'Inventory approval test'});
+  await db.execute(
+    '''INSERT INTO users (id,branch_id,username,full_name,role_code,is_active)
+       VALUES (@id,@branch,@username,'Inventory approver','OWNER',TRUE)''',
+    substitutionValues: {'id': user, 'branch': branch, 'username': 'ia-$suffix'});
+  await db.execute(
+    '''INSERT INTO products (id,branch_id,sku_code,name_ar,base_unit_name,stock_base_qty,avg_cost_base_unit)
+       VALUES (@id,@branch,@sku,'Approval test product','piece',10,2)''',
+    substitutionValues: {'id': product, 'branch': branch, 'sku': 'IA-SKU-$suffix'});
+  await db.execute(
+    '''INSERT INTO warehouses (id,branch_id,code,name_ar)
+       VALUES (@id,@branch,@code,'Approval test warehouse')''',
+    substitutionValues: {'id': warehouse, 'branch': branch, 'code': 'IA-WH-$suffix'});
+  await db.execute(
+    '''INSERT INTO product_batches_fefo
+       (id,branch_id,product_id,warehouse_id,batch_no,expiry_date,
+        pack_conversion_factor,sealed_cartons,loose_base_qty,status,unit_cost_base)
+       VALUES (@id,@branch,@product,@warehouse,@batch,CURRENT_DATE+90,10,1,0,'ACTIVE',2.123456)''',
+    substitutionValues: {'id': batch, 'branch': branch, 'product': product,
+      'warehouse': warehouse, 'batch': 'IA-BATCH-$suffix'});
+  await db.execute(
+    '''INSERT INTO chart_of_accounts (id,branch_id,code,name_ar,account_type)
+       VALUES (@inventory,@branch,'1200','Inventory','ASSET'),
+              (@gain,@branch,'4100','Stocktake gain','REVENUE'),
+              (@loss,@branch,'5100','Inventory loss','EXPENSE')''',
+    substitutionValues: {'inventory': 'coa-inv-$suffix', 'gain': 'coa-gain-$suffix',
+      'loss': 'coa-loss-$suffix', 'branch': branch});
+
+
 
 }
