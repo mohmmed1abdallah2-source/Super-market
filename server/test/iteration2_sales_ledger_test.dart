@@ -74,6 +74,42 @@ void main() {
       expect(() => useCase(command), throwsRangeError);
     });
 
+    test('purchase invoice batch operation requires at least one item', () async {
+      final useCase = ProcessSyncBatchUseCase(_FakeSalesSyncRepository());
+      final command = SyncBatchCommand(
+        branchId: 'branch-main',
+        batchId: 'batch-purchase-invoice',
+        idempotencyKey: 'idempotency-purchase-invoice',
+        requestHash: List.filled(64, '5').join(),
+        operations: [
+          SyncOperation(
+            operationId: 'purchase-operation-0001',
+            operationType: 'PURCHASE_INVOICE',
+            payload: const {'items': <Object>[]},
+          ),
+        ],
+      );
+      expect(() => useCase(command), throwsFormatException);
+    });
+
+    test('purchase return batch operation requires object items', () async {
+      final useCase = ProcessSyncBatchUseCase(_FakeSalesSyncRepository());
+      final command = SyncBatchCommand(
+        branchId: 'branch-main',
+        batchId: 'batch-purchase-return',
+        idempotencyKey: 'idempotency-purchase-return',
+        requestHash: List.filled(64, '6').join(),
+        operations: [
+          SyncOperation(
+            operationId: 'purchase-return-operation-0001',
+            operationType: 'PURCHASE_RETURN',
+            payload: const {'items': ['invalid-item']},
+          ),
+        ],
+      );
+      expect(() => useCase(command), throwsFormatException);
+    });
+
     test('duplicate operation UUIDs are rejected before persistence', () async {
       final operation = SyncOperation(
         operationId: 'operation-duplicate',
