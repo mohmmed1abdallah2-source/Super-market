@@ -1,3 +1,5 @@
+import 'package:core_contracts/core_contracts.dart';
+
 /// Domain commands and repository boundaries for party ledger operations.
 
 /// Valid party categories accepted by the ledger domain.
@@ -82,7 +84,7 @@ class PostVoucherCommand {
   final String cashAccountId;
 
   /// Positive voucher amount.
-  final double amount;
+  final MoneyAmount amount;
 
   /// CASH or WALLET.
   final String method;
