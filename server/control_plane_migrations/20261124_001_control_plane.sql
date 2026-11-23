@@ -53,6 +53,21 @@ CREATE INDEX IF NOT EXISTS cp_memberships_account_active_idx
 CREATE INDEX IF NOT EXISTS cp_memberships_store_active_idx
   ON cp_memberships (store_id, account_id) WHERE status = 'ACTIVE';
 
+
+-- Short-lived identity session used only between sign-in and store selection.
+-- It grants no business-data access until exchanged for a store-scoped session.
+CREATE TABLE IF NOT EXISTS cp_login_sessions (
+  login_session_id UUID PRIMARY KEY,
+  account_id UUID NOT NULL REFERENCES cp_accounts(account_id) ON DELETE CASCADE,
+  token_hash BYTEA NOT NULL UNIQUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  expires_at TIMESTAMPTZ NOT NULL,
+  revoked_at TIMESTAMPTZ,
+  CHECK (expires_at > created_at)
+);
+CREATE INDEX IF NOT EXISTS cp_login_sessions_account_idx
+  ON cp_login_sessions (account_id, expires_at) WHERE revoked_at IS NULL;
+
 CREATE TABLE IF NOT EXISTS cp_sessions (
   session_id UUID PRIMARY KEY,
   account_id UUID NOT NULL REFERENCES cp_accounts(account_id) ON DELETE CASCADE,
