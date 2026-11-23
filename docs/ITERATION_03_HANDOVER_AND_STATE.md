@@ -464,3 +464,16 @@ These early calculator commits are on `feature/multi-store-isolation-foundation`
 - These source changes are not considered validated until PostgreSQL integration CI passes on the exact head. Financial precision remains open pending the live sale/voucher regression suite.
 - The running app still has local SQLite sign-in and does not construct an authenticated `ApiClient`; the provider's awaited restart-recovery hook therefore remains unconnected to a real online session.
 - No Neon production DDL/DML, deployment, or release was performed.
+
+## 2026-11-24 — Server money migration and offline wire hardening
+
+- Source commit: `20043d15bfc0d6fe789a755822c3c9d036a3ffc0`.
+- Live PostgreSQL sale posting now uses `MoneyAmount`/`ScaledDecimal` for exact monetary and quantity calculations; direct ledger party credit limits, voucher amounts, cash comparisons, journal/party movements, and statement running balances use fixed-scale money.
+- Sync Batch voucher posting and direct voucher posting now enforce account-kind/method consistency. Sale tenders enforce the same rule before posting.
+- Local sync payload mapping now serializes legacy SQLite money as four-place decimal strings and measured quantities as six-place strings. Decimal strings are strict; legacy SQLite numeric values are normalized at the declared schema scale.
+- Added local tests for retrying FAILED queue rows after reconnection and for sale payload decimal serialization. Added PostgreSQL integration assertions for fractional sale posting and rejected cash/wallet account mismatches.
+- Fixed fridge-temperature note parameter binding by using a distinct `noteText` SQL parameter and accepting either `note` or `notes` payload aliases.
+- Delivery Gates run `45285947882` on this source commit: server analysis passed, 27 server tests passed, 10 PostgreSQL-only tests skipped, 5 shared-contract tests passed, and Flutter analysis/tests passed. Android release APK build remained in progress at documentation time.
+- PostgreSQL-enabled Flutter Validation run `45285947858` was pending for this exact source commit. Do not mark the new PostgreSQL integration assertions as passed until its logs confirm them.
+- Remaining: local POS sale/voucher arithmetic and SQLite financial persistence still use legacy `double`/REAL paths; complete additive exact-text persistence and regression coverage before financial precision release acceptance. The app still does not create a live authenticated `ApiClient`, so the tested durable recovery hook is not yet wired to a real online session.
+- No production Neon migration, DML, deployment, or release was performed.
