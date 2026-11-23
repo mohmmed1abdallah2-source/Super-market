@@ -115,7 +115,7 @@ final class PostgresInventoryApprovalRepository {
       await ctx.execute(
         '''UPDATE product_batches_fefo
            SET sealed_cartons=@cartons, loose_base_qty=@loose,
-               status=CASE WHEN @counted=0 THEN 'DEPLETED'
+               status=CASE WHEN @counted::numeric=0 THEN 'DEPLETED'
                  WHEN status='DEPLETED' AND expiry_date<CURRENT_DATE THEN 'EXPIRED'
                  WHEN status='DEPLETED' THEN 'ACTIVE' ELSE status END,
                updated_at=@now
