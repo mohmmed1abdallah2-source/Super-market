@@ -42,7 +42,7 @@ class CreatePartyCommand {
   final String? address;
 
   /// Maximum outstanding amount allowed.
-  final double creditLimit;
+  final MoneyAmount creditLimit;
 
   /// Agreed payment terms in days.
   final int paymentTermsDays;
