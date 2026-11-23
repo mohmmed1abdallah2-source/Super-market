@@ -416,3 +416,10 @@ These early calculator commits are on `feature/multi-store-isolation-foundation`
 - Each document must not list the same batch more than once. Disposal valuation always uses the locked batch unit cost.
 - CI must validate Dart formatting/analyzer, PostgreSQL 18 migrations including 011, stocktake/disposal integration tests, and all existing tests. Review the run logs before claiming success.
 - Next remaining Iteration 3 work includes stock transfer posting, full offline queue acknowledgment/recovery integration, and the outstanding financial-precision audit.
+
+
+### Validation result — source commit `af1a60b0ddbd41fb8e647b1203d6541dae624bf5`
+
+- Flutter Validation #228: PostgreSQL 18 migration/schema setup succeeded, Dart server analysis succeeded, and all 30 server tests passed. The stocktake and disposal PostgreSQL integration tests both passed, including retries and journal balance/valuation assertions.
+- Flutter analyze/tests and Web build passed. Android APK and Windows build were still running when this entry was written.
+- New posting valuation uses `ScaledDecimal` at quantity/cost scale 6 and journal amount scale 4. The dedicated account migration 011 was exercised only in the disposable CI database; Neon Production remains untouched.

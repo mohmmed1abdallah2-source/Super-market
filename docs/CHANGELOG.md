@@ -290,3 +290,10 @@ The format follows Keep a Changelog. Version numbers will be assigned when relea
 
 - Implemented transactional server posting for stocktake approval and inventory disposal, including batch-level quantity reconciliation, aggregate stock updates, movement ledger entries, balanced journal entries, branch-scoped approval users, and replay-safe approved-document handling.
 - Added migration 011 for dedicated stocktake-surplus and inventory-loss accounts, wired both operations into Sync Batch and the offline queue, and added PostgreSQL integration coverage. Validation is pending; no CI pass is claimed yet.
+
+
+### Validation update — 2026-11-23
+
+- PostgreSQL-enabled Flutter Validation #228 passed migration/schema setup on PostgreSQL 18, Dart server analysis, and all 30 server tests, including both new stocktake/disposal approval integration tests and exact decimal valuation.
+- Flutter analyze/tests and Web build passed in the same run; Android APK and Windows build were still in progress when this note was added.
+- Verified source commit: `af1a60b0ddbd41fb8e647b1203d6541dae624bf5`. Production Neon was not migrated or modified.

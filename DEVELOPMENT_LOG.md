@@ -415,3 +415,11 @@
 - Added approval routes and Sync Batch operation types, and extended the durable local sync queue allowlist. The stocktake request may carry `sessionId`, `warehouseId`, `sessionNo`, `approvedByUserId`, and counted `lines`; disposal may carry `disposalId`, `warehouseId`, `disposalNo`, `reason`, `approvedByUserId`, and `items`. Existing server-side draft documents are approved in place; missing documents are created from the complete payload.
 - Added PostgreSQL integration tests for stocktake/disposal balances, balanced journals, movement count, and repeated approval. Tests and CI are not yet observed for this revision; do not treat the feature as validated until the PostgreSQL-enabled workflow passes.
 - No Neon production DDL/DML, production data changes, deployment, or release were performed.
+
+
+## 2026-11-23 — Stocktake/disposal validation result
+
+- PostgreSQL-enabled Flutter Validation run #228 passed the PostgreSQL 18 schema setup (including migration 011), Dart server analysis, and all 30 server tests. Both new integration tests passed: stocktake approval/replay and disposal approval/replay, including exact four-place journal valuation.
+- The inventory posting implementation uses `ScaledDecimal` for six-place quantity/cost multiplication and four-place journal amounts; no binary floating-point arithmetic is used for the new posting valuation.
+- In run #228, Flutter analyze/tests and Web build passed; Android APK and Windows build were still running at the time of this note.
+- Tested application source: `af1a60b0ddbd41fb8e647b1203d6541dae624bf5`. No Neon Production migration or DML was executed.
