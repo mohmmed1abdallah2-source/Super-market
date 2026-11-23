@@ -27,6 +27,13 @@ VALUES
  ('30000000-0000-4000-8000-000000000003', '10000000-0000-4000-8000-000000000002',
   '20000000-0000-4000-8000-000000000001', 'CASHIER');
 
+INSERT INTO cp_login_sessions
+ (login_session_id, account_id, token_hash, expires_at)
+VALUES
+ ('50000000-0000-4000-8000-000000000001',
+  '10000000-0000-4000-8000-000000000001',
+  decode(repeat('55', 32), 'hex'), now() + interval '10 minutes');
+
 INSERT INTO cp_sessions
  (session_id, account_id, store_id, membership_id, access_token_hash, refresh_token_hash,
   role_snapshot, access_expires_at, refresh_expires_at)
@@ -42,6 +49,14 @@ BEGIN
       WHERE account_id = '10000000-0000-4000-8000-000000000001'
         AND status = 'ACTIVE') <> 2 THEN
     RAISE EXCEPTION 'owner-to-many-stores membership assertion failed';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM cp_login_sessions
+    WHERE account_id = '10000000-0000-4000-8000-000000000001'
+      AND revoked_at IS NULL AND expires_at > now()
+  ) THEN
+    RAISE EXCEPTION 'short-lived identity session assertion failed';
   END IF;
 
   IF NOT EXISTS (
