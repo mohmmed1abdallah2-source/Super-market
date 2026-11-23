@@ -315,3 +315,5 @@ The format follows Keep a Changelog. Version numbers will be assigned when relea
 - Clarified that the current server uses one PostgreSQL connection and static branch tokens; a control plane, user/membership authentication, database-per-store routing, and independent local SQLite context per store remain unfinished.
 - CI evidence reviewed: Flutter Validation #45255890755 and Delivery Gates #45255891002 both passed on source commit `12e1e9fe7c08aebb315909cec37ade56646d0397`; PostgreSQL integration suite reported 31 passed tests.
 - No production database changes, Neon migrations, deployment, or release.
+
+- Added transactional creation of counted stocktaking sessions, safe replay checks, API route wiring, OpenAPI contract, and PostgreSQL integration coverage. CI verification is pending on the new source commit.

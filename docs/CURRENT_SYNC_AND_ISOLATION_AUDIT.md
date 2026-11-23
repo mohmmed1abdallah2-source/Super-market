@@ -80,3 +80,16 @@ The current local engine uses the shared `DatabaseHelper` database and stores `b
 ## Safety boundary
 
 No Neon production DDL/DML, production data changes, deployment, or release was performed during this review. Continue to use disposable PostgreSQL for integration tests until the control plane, authentication, backups, and migration/restore procedures are reviewed.
+
+
+## Update — stocktaking create contract (2026-11-24)
+
+The client already exposed `createStocktakingSession` and sent POST `/v1/inventory/stocktaking`, while the server previously registered only GET and approval POST. The missing endpoint is now implemented as a separate create phase:
+- one PostgreSQL transaction inserts the `COUNTING` header and all counted lines;
+- branch, warehouse, product and FEFO batch ownership are verified;
+- expected batch quantity and conversion factor are server-sourced and optional client snapshots are checked;
+- duplicate batch lines and invalid carton/loose quantities are rejected;
+- stable session/line IDs make identical retries replay-safe and changed payloads conflict;
+- creation does not adjust stock or post a journal; the existing approval operation remains the only posting step.
+
+A PostgreSQL integration test now covers creation, persistence, replay, changed-payload rejection, and approval. CI verification is pending on the latest source commit. No production database change or deployment was made.

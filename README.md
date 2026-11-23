@@ -43,7 +43,7 @@ flutter run
 
 ## التحقق الحالي
 
-على commit `12e1e9fe7c08aebb315909cec37ade56646d0397` بتاريخ 2026-11-23:
+آخر خط أساس CI ناجح كان على commit `12e1e9fe7c08aebb315909cec37ade56646d0397` بتاريخ 2026-11-23. أضيف بعده عقد إنشاء جلسة الجرد واختباره، وتظل نتيجة CI على commit التغيير الجديد قيد التحقق:
 
 - [Flutter Validation](https://github.com/mohmmed1abdallah2-source/Super-market/actions/runs/45255890755): جميع الوظائف ناجحة، بما فيها تحليل واختبارات Flutter، Android APK، Web، Windows، واختبارات الخادم على PostgreSQL 18.
 - [Delivery Gates](https://github.com/mohmmed1abdallah2-source/Super-market/actions/runs/45255891002): جميع البوابات ناجحة.
@@ -59,3 +59,7 @@ flutter run
 - [سجل التطوير التفصيلي](DEVELOPMENT_LOG.md)
 
 لا يتم تنفيذ أي تغيير على Neon production أو نشر التطبيق ضمن اختبارات التطوير دون خطوة مستقلة ومراجعة صريحة.
+
+
+### إنشاء جلسة الجرد
+يدعم الخادم الآن `POST /v1/inventory/stocktaking` لإنشاء جلسة `COUNTING` تحتوي سطور الأصناف والدفعات والكميات المعدودة في معاملة واحدة. لا يغيّر الإنشاء المخزون؛ يتم ذلك فقط بعد طلب الاعتماد. راجع `docs/openapi_v1.yaml` وسجل التطوير. نتائج CI لهذا التغيير لا تُعد ناجحة حتى تظهر على commit الجديد.
