@@ -343,3 +343,12 @@ The format follows Keep a Changelog. Version numbers will be assigned when relea
 - CI execution is pending; no test pass is claimed until the run for this branch is inspected.
 - Runtime account authentication, password KDF, store provisioning saga, secret-store adapter, connection-pool router, session endpoints, and business-route integration remain pending.
 - No production Neon DDL/DML, persistent database creation, credential generation, deployment or release was performed.
+
+
+### 2026-11-24 — Control-plane security primitives
+
+- Added `PasswordHasher` using PBKDF2-HMAC-SHA256, random salts, 600,000 default iterations, bounded encoded work factors and constant-time digest comparison.
+- Added 256-bit random opaque session token generation with SHA-256 digest representation for storage; raw token values are not intended to be persisted.
+- Added unit tests for password verification, malformed/weak inputs and token uniqueness.
+- These primitives are not yet connected to account/session HTTP endpoints. Rate limiting, account lockout, TLS and secret-store integration remain release requirements.
+- CI is pending for this exact branch head; no test pass is claimed until logs are inspected.
