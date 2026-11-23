@@ -386,13 +386,19 @@ class PostgresSalesSyncRepository implements SalesSyncRepository {
 
     final cashRows = await ctx.mappedResultsQuery(
       '''SELECT id::text AS id, gl_account_id::text AS gl,
-                current_balance::text AS balance
+                current_balance::text AS balance, account_kind AS kind
          FROM cash_accounts WHERE id = @id AND branch_id = @branch
          AND is_active = TRUE FOR UPDATE''',
       substitutionValues: {'id': cashId, 'branch': branchId},
     );
     if (cashRows.isEmpty) throw StateError('Cash account not found.');
     final cash = _flatten(cashRows.single);
+    if (method == 'WALLET' && cash['kind'] != 'WALLET') {
+      throw StateError('Wallet vouchers require a wallet account.');
+    }
+    if (method == 'CASH' && cash['kind'] == 'WALLET') {
+      throw StateError('Cash vouchers cannot use a wallet account.');
+    }
     if (type == 'PAYMENT' &&
         MoneyAmount.parse(cash['balance']).compareTo(amount) < 0) {
       throw StateError('Insufficient cash-account balance.');
