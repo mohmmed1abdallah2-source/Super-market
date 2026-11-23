@@ -212,3 +212,26 @@ This is a schema-level invariant only; it does not integrate the pure FEFO plann
 - The sale repository no longer contains `double` parsing or `toStringAsFixed` formatting. This is a source inspection result, not a test result.
 - PostgreSQL integration tests and server analysis for the new live arithmetic are pending the CI run for the current branch head. Do not mark financial precision closed until fractional-sale, mixed-tender, COGS, journal-balance, voucher, and replay tests pass.
 - No Neon production schema/data changes or deployment were made.
+
+## 2026-11-24 — Server fixed-scale posting and sync boundary
+
+### Implemented on source commit `20043d15bfc0d6fe789a755822c3c9d036a3ffc0`
+
+- Wired `MoneyAmount` and `ScaledDecimal` into the live PostgreSQL sale transaction: line totals, subtotal, discounts, tender/credit reconciliation, cash-account aggregation, credit-limit checks, COGS, journal lines, and response amounts now use fixed-scale decimal values. Sale/base quantities and conversion factors retain their documented four-/six-place scales.
+- Migrated direct ledger party credit limits, voucher amounts, cash-balance comparisons, journal movements, party ledger movements, and statement running-balance sign/formatting to `MoneyAmount`.
+- Migrated Sync Batch voucher amounts and sale/voucher SQL bindings to fixed decimal strings. Added server-side method/account-kind checks so CASH cannot post to a WALLET account and WALLET cannot post to a cash drawer, including sale tenders and both voucher paths.
+- Normalized legacy SQLite REAL values to four-place money or six-place measured-quantity strings at the sync API boundary. Existing decimal strings are parsed strictly; only legacy numeric values are formatted at the schema's declared scale. This is a compatibility boundary, not a claim that local SQLite financial storage has been migrated.
+- Fixed the fridge-temperature note binding and retained support for both `note` and `notes` payload keys.
+- Added PostgreSQL regression assertions for fractional sale totals, stock quantity, journal balance, and tender/account-kind rejection. Added local sync tests for FAILED-row recovery and fixed-scale sale payload serialization.
+
+### Observed validation
+
+- Delivery Gates run `45285947882` on source commit `20043d15`: Dart server analysis passed; 27 server tests passed and 10 PostgreSQL-only tests were skipped; 5 shared-contract tests passed; Flutter analysis and Flutter tests passed. Android release APK build was still running when this note was written.
+- PostgreSQL-enabled Flutter Validation run `45285947858` for the same source commit was pending. Therefore the new PostgreSQL fractional-sale, voucher, fridge-note, and account-kind integration assertions are not yet confirmed by this run.
+- Do not close the financial release blocker until the PostgreSQL-enabled suite passes on this source commit and exact local financial persistence is addressed.
+
+### Remaining limitations
+
+- `PostingAndSalesService.completeSale` and `LocalPosAndLedgerEngine.saveVoucher` still accept/calculate with Dart `double`, and the legacy SQLite invoice/payment/journal/cash columns remain REAL. The sync boundary formats those legacy values to the declared scale, but this does not replace a coordinated local fixed-scale calculation and additive TEXT persistence migration.
+- `lib/main.dart` still does not construct an authenticated API session. The durable queue/restart-recovery hook is implemented and tested in isolation, but live automatic recovery remains dependent on a real authenticated `ApiClient` and active branch context.
+- No production Neon DDL/DML, deployment, or release was performed.
