@@ -2,7 +2,7 @@
 
 **Branch:** `feature/control-plane-store-sessions`  
 **Base:** `04bc6850f922461bbb96227bc444fd1795b7295c`  
-**Status:** Control-plane schema, membership/session integrity constraints, disposable-PostgreSQL assertions, and branch CI wiring added. Runtime authentication, provisioning, routing and session endpoints are not yet complete.
+**Status:** Control-plane schema, identity/store-selection and store-session endpoints, password/token primitives, a session-derived database router, disposable-PostgreSQL assertions and CI wiring are present. Provisioning, secret-store integration, refresh endpoint, legacy business-route migration and production hardening remain incomplete.
 
 ## Scope and separation
 
@@ -51,3 +51,27 @@ must resolve through a server-side secret-store adapter. A secret reference is n
 ## Validation boundary
 
 The branch now includes a disposable PostgreSQL schema assertion script and a CI step that creates a separate `control_plane_test` database, applies this migration there, and runs the assertions. The migration has not been applied to any persistent or production database. No production Neon DDL/DML, database creation, credentials, deployment, or live session was performed. Runtime support is not complete and no tests are claimed as passed.
+
+
+## Runtime foundation added
+
+- `PostgresControlPlaneRepository` authenticates active accounts against the versioned password hash, lists only active memberships, issues a short-lived one-time login ticket, exchanges that ticket for a store-scoped access/refresh session, resolves access tokens to an immutable `StoreRequestContext`, and revokes sessions.
+- `ControlPlaneRoutes` exposes `POST /v1/auth/sign-in`, `GET /v1/stores`, `POST /v1/stores/activate`, and `POST /v1/auth/sign-out`.
+- The server can open a separate control-plane connection when all `CONTROL_PLANE_PG*` settings are configured. The settings are optional during staged rollout; the old branch-token business routes remain unchanged and must not be considered production multi-store authorization.
+- `StoreDatabaseRouter` resolves a descriptor from the control plane using the verified context, validates database and role names against the opaque store UUID, obtains the password through a `StoreSecretStore` interface, opens a dedicated per-operation connection and closes it after the callback. It does not share a connection across stores.
+- The actual secret-store adapter and provisioning workflow are intentionally not faked. Until a real secret manager and provisioner are installed, no store database can be safely created or routed end-to-end.
+
+## Current endpoint flow
+
+1. Sign in with email/password to receive a short-lived login ticket and active store list.
+2. Exchange the one-time ticket and selected store UUID at `/v1/stores/activate`.
+3. Use the returned store-scoped access token for `GET /v1/stores` and sign-out. Business routes are not yet wired to this context.
+4. Store database connection code accepts only a server-generated `StoreRequestContext`, never a client-provided database name or credential.
+
+## Outstanding security and delivery gates
+
+- Add rate limiting, account lockout/backoff, refresh-token rotation, password-reset/invitation lifecycle and audit events.
+- Implement the production secret-store adapter and the provisioning saga (create least-privilege role/database, run store migrations, save secret reference, mark store active; recover/compensate partial failure).
+- Wire every business route and sync batch to the verified context and remove static branch-token auth from production paths.
+- Add integration tests for sign-in, membership denial, token expiry/revocation, refresh replay, concurrent store switching and actual database A/B isolation.
+- Run current CI on the exact head and fix any failures before considering this slice accepted.
