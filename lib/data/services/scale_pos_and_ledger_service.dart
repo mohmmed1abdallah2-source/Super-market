@@ -400,6 +400,8 @@ class LocalPosAndLedgerEngine {
       'STOCKTAKE_APPROVE',
       'DISPOSAL_APPROVE',
       'STOCK_TRANSFER',
+      'STOCKTAKE_CREATE',
+      'FRIDGE_TEMPERATURE_LOG',
     };
     final type = operationType.trim().toUpperCase();
     if (!supported.contains(type)) {
