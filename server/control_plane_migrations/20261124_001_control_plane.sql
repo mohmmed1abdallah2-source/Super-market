@@ -44,7 +44,8 @@ CREATE TABLE IF NOT EXISTS cp_memberships (
   created_by_account_id UUID REFERENCES cp_accounts(account_id) ON DELETE RESTRICT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  UNIQUE (account_id, store_id)
+  UNIQUE (account_id, store_id),
+  UNIQUE (membership_id, account_id, store_id)
 );
 
 CREATE INDEX IF NOT EXISTS cp_memberships_account_active_idx
@@ -56,7 +57,7 @@ CREATE TABLE IF NOT EXISTS cp_sessions (
   session_id UUID PRIMARY KEY,
   account_id UUID NOT NULL REFERENCES cp_accounts(account_id) ON DELETE CASCADE,
   store_id UUID NOT NULL REFERENCES cp_stores(store_id) ON DELETE CASCADE,
-  membership_id UUID NOT NULL REFERENCES cp_memberships(membership_id) ON DELETE CASCADE,
+  membership_id UUID NOT NULL,
   access_token_hash BYTEA NOT NULL UNIQUE,
   refresh_token_hash BYTEA NOT NULL UNIQUE,
   role_snapshot TEXT NOT NULL CHECK (role_snapshot IN ('OWNER', 'ADMIN', 'MANAGER', 'CASHIER', 'VIEWER')),
@@ -66,7 +67,9 @@ CREATE TABLE IF NOT EXISTS cp_sessions (
   revoked_at TIMESTAMPTZ,
   last_used_at TIMESTAMPTZ,
   CHECK (access_expires_at > issued_at),
-  CHECK (refresh_expires_at > access_expires_at)
+  CHECK (refresh_expires_at > access_expires_at),
+  FOREIGN KEY (membership_id, account_id, store_id)
+    REFERENCES cp_memberships (membership_id, account_id, store_id) ON DELETE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS cp_sessions_account_store_idx
