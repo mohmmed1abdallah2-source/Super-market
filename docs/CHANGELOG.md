@@ -331,3 +331,42 @@ The format follows Keep a Changelog. Version numbers will be assigned when relea
 - Enforced cash-vs-wallet account-kind validation in sale and voucher posting.
 - Normalized legacy SQLite numeric payloads to explicit decimal strings at the sync boundary and added FAILED queue recovery coverage.
 - Added fractional-sale, journal-balance, and payment-account mismatch regression assertions. PostgreSQL-enabled CI verification remains pending on source commit `20043d15`.
+
+
+## 2026-11-24 — Control-plane schema foundation
+
+- Created isolated work branch `feature/control-plane-store-sessions` from `feature/multi-store-isolation-foundation` at base `04bc6850f922461bbb96227bc444fd1795b7295c`.
+- Added `server/control_plane_migrations/20261124_001_control_plane.sql` for accounts, store directory, memberships, store-scoped session token hashes and provisioning operation state. This migration is explicitly for a separate control-plane database, not a store database.
+- Bound each session to the exact account, store and membership tuple with a composite foreign key, preventing mismatched account/store membership sessions at the database layer.
+- Added `server/test/control_plane_schema_assertions.sql` for owner-to-many-stores, valid session binding and cross-account/store session rejection assertions.
+- Updated Flutter Validation workflow to run on this feature branch and create a separate disposable `control_plane_test` database for migration/assertion checks.
+- CI execution is pending; no test pass is claimed until the run for this branch is inspected.
+- Runtime account authentication, password KDF, store provisioning saga, secret-store adapter, connection-pool router, session endpoints, and business-route integration remain pending.
+- No production Neon DDL/DML, persistent database creation, credential generation, deployment or release was performed.
+
+
+### 2026-11-24 — Control-plane security primitives
+
+- Added `PasswordHasher` using PBKDF2-HMAC-SHA256, random salts, 600,000 default iterations, bounded encoded work factors and constant-time digest comparison.
+- Added 256-bit random opaque session token generation with SHA-256 digest representation for storage; raw token values are not intended to be persisted.
+- Added unit tests for password verification, malformed/weak inputs and token uniqueness.
+- These primitives are not yet connected to account/session HTTP endpoints. Rate limiting, account lockout, TLS and secret-store integration remain release requirements.
+- CI is pending for this exact branch head; no test pass is claimed until logs are inspected.
+
+
+### 2026-11-24 — Control-plane runtime and store routing foundation
+
+- Added PostgreSQL control-plane repository operations for password-authenticated sign-in, active membership listing, one-time identity ticket exchange, store-scoped access/refresh token issuance, access-token resolution and session revocation.
+- Added HTTP routes: `POST /v1/auth/sign-in`, `GET /v1/stores`, `POST /v1/stores/activate`, and `POST /v1/auth/sign-out`.
+- Added optional separate control-plane database bootstrap configuration (`CONTROL_PLANE_PGHOST/PGPORT/PGDATABASE/PGUSER/PGPASSWORD`) without changing the existing store/business database connection.
+- Added `StoreDatabaseRouter`, which resolves database locators only from the verified server context, validates database/role names against the opaque store UUID, resolves the password through a secret-store interface, and opens/closes a dedicated connection per operation.
+- The secret-store adapter, database provisioning saga, refresh-token rotation, and integration of all existing business routes with the store context are not complete. Legacy branch-token routes remain and are not production multi-store authorization.
+- CI has verified the earlier schema/security primitive slice; the latest runtime wiring CI is still running. No tests are claimed for the newest code until its exact-head logs complete.
+- No production Neon migration, store database creation, credential generation, deployment or release was performed.
+
+
+### 2026-11-24 — Control-plane PostgreSQL session integration test
+
+- Added a disposable PostgreSQL integration test covering password sign-in, normalized email lookup, active membership listing, one-time login-ticket consumption, rejection of an unassigned store, store-scoped session issuance, access-token context resolution and revocation.
+- Updated Flutter Validation to run the test against the separate disposable `control_plane_test` database created earlier in the job.
+- Latest exact-head CI verification is pending. No production control-plane database has been created or modified.

@@ -253,7 +253,7 @@ final class PostgresInventoryApprovalRepository {
       '''INSERT INTO fridge_temp_logs
         (id,branch_id,warehouse_id,location_id,temperature_c,measured_at,
          recorded_by_user_id,note)
-       VALUES (@id,@branch,@warehouse,@location,@temperature,@measuredAt,@user,@noteText)''',
+       VALUES (@id,@branch,@warehouse,@location,@temperature,@measuredAt,@user,@fridge_note)''',
       substitutionValues: {
         'id': id,
         'branch': branchId,
@@ -262,7 +262,7 @@ final class PostgresInventoryApprovalRepository {
         'temperature': temperature.toFixedString(),
         'measuredAt': measuredAt,
         'user': user == null || user.isEmpty ? null : user,
-        'noteText': (payload['note'] ?? payload['notes'])?.toString() ?? '',
+        'fridge_note': (payload['note'] ?? payload['notes'])?.toString() ?? '',
       },
     );
     return {

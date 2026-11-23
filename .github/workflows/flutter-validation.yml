@@ -10,6 +10,7 @@ on:
       - main
       - feature/official-pdf-report-template
       - feature/multi-store-isolation-foundation
+      - feature/control-plane-store-sessions
   pull_request:
     branches:
       - main
@@ -142,6 +143,11 @@ jobs:
       PGTEST_DATABASE: supermarket_test
       PGTEST_USER: erp_test
       PGTEST_PASSWORD: erp_test_password
+      CONTROL_PLANE_TEST_HOST: 127.0.0.1
+      CONTROL_PLANE_TEST_PORT: 5432
+      CONTROL_PLANE_TEST_DATABASE: control_plane_test
+      CONTROL_PLANE_TEST_USER: erp_test
+      CONTROL_PLANE_TEST_PASSWORD: erp_test_password
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -161,6 +167,12 @@ jobs:
           PGPASSWORD="$PGTEST_PASSWORD" psql -h "$PGTEST_HOST" -U "$PGTEST_USER" -d "$PGTEST_DATABASE" -v ON_ERROR_STOP=1 -f ../docs/neon/010_sync_operation_payload_identity.sql
           PGPASSWORD="$PGTEST_PASSWORD" psql -h "$PGTEST_HOST" -U "$PGTEST_USER" -d "$PGTEST_DATABASE" -v ON_ERROR_STOP=1 -f ../docs/neon/011_inventory_adjustment_accounts.sql
           PGPASSWORD="$PGTEST_PASSWORD" psql -h "$PGTEST_HOST" -U "$PGTEST_USER" -d "$PGTEST_DATABASE" -v ON_ERROR_STOP=1 -f ../docs/neon/008_inventory_branch_isolation_tests.sql
+
+      - name: Validate isolated control-plane schema
+        run: |
+          PGPASSWORD="$PGTEST_PASSWORD" psql -h "$PGTEST_HOST" -U "$PGTEST_USER" -d postgres -v ON_ERROR_STOP=1 -c "CREATE DATABASE control_plane_test"
+          PGPASSWORD="$PGTEST_PASSWORD" psql -h "$PGTEST_HOST" -U "$PGTEST_USER" -d control_plane_test -v ON_ERROR_STOP=1 -f control_plane_migrations/20261124_001_control_plane.sql
+          PGPASSWORD="$PGTEST_PASSWORD" psql -h "$PGTEST_HOST" -U "$PGTEST_USER" -d control_plane_test -v ON_ERROR_STOP=1 -f test/control_plane_schema_assertions.sql
 
       - name: Set up Dart
         uses: dart-lang/setup-dart@v1
