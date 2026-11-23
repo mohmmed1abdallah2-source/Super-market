@@ -16,7 +16,7 @@ class CreatePartyUseCase {
     if (command.code.trim().isEmpty || command.name.trim().isEmpty) {
       throw const FormatException('Party code and name are required.');
     }
-    if (command.creditLimit < 0 || command.paymentTermsDays < 0) {
+    if (command.creditLimit.isNegative || command.paymentTermsDays < 0) {
       throw const FormatException('Credit limit and payment terms cannot be negative.');
     }
     if (!const {'RETAIL', 'WHOLESALE'}.contains(command.priceTier)) {
