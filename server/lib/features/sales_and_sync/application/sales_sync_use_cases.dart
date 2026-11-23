@@ -54,6 +54,22 @@ class ProcessSyncBatchUseCase {
       if (!allowed.contains(operation.operationType)) {
         throw FormatException('Unsupported operation type: ${operation.operationType}');
       }
+      if (operation.operationType == 'PURCHASE_INVOICE' ||
+          operation.operationType == 'PURCHASE_RETURN') {
+        final items = operation.payload['items'];
+        if (items is! List || items.isEmpty) {
+          throw FormatException(
+            '${operation.operationType} must contain at least one item.',
+          );
+        }
+        for (final item in items) {
+          if (item is! Map<String, dynamic>) {
+            throw FormatException(
+              'Every ${operation.operationType} item must be a JSON object.',
+            );
+          }
+        }
+      }
     }
     return _repository.processBatch(command);
   }
