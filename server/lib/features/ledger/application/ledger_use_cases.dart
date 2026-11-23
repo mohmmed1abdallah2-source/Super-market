@@ -98,7 +98,7 @@ class PostVoucherUseCase {
 
   /// Executes voucher posting.
   Future<Map<String, Object?>> call(PostVoucherCommand command) {
-    if (command.amount <= 0) {
+    if (command.amount.isNegative || command.amount.isZero) {
       throw const FormatException('Voucher amount must be greater than zero.');
     }
     if (!const {'CASH', 'WALLET'}.contains(command.method)) {
