@@ -423,6 +423,7 @@ final class PostgresControlPlaneRepository implements ControlPlaneRepository, Co
          LEFT JOIN cp_store_memberships m
            ON m.id = se.active_membership_id
           AND m.account_id = se.account_id AND m.store_id = se.active_store_id
+          AND m.status = 'ACTIVE'
          WHERE se.access_token_hash = @tokenHash
            AND se.revoked_at IS NULL AND se.expires_at > now()
            AND a.status = 'ACTIVE'
