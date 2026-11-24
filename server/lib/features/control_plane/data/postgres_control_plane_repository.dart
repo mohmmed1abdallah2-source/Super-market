@@ -126,6 +126,56 @@ final class PostgresControlPlaneRepository implements ControlPlaneRepository {
         return storeId;
       });
 
+
+  @override
+  Future<void> changeStoreStatus({
+    required String actorAccountId,
+    required String storeId,
+    required ControlPlaneStoreStatus status,
+  }) =>
+      _connection.transaction((ctx) async {
+        final actorRole = await _requireActor(
+          ctx, actorAccountId, storeId, StorePermission.manageStore,
+        );
+        if (actorRole != StoreMembershipRole.owner) {
+          throw StateError('Only the store owner can change store lifecycle state.');
+        }
+        final rows = await ctx.mappedResultsQuery(
+          "SELECT status FROM cp_stores WHERE id = @store FOR UPDATE",
+          substitutionValues: {'store': storeId},
+        );
+        if (rows.isEmpty) throw StateError('Store was not found.');
+        final current = _flatten(rows.single)['status'] as String;
+        if (current == 'CLOSED' || current == 'FAILED') {
+          throw StateError('Closed or failed stores cannot be reactivated.');
+        }
+        final next = status.name.toUpperCase();
+        if (next == 'ACTIVE') {
+          final binding = await ctx.mappedResultsQuery(
+            '''SELECT status FROM cp_store_database_bindings
+               WHERE store_id = @store''',
+            substitutionValues: {'store': storeId},
+          );
+          if (binding.isEmpty || _flatten(binding.single)['status'] != 'READY') {
+            throw StateError('Store database binding must be READY before activation.');
+          }
+          if (current != 'PROVISIONING' && current != 'SUSPENDED') {
+            throw StateError('Store cannot transition to ACTIVE from its current state.');
+          }
+        } else if (next == 'SUSPENDED') {
+          if (current != 'ACTIVE') {
+            throw StateError('Only an active store can be suspended.');
+          }
+        } else if (next != 'CLOSED') {
+          throw StateError('Unsupported store lifecycle transition.');
+        }
+        await ctx.execute(
+          '''UPDATE cp_stores SET status = @status, updated_at = now()
+             WHERE id = @store''',
+          substitutionValues: {'status': next, 'store': storeId},
+        );
+      });
+
   @override
   Future<void> addMember({
     required String membershipId,
