@@ -71,7 +71,7 @@ Google ID-token verification currently supports the Google provider only. Other 
 - The actor account is derived exclusively from a verified bearer session, never from JSON, query parameters or caller-supplied identity headers.
 - Session token hashes, not raw bearer tokens, are persisted.
 - Store selection requires current active membership and an `ACTIVE` store.
-- The existing branch-token middleware remains unchanged for legacy operational routes. This work does not yet bind all sales, inventory, purchasing and ledger routes to the active control-plane store session.
+- All sales, sync, inventory, purchasing and ledger routes are now behind control-plane session, active-store, membership, role-permission and trusted branch-to-store checks. See `docs/CONTROL_PLANE_OPERATIONAL_AUTHORIZATION.md` for the remaining database-routing boundary.
 - No production database was modified and no secret or OAuth client credential was added to the repository.
 - CI must verify server analysis and control-plane tests before merge. Runtime credentials and Google OAuth client ID must be configured separately by the deployment operator.
 
