@@ -74,3 +74,10 @@ Google ID-token verification currently supports the Google provider only. Other 
 - The existing branch-token middleware remains unchanged for legacy operational routes. This work does not yet bind all sales, inventory, purchasing and ledger routes to the active control-plane store session.
 - No production database was modified and no secret or OAuth client credential was added to the repository.
 - CI must verify server analysis and control-plane tests before merge. Runtime credentials and Google OAuth client ID must be configured separately by the deployment operator.
+
+## Verification record
+
+- GitHub Actions: [Control plane validation run 45296560748](https://github.com/mohmmed1abdallah2-source/Super-market/actions/runs/45296560748) — completed successfully.
+- Tested code revision: `a21c5c6a3383abc1736759b4ead0c37c1938f61d`.
+- `dart analyze` succeeded; SQL migrations and assertions succeeded on a disposable PostgreSQL 18 database; all 15 control-plane tests passed, including the account API route tests.
+- The later documentation-only changelog update does not alter the tested code.
