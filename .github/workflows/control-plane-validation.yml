@@ -9,6 +9,7 @@ on:
       - 'server/lib/features/control_plane/**'
       - 'server/bin/server.dart'
       - 'docs/CONTROL_PLANE_ACCOUNT_API.md'
+      - 'docs/CONTROL_PLANE_OPERATIONAL_AUTHORIZATION.md'
       - 'server/test/control_plane_*.dart'
       - '.github/workflows/control-plane-validation.yml'
   pull_request:
@@ -61,6 +62,12 @@ jobs:
         run: |
           psql -h 127.0.0.1 -p 5432 -U erp_test -d control_plane_test \
             -v ON_ERROR_STOP=1 -f server/control_plane/migrations/002_store_membership_invariants.sql
+      - name: Apply trusted store branch registry migration
+        env:
+          PGPASSWORD: disposable_test_only
+        run: |
+          psql -h 127.0.0.1 -p 5432 -U erp_test -d control_plane_test \
+            -v ON_ERROR_STOP=1 -f server/control_plane/migrations/003_store_branch_registry.sql
       - name: Run rollback-only control-plane SQL assertions
         env:
           PGPASSWORD: disposable_test_only
