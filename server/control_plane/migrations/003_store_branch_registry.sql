@@ -8,10 +8,9 @@ CREATE TABLE IF NOT EXISTS cp_store_branches (
   branch_id TEXT NOT NULL CHECK (length(btrim(branch_id)) BETWEEN 1 AND 160),
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   PRIMARY KEY (store_id, branch_id),
-  UNIQUE (branch_id)
 );
 
 CREATE INDEX IF NOT EXISTS cp_store_branches_branch_idx
-  ON cp_store_branches(branch_id);
+  ON cp_store_branches(branch_id, store_id);
 
 COMMIT;
