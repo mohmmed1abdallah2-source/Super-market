@@ -371,3 +371,12 @@ The format follows Keep a Changelog. Version numbers will be assigned when relea
 - Added control-plane migration 003 for trusted store/branch registration and cross-account/cross-store authorization tests.
 - Retired branch bearer-token checks from operational route handlers; account session is the caller identity. The server fails closed with 503 for operational APIs when the control-plane database is not configured.
 - Physical per-store PostgreSQL connection routing remains a separate required step; current operational repositories still use the configured PGDATABASE connection. No production database or deployment was changed.
+
+
+## 2026-11-24 — Store-scoped branch authorization hardening
+
+- Added control-plane migration 004 to remove the temporary global uniqueness constraint on branch IDs. The registry now allows the same local branch identifier in different stores, with uniqueness scoped by the composite (store_id, branch_id) key.
+- Updated disposable PostgreSQL assertions to verify duplicate local branch IDs are accepted across different stores.
+- Tightened Sync Batch permission evaluation: ordinary create operations require create permission, while batches containing stocktake approval, disposal approval or stock transfer require approval permission. The request body is replayed unchanged to the route handler after middleware inspection.
+- Added middleware regression tests for ordinary staff sync and rejection of staff approval batches.
+- Validation is pending the current GitHub Actions run. No production database or deployment changes.
