@@ -6,6 +6,16 @@ The format follows Keep a Changelog. Version numbers will be assigned when relea
 
 ## [Unreleased] — Iteration 2
 
+### 2026-11-25 — Request-scoped tenant database routing
+- Removed the server's shared operational PostgreSQL connection from the API bootstrap.
+- Added trusted lookup of the active store's READY database_key and resolution of connection credentials through secret-manager-injected ERP_STORE_DATABASES_JSON; credentials remain outside the control-plane database and repository.
+- The server now opens a store-specific PostgreSQL connection per operational request and builds fresh sales/sync/inventory/purchasing/ledger repositories around that connection, then closes it after the response handler completes.
+- Missing bindings, missing/invalid credentials and unreachable tenant databases fail closed with HTTP 503.
+- Added resolver unit tests and a PostgreSQL integration test with two disposable tenant databases sharing the same branch ID but holding different data.
+- GitHub Actions run 45496773128 passed: Dart analysis clean, 24 authorization tests, 4 resolver tests, and 1 tenant-routing integration test. Control-plane migrations 001–004 and SQL assertions also passed on disposable PostgreSQL.
+- Production secret injection, tenant provisioning, per-store least-privilege database roles, branch registration and deployment remain rollout prerequisites; no production database or deployment was changed.
+
+
 ### Project-wide documentation
 - Added `docs/PROJECT_STATUS_AND_ROADMAP.md` as the single project-wide status and delivery roadmap, covering Flutter, SQLite, Firebase, POS/ledger, PDF, Dart API, PostgreSQL/Neon, multi-store isolation, CI, security, deployment and acceptance gates.
 - Appended a dated entry to `DEVELOPMENT_LOG.md` recording the repository review, documentation-only scope of this update, owner-reported Neon results, and explicit unverified/pending items.

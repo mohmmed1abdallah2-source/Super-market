@@ -11,6 +11,7 @@ on:
       - 'docs/CONTROL_PLANE_ACCOUNT_API.md'
       - 'docs/CONTROL_PLANE_OPERATIONAL_AUTHORIZATION.md'
       - 'server/test/control_plane_*.dart'
+      - 'server/test/store_database_*.dart'
       - '.github/workflows/control-plane-validation.yml'
   pull_request:
     branches:
