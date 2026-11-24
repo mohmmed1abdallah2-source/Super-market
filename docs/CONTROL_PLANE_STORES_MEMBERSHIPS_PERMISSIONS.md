@@ -18,12 +18,19 @@
 | Role | Store settings | Invite members | Change roles | Suspend members | View operations | Create operations | Approve operations |
 |---|---:|---:|---:|---:|---:|---:|---:|
 | OWNER | Yes | Yes | Yes | Yes | Yes | Yes | Yes |
-| ADMIN | No | Yes | Yes* | Yes* | Yes | Yes | Yes |
+| ADMIN | Yes (settings) | Yes | Yes* | Yes* | Yes | Yes | Yes |
 | MANAGER | No | Yes* | No | No | Yes | Yes | Yes |
 | STAFF | No | No | No | No | Yes | Yes | No |
 | READ_ONLY | No | No | No | No | Yes | No | No |
 
 `*` Admins/managers may act only below their own role rank. Owner assignment/transfer is intentionally excluded until a dedicated, audited transfer workflow exists.
+
+## Store lifecycle
+
+- A new store is created as `PROVISIONING` and is not selectable for operational use.
+- Only the OWNER may suspend or close a store.
+- A store may become `ACTIVE` only after its opaque database binding exists with status `READY`.
+- A suspended store can be reactivated only while its binding remains `READY`; closed and failed stores are terminal in this workflow.
 
 ## Security boundaries / remaining integration
 
