@@ -47,6 +47,23 @@ final class ControlPlaneStoreService {
     );
   }
 
+  Future<void> changeStoreStatus({
+    required String actorAccountId,
+    required String storeId,
+    required ControlPlaneStoreStatus status,
+  }) {
+    _requiredIds(actorAccountId, storeId);
+    if (status == ControlPlaneStoreStatus.provisioning ||
+        status == ControlPlaneStoreStatus.failed) {
+      throw const FormatException('Provisioning states are controlled by the provisioning workflow.');
+    }
+    return _repository.changeStoreStatus(
+      actorAccountId: actorAccountId,
+      storeId: storeId,
+      status: status,
+    );
+  }
+
   Future<void> acceptInvitation({
     required String accountId,
     required String storeId,
