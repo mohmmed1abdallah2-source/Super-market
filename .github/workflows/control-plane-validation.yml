@@ -57,7 +57,7 @@ jobs:
         env:
           PGPASSWORD: disposable_test_only
         run: |
-          psql -h 127.0.0.1 -p 5432 -U erp_test -d control_plane_test \\
+          psql -h 127.0.0.1 -p 5432 -U erp_test -d control_plane_test \
             -v ON_ERROR_STOP=1 -f server/control_plane/migrations/002_store_membership_invariants.sql
       - name: Run rollback-only control-plane SQL assertions
         env:
