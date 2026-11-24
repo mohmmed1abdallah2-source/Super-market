@@ -1,0 +1,280 @@
+import 'package:postgres/postgres.dart';
+
+import '../domain/control_plane_domain.dart';
+
+/// PostgreSQL persistence for the dedicated control-plane database.
+/// This connection must never point at an operational store database.
+final class PostgresControlPlaneRepository implements ControlPlaneRepository {
+  PostgresControlPlaneRepository(this._connection);
+
+  final PostgreSQLConnection _connection;
+
+  @override
+  Future<List<AccountStoreAccess>> listActiveStores(String accountId) async {
+    final rows = await _connection.mappedResultsQuery(
+      '''SELECT s.id::text AS "storeId", s.display_name AS "displayName",
+                s.status AS "storeStatus", m.role
+         FROM cp_store_memberships m
+         JOIN cp_accounts a ON a.id = m.account_id
+         JOIN cp_stores s ON s.id = m.store_id
+         WHERE m.account_id = @account AND m.status = 'ACTIVE'
+           AND a.status = 'ACTIVE' AND s.status IN ('ACTIVE', 'PROVISIONING')
+         ORDER BY s.display_name''',
+      substitutionValues: {'account': accountId},
+    );
+    return rows.map((row) {
+      final data = _flatten(row);
+      return AccountStoreAccess(
+        storeId: data['storeId'] as String,
+        displayName: data['displayName'] as String,
+        role: _role(data['role'] as String),
+        storeStatus: _storeStatus(data['storeStatus'] as String),
+      );
+    }).toList(growable: false);
+  }
+
+  @override
+  Future<String> createStore({
+    required String storeId,
+    required String membershipId,
+    required String ownerAccountId,
+    required String displayName,
+  }) =>
+      _connection.transaction((ctx) async {
+        final account = await ctx.mappedResultsQuery(
+          "SELECT status FROM cp_accounts WHERE id = @id FOR UPDATE",
+          substitutionValues: {'id': ownerAccountId},
+        );
+        if (account.isEmpty || _flatten(account.single)['status'] != 'ACTIVE') {
+          throw StateError('An active account is required to create a store.');
+        }
+        await ctx.execute(
+          '''INSERT INTO cp_stores(id, display_name, status, created_by_account_id)
+             VALUES (@id, @name, 'PROVISIONING', @owner)''',
+          substitutionValues: {
+            'id': storeId, 'name': displayName, 'owner': ownerAccountId,
+          },
+        );
+        await ctx.execute(
+          '''INSERT INTO cp_store_memberships(id, account_id, store_id, role, status)
+             VALUES (@membership, @owner, @store, 'OWNER', 'ACTIVE')''',
+          substitutionValues: {
+            'membership': membershipId,
+            'owner': ownerAccountId,
+            'store': storeId,
+          },
+        );
+        return storeId;
+      });
+
+  @override
+  Future<void> addMember({
+    required String membershipId,
+    required String actorAccountId,
+    required String targetAccountId,
+    required String storeId,
+    required StoreMembershipRole role,
+  }) =>
+      _connection.transaction((ctx) async {
+        await _requireActor(ctx, actorAccountId, storeId, StorePermission.inviteMembers);
+        final target = await ctx.mappedResultsQuery(
+          "SELECT status FROM cp_accounts WHERE id = @id FOR UPDATE",
+          substitutionValues: {'id': targetAccountId},
+        );
+        if (target.isEmpty || _flatten(target.single)['status'] != 'ACTIVE') {
+          throw StateError('Target account is not active.');
+        }
+        await ctx.execute(
+          '''INSERT INTO cp_store_memberships(id, account_id, store_id, role, status)
+             VALUES (@id, @account, @store, @role, 'INVITED')''',
+          substitutionValues: {
+            'id': membershipId,
+            'account': targetAccountId,
+            'store': storeId,
+            'role': _roleName(role),
+          },
+        );
+      });
+
+  @override
+  Future<void> changeMemberRole({
+    required String actorAccountId,
+    required String targetAccountId,
+    required String storeId,
+    required StoreMembershipRole role,
+  }) =>
+      _connection.transaction((ctx) async {
+        final actorRole = await _requireActor(
+          ctx, actorAccountId, storeId, StorePermission.changeMemberRoles,
+        );
+        if (actorRole != StoreMembershipRole.owner &&
+            _roleRank(role) <= _roleRank(actorRole)) {
+          throw StateError('An administrator cannot assign an equal or higher role.');
+        }
+        final target = await ctx.mappedResultsQuery(
+          '''SELECT role, status FROM cp_store_memberships
+             WHERE account_id = @account AND store_id = @store FOR UPDATE''',
+          substitutionValues: {'account': targetAccountId, 'store': storeId},
+        );
+        if (target.isEmpty) throw StateError('Membership was not found.');
+        final targetData = _flatten(target.single);
+        if (targetData['role'] == 'OWNER') {
+          throw StateError('Owner role cannot be changed through member role management.');
+        }
+        if (targetData['status'] == 'REVOKED') {
+          throw StateError('Revoked membership cannot be changed.');
+        }
+        await ctx.execute(
+          '''UPDATE cp_store_memberships
+             SET role = @role, updated_at = now()
+             WHERE account_id = @account AND store_id = @store''',
+          substitutionValues: {
+            'role': _roleName(role),
+            'account': targetAccountId,
+            'store': storeId,
+          },
+        );
+      });
+
+  @override
+  Future<void> changeMemberStatus({
+    required String actorAccountId,
+    required String targetAccountId,
+    required String storeId,
+    required StoreMembershipStatus status,
+  }) =>
+      _connection.transaction((ctx) async {
+        final actorRole = await _requireActor(
+          ctx, actorAccountId, storeId, StorePermission.suspendMembers,
+        );
+        final target = await ctx.mappedResultsQuery(
+          '''SELECT role, status FROM cp_store_memberships
+             WHERE account_id = @account AND store_id = @store FOR UPDATE''',
+          substitutionValues: {'account': targetAccountId, 'store': storeId},
+        );
+        if (target.isEmpty) throw StateError('Membership was not found.');
+        final data = _flatten(target.single);
+        if (data['role'] == 'OWNER') {
+          throw StateError('Store owner membership cannot be suspended or revoked.');
+        }
+        if (actorRole != StoreMembershipRole.owner &&
+            _roleRank(data['role'] as String) >= _roleRank(actorRole)) {
+          throw StateError('An administrator cannot suspend an equal or higher role.');
+        }
+        await ctx.execute(
+          '''UPDATE cp_store_memberships
+             SET status = @status, updated_at = now()
+             WHERE account_id = @account AND store_id = @store''',
+          substitutionValues: {
+            'status': _statusName(status),
+            'account': targetAccountId,
+            'store': storeId,
+          },
+        );
+      });
+
+  @override
+  Future<List<StoreMember>> listMembers({
+    required String actorAccountId,
+    required String storeId,
+  }) async {
+    await _requireActor(
+      _connection, actorAccountId, storeId, StorePermission.viewMembers,
+    );
+    final rows = await _connection.mappedResultsQuery(
+      '''SELECT account_id::text AS "accountId", store_id::text AS "storeId",
+                role, status
+         FROM cp_store_memberships WHERE store_id = @store
+         ORDER BY created_at, account_id''',
+      substitutionValues: {'store': storeId},
+    );
+    return rows.map((row) {
+      final data = _flatten(row);
+      return StoreMember(
+        accountId: data['accountId'] as String,
+        storeId: data['storeId'] as String,
+        role: _role(data['role'] as String),
+        status: _membershipStatus(data['status'] as String),
+      );
+    }).toList(growable: false);
+  }
+
+  @override
+  Future<bool> hasPermission({
+    required String accountId,
+    required String storeId,
+    required StorePermission permission,
+  }) async {
+    final rows = await _connection.mappedResultsQuery(
+      '''SELECT m.role
+         FROM cp_store_memberships m
+         JOIN cp_accounts a ON a.id = m.account_id
+         JOIN cp_stores s ON s.id = m.store_id
+         WHERE m.account_id = @account AND m.store_id = @store
+           AND m.status = 'ACTIVE' AND a.status = 'ACTIVE'
+           AND s.status = 'ACTIVE'
+         LIMIT 1''',
+      substitutionValues: {'account': accountId, 'store': storeId},
+    );
+    if (rows.isEmpty) return false;
+    return _role(_flatten(rows.single)['role'] as String).allows(permission);
+  }
+
+  Future<StoreMembershipRole> _requireActor(
+    dynamic executor,
+    String actor,
+    String store,
+    StorePermission permission,
+  ) async {
+    final rows = await executor.mappedResultsQuery(
+      '''SELECT m.role
+         FROM cp_store_memberships m
+         JOIN cp_accounts a ON a.id = m.account_id
+         JOIN cp_stores s ON s.id = m.store_id
+         WHERE m.account_id = @account AND m.store_id = @store
+           AND m.status = 'ACTIVE' AND a.status = 'ACTIVE'
+           AND s.status IN ('ACTIVE', 'PROVISIONING')
+         FOR UPDATE OF m''',
+      substitutionValues: {'account': actor, 'store': store},
+    );
+    if (rows.isEmpty) throw StateError('Active store membership is required.');
+    final role = _role(_flatten(rows.single)['role'] as String);
+    if (!role.allows(permission)) throw StateError('Permission denied.');
+    return role;
+  }
+
+  Map<String, dynamic> _flatten(Map<String, Map<String, dynamic>> row) =>
+      row.values.first;
+
+  StoreMembershipRole _role(String value) => StoreMembershipRole.values
+      .firstWhere((role) => _roleName(role) == value);
+
+  String _roleName(StoreMembershipRole role) => switch (role) {
+        StoreMembershipRole.owner => 'OWNER',
+        StoreMembershipRole.admin => 'ADMIN',
+        StoreMembershipRole.manager => 'MANAGER',
+        StoreMembershipRole.staff => 'STAFF',
+        StoreMembershipRole.readOnly => 'READ_ONLY',
+      };
+
+  int _roleRank(Object role) => switch (role) {
+        StoreMembershipRole.owner || 'OWNER' => 5,
+        StoreMembershipRole.admin || 'ADMIN' => 4,
+        StoreMembershipRole.manager || 'MANAGER' => 3,
+        StoreMembershipRole.staff || 'STAFF' => 2,
+        StoreMembershipRole.readOnly || 'READ_ONLY' => 1,
+        _ => 0,
+      };
+
+  ControlPlaneStoreStatus _storeStatus(String value) =>
+      ControlPlaneStoreStatus.values.firstWhere(
+        (status) => status.name.toUpperCase() == value,
+      );
+
+  StoreMembershipStatus _membershipStatus(String value) =>
+      StoreMembershipStatus.values.firstWhere(
+        (status) => status.name.toUpperCase() == value,
+      );
+
+  String _statusName(StoreMembershipStatus status) => status.name.toUpperCase();
+}
