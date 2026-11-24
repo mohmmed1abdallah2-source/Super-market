@@ -379,4 +379,4 @@ The format follows Keep a Changelog. Version numbers will be assigned when relea
 - Updated disposable PostgreSQL assertions to verify duplicate local branch IDs are accepted across different stores.
 - Tightened Sync Batch permission evaluation: ordinary create operations require create permission, while batches containing stocktake approval, disposal approval or stock transfer require approval permission. The request body is replayed unchanged to the route handler after middleware inspection.
 - Added middleware regression tests for ordinary staff sync and rejection of staff approval batches.
-- Validation is pending the current GitHub Actions run. No production database or deployment changes.
+- GitHub Actions run #45481811752 passed on code commit `93b4399c8825b200d8926ec38a1c8f694bbc6ac5`: migrations 001–004 and rollback-only SQL assertions passed on disposable PostgreSQL 18; Dart analysis passed; all 24 control-plane tests passed. No production database or deployment changes.
