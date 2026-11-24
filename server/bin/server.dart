@@ -6,6 +6,9 @@ import 'package:shelf/shelf.dart';
 import 'package:shelf/shelf_io.dart' as shelf_io;
 import 'package:shelf_router/shelf_router.dart';
 
+import '../lib/features/control_plane/data/postgres_control_plane_repository.dart';
+import '../lib/features/control_plane/data/google_identity_token_verifier.dart';
+import '../lib/features/control_plane/presentation/control_plane_auth_routes.dart';
 import '../lib/features/ledger/application/ledger_use_cases.dart';
 import '../lib/features/ledger/data/postgres_ledger_repository.dart';
 import '../lib/features/ledger/presentation/ledger_routes.dart';
@@ -32,6 +35,27 @@ Future<void> main(List<String> arguments) async {
     timeoutInSeconds: 30,
   );
   await database.open();
+
+  PostgreSQLConnection? controlPlaneDatabase;
+  ControlPlaneAuthRoutes? controlPlaneAuthRoutes;
+  if ((environment['ERP_CONTROL_PLANE_PGHOST'] ?? '').trim().isNotEmpty) {
+    controlPlaneDatabase = PostgreSQLConnection(
+      _requiredEnvironment(environment, 'ERP_CONTROL_PLANE_PGHOST'),
+      int.tryParse(environment['ERP_CONTROL_PLANE_PGPORT'] ?? '5432') ?? 5432,
+      _requiredEnvironment(environment, 'ERP_CONTROL_PLANE_PGDATABASE'),
+      username: _requiredEnvironment(environment, 'ERP_CONTROL_PLANE_PGUSER'),
+      password: _requiredEnvironment(environment, 'ERP_CONTROL_PLANE_PGPASSWORD'),
+      timeoutInSeconds: 30,
+    );
+    await controlPlaneDatabase.open();
+    controlPlaneAuthRoutes = ControlPlaneAuthRoutes(
+      identityVerifier: GoogleIdentityTokenVerifier(
+        clientId: _requiredEnvironment(environment, 'ERP_GOOGLE_OAUTH_CLIENT_ID'),
+      ),
+      storeRepository: PostgresControlPlaneRepository(controlPlaneDatabase),
+      sessionRepository: PostgresControlPlaneRepository(controlPlaneDatabase),
+    );
+  }
 
   final branchTokens = _readBranchTokens(environment);
   final ledgerRepository = PostgresLedgerRepository(database);
@@ -76,14 +100,17 @@ Future<void> main(List<String> arguments) async {
         headers: const {'content-type': 'application/json; charset=utf-8'},
       ));
 
+  final cascade = Cascade()
+      .add(root)
+      .add(ledgerRouter.router)
+      .add(salesRouter.router)
+      .add(inventoryRouter.router);
+  if (controlPlaneAuthRoutes != null) {
+    cascade.add(controlPlaneAuthRoutes.router);
+  }
   final handler = Pipeline()
       .addMiddleware(logRequests())
-      .addHandler(Cascade()
-          .add(root)
-          .add(ledgerRouter.router)
-          .add(salesRouter.router)
-          .add(inventoryRouter.router)
-          .handler);
+      .addHandler(cascade.handler);
 
   final host = environment['ERP_HOST'] ?? '0.0.0.0';
   final port = int.tryParse(environment['PORT'] ?? '8080') ?? 8080;
@@ -93,6 +120,7 @@ Future<void> main(List<String> arguments) async {
   ProcessSignal.sigint.watch().listen((_) async {
     await server.close(force: true);
     await database.close();
+    await controlPlaneDatabase?.close();
     exit(0);
   });
 }
