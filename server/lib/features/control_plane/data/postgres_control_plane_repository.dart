@@ -396,7 +396,7 @@ final class PostgresControlPlaneRepository implements ControlPlaneRepository, Co
     required String accessTokenHash,
     required DateTime expiresAt,
   }) async {
-    await _connection.execute(
+    final inserted = await _connection.execute(
       '''INSERT INTO cp_sessions(id, account_id, access_token_hash, expires_at)
          SELECT @id, a.id, @tokenHash, @expires
          FROM cp_accounts a WHERE a.id = @account AND a.status = 'ACTIVE' ''',
@@ -407,6 +407,7 @@ final class PostgresControlPlaneRepository implements ControlPlaneRepository, Co
         'expires': expiresAt.toUtc(),
       },
     );
+    if (inserted != 1) throw StateError('An active account is required to create a session.');
   }
 
   @override
