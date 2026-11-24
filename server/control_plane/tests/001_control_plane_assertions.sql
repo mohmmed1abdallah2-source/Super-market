@@ -42,6 +42,14 @@ BEGIN
     RAISE EXCEPTION 'store B branch mapping assertion failed';
   END IF;
 
+  BEGIN
+    INSERT INTO cp_store_branches(store_id, branch_id)
+      VALUES (store_b, 'branch-main');
+    RAISE EXCEPTION 'one branch identifier was unexpectedly registered to two stores';
+  EXCEPTION WHEN unique_violation THEN
+    NULL;
+  END;
+
   INSERT INTO cp_sessions(
     id, account_id, active_store_id, active_membership_id,
     access_token_hash, expires_at
