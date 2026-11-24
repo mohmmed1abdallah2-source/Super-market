@@ -77,7 +77,7 @@ final class PostgresControlPlaneRepository implements ControlPlaneRepository {
          JOIN cp_accounts a ON a.id = m.account_id
          JOIN cp_stores s ON s.id = m.store_id
          WHERE m.account_id = @account AND m.status = 'ACTIVE'
-           AND a.status = 'ACTIVE' AND s.status IN ('ACTIVE', 'PROVISIONING')
+           AND a.status = 'ACTIVE' AND s.status IN ('ACTIVE', 'PROVISIONING', 'SUSPENDED')
          ORDER BY s.display_name''',
       substitutionValues: {'account': accountId},
     );
