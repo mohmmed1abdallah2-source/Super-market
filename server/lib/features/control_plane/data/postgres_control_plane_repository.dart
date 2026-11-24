@@ -422,10 +422,12 @@ final class PostgresControlPlaneRepository implements ControlPlaneRepository, Co
          FROM cp_sessions se
          JOIN cp_accounts a ON a.id = se.account_id
          LEFT JOIN cp_stores s ON s.id = se.active_store_id
+         LEFT JOIN cp_store_database_bindings db ON db.store_id = s.id AND db.status = 'READY'
          LEFT JOIN cp_store_memberships m
            ON m.id = se.active_membership_id
           AND m.account_id = se.account_id AND m.store_id = se.active_store_id
           AND m.status = 'ACTIVE'
+          AND db.store_id IS NOT NULL
          WHERE se.access_token_hash = @tokenHash
            AND se.revoked_at IS NULL AND se.expires_at > now()
            AND a.status = 'ACTIVE'
@@ -437,7 +439,8 @@ final class PostgresControlPlaneRepository implements ControlPlaneRepository, Co
     AccountStoreAccess? activeStore;
     if (data['storeId'] != null &&
         data['storeStatus'] == 'ACTIVE' &&
-        data['storeRole'] != null) {
+        data['storeRole'] != null &&
+        data['storeId'] != null) {
       activeStore = AccountStoreAccess(
         storeId: data['storeId'] as String,
         displayName: data['displayName'] as String,
@@ -469,6 +472,7 @@ final class PostgresControlPlaneRepository implements ControlPlaneRepository, Co
                ON m.account_id = se.account_id AND m.store_id = @store
               AND m.status = 'ACTIVE'
              JOIN cp_stores s ON s.id = m.store_id AND s.status = 'ACTIVE'
+             JOIN cp_store_database_bindings db ON db.store_id = s.id AND db.status = 'READY'
              WHERE se.access_token_hash = @tokenHash
                AND se.revoked_at IS NULL AND se.expires_at > now()
                AND a.status = 'ACTIVE'
@@ -507,6 +511,25 @@ final class PostgresControlPlaneRepository implements ControlPlaneRepository, Co
          WHERE access_token_hash = @tokenHash AND revoked_at IS NULL''',
       substitutionValues: {'tokenHash': accessTokenHash},
     );
+  }
+
+
+  @override
+  Future<bool> isBranchAssignedToStore({
+    required String storeId,
+    required String branchId,
+  }) async {
+    final rows = await _connection.mappedResultsQuery(
+      '''SELECT 1 AS allowed
+         FROM cp_store_branches sb
+         JOIN cp_stores s ON s.id = sb.store_id AND s.status = 'ACTIVE'
+         JOIN cp_store_database_bindings db
+           ON db.store_id = s.id AND db.status = 'READY'
+         WHERE sb.store_id = @store AND sb.branch_id = @branch
+         LIMIT 1''',
+      substitutionValues: {'store': storeId, 'branch': branchId},
+    );
+    return rows.isNotEmpty;
   }
 
   Map<String, dynamic> _flatten(Map<String, Map<String, dynamic>> row) =>
