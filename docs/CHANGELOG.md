@@ -355,3 +355,10 @@ The format follows Keep a Changelog. Version numbers will be assigned when relea
 
 - Added owner-controlled store lifecycle transitions: activation requires a READY database binding; suspension and closure are owner-only; closed/failed stores cannot be reactivated.
 - CI verification completed successfully on disposable PostgreSQL 18: both migrations, rollback-only SQL assertions, Dart analysis and 11 control-plane tests passed (run 45294053429). The lifecycle controls also passed the subsequent CI run `45294332383`; the remaining work is authenticated HTTP/session integration and controlled provisioning.
+
+
+## 2026-11-24 — Control-plane account API
+
+- Added Google ID-token verification and server-issued opaque account sessions; only bearer-token hashes are stored.
+- Added authenticated store listing, owner-only store lifecycle activation (requires a READY database binding), and active-store session selection.
+- Added session revocation and API contract documentation. Operational branch-token routes remain unchanged pending the separate tenant-isolation integration.
