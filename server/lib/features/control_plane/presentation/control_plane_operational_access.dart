@@ -57,13 +57,16 @@ final class ControlPlaneOperationalAccess {
                 'The branch is not registered to the active store.');
           }
 
-          final permission = _permissionFor(request);
+          var operationalRequest = request;
+          final permission = await _permissionForRequest(request, (replayed) {
+            operationalRequest = replayed;
+          });
           if (!activeStore.role.allows(permission)) {
             return _json(403, 'PERMISSION_DENIED',
                 'The current membership role does not allow this operation.');
           }
 
-          return innerHandler(request.change(context: {
+          return innerHandler(operationalRequest.change(context: {
             'controlPlane.accountId': session.accountId,
             'controlPlane.sessionId': session.sessionId,
             'controlPlane.storeId': activeStore.storeId,
@@ -73,16 +76,44 @@ final class ControlPlaneOperationalAccess {
         };
       };
 
-  StorePermission _permissionFor(Request request) {
+  Future<StorePermission> _permissionForRequest(
+    Request request,
+    void Function(Request replayed) replaceRequest,
+  ) async {
     final path = request.url.path;
     if (request.method == 'GET' || request.method == 'HEAD') {
       return StorePermission.viewOperations;
     }
-    if (path == '/v1/sync/batch' ||
-        path.endsWith('/approve') ||
+    if (path.endsWith('/approve') ||
         path.endsWith('/disposals') ||
         path.endsWith('/transfers')) {
       return StorePermission.approveOperations;
+    }
+    if (request.method == 'POST' && path == '/v1/sync/batch') {
+      // Sync batches can mix ordinary creates with privileged approvals.
+      // Inspect the operation types before authorizing, then replay the exact
+      // body to the route handler because middleware consumed the stream.
+      final rawBody = await request.readAsString();
+      replaceRequest(request.change(body: rawBody));
+      try {
+        final decoded = jsonDecode(rawBody);
+        final operations = decoded is Map<String, dynamic> ? decoded['operations'] : null;
+        if (operations is List) {
+          const approvalTypes = {
+            'STOCKTAKE_APPROVE',
+            'DISPOSAL_APPROVE',
+            'STOCK_TRANSFER',
+          };
+          for (final operation in operations) {
+            if (operation is Map<String, dynamic> &&
+                approvalTypes.contains(operation['operationType']?.toString().toUpperCase())) {
+              return StorePermission.approveOperations;
+            }
+          }
+        }
+      } on FormatException {
+        // Let the route handler return its normal validation response.
+      }
     }
     return StorePermission.createOperations;
   }
