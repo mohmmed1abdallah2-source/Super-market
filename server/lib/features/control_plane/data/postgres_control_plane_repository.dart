@@ -137,6 +137,7 @@ final class PostgresControlPlaneRepository implements ControlPlaneRepository, Co
       _connection.transaction((ctx) async {
         final actorRole = await _requireActor(
           ctx, actorAccountId, storeId, StorePermission.manageStore,
+          allowSuspended: true,
         );
         if (actorRole != StoreMembershipRole.owner) {
           throw StateError('Only the store owner can change store lifecycle state.');
@@ -369,8 +370,9 @@ final class PostgresControlPlaneRepository implements ControlPlaneRepository, Co
     dynamic executor,
     String actor,
     String store,
-    StorePermission permission,
-  ) async {
+    StorePermission permission, {
+    bool allowSuspended = false,
+  }) async {
     final rows = await executor.mappedResultsQuery(
       '''SELECT m.role
          FROM cp_store_memberships m
@@ -378,7 +380,7 @@ final class PostgresControlPlaneRepository implements ControlPlaneRepository, Co
          JOIN cp_stores s ON s.id = m.store_id
          WHERE m.account_id = @account AND m.store_id = @store
            AND m.status = 'ACTIVE' AND a.status = 'ACTIVE'
-           AND s.status IN ('ACTIVE', 'PROVISIONING')
+           AND s.status IN ('ACTIVE', 'PROVISIONING'${allowSuspended ? ", 'SUSPENDED'" : ''})
          FOR UPDATE OF m''',
       substitutionValues: {'account': actor, 'store': store},
     );
