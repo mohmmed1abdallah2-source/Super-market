@@ -351,3 +351,7 @@ The format follows Keep a Changelog. Version numbers will be assigned when relea
 - Added migration 002 for one active owner per store and invitation lookup, permission tests and separate implementation documentation.
 - Extended CI to apply both control-plane migrations in a disposable PostgreSQL database and run all control-plane Dart tests.
 - HTTP routes intentionally remain gated on verified control-plane session authentication; no client-supplied account ID is treated as identity.
+
+
+- Added owner-controlled store lifecycle transitions: activation requires a READY database binding; suspension and closure are owner-only; closed/failed stores cannot be reactivated.
+- CI verification completed successfully on disposable PostgreSQL 18: both migrations, rollback-only SQL assertions, Dart analysis and 11 control-plane tests passed (run 45294053429). The latest follow-up changes are limited to lifecycle controls and documentation and are awaiting the next CI confirmation.
