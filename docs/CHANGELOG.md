@@ -362,3 +362,12 @@ The format follows Keep a Changelog. Version numbers will be assigned when relea
 - Added Google ID-token verification and server-issued opaque account sessions; only bearer-token hashes are stored.
 - Added authenticated store listing, owner-only store lifecycle activation (requires a READY database binding), and active-store session selection.
 - Added session revocation and API contract documentation. Operational branch-token routes remain unchanged pending the separate tenant-isolation integration.
+
+
+## 2026-11-24 — Operational session authorization
+
+- Mounted sales, sync, inventory, purchasing and ledger APIs behind a control-plane bearer-session middleware.
+- Enforced active account/session/store/membership, role-based operation permissions, and server-trusted branch-to-store mapping; requests with forged store IDs or another store's branch are rejected.
+- Added control-plane migration 003 for trusted store/branch registration and cross-account/cross-store authorization tests.
+- Retired branch bearer-token checks from operational route handlers; account session is the caller identity. The server fails closed with 503 for operational APIs when the control-plane database is not configured.
+- Physical per-store PostgreSQL connection routing remains a separate required step; current operational repositories still use the configured PGDATABASE connection. No production database or deployment was changed.
