@@ -91,6 +91,42 @@ void main() {
     expect(approval.statusCode, 403); // STAFF cannot approve.
   });
 
+  test('allows STAFF to sync ordinary create operations', () async {
+    final response = await handler(_request(
+      method: 'POST',
+      path: '/v1/sync/batch',
+      headers: {
+        'authorization': 'Bearer account-a-token',
+        'x-branch-id': 'branch-a',
+      },
+      body: jsonEncode({
+        'operations': [
+          {'operationType': 'SALE_INVOICE'},
+          {'operationType': 'PURCHASE_INVOICE'},
+        ],
+      }),
+    ));
+    expect(response.statusCode, 200);
+  });
+
+  test('denies STAFF a sync batch containing an approval operation', () async {
+    final response = await handler(_request(
+      method: 'POST',
+      path: '/v1/sync/batch',
+      headers: {
+        'authorization': 'Bearer account-a-token',
+        'x-branch-id': 'branch-a',
+      },
+      body: jsonEncode({
+        'operations': [
+          {'operationType': 'SALE_INVOICE'},
+          {'operationType': 'STOCKTAKE_APPROVE'},
+        ],
+      }),
+    ));
+    expect(response.statusCode, 403);
+  });
+
   test('rejects sessions whose membership is no longer active', () async {
     sessions.valid = false;
     final response = await handler(_request(
@@ -107,8 +143,9 @@ Request _request({
   String method = 'GET',
   String path = '/v1/sales/invoices',
   Map<String, String> headers = const {},
+  Object? body,
 }) =>
-    Request(method, Uri.parse('http://localhost$path'), headers: headers);
+    Request(method, Uri.parse('http://localhost$path'), headers: headers, body: body);
 
 final class _FakeSessions implements ControlPlaneSessionRepository {
   bool valid = true;
