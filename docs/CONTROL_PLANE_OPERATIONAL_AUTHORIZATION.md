@@ -8,7 +8,7 @@ All sales, synchronization, inventory, purchasing and ledger route groups are mo
 2. Requires a selected `ACTIVE` store in that session. The session lookup also requires an active account, active membership, and a `READY` database binding.
 3. Treats the session's store as authoritative. If `X-Store-Id` is supplied and differs from the session store, the request is rejected with 403.
 4. Requires `X-Branch-Id` to be registered for that exact store in `cp_store_branches`. A branch ID belonging to another store is rejected with 403.
-5. Enforces role permissions: GET/HEAD requires `viewOperations`; ordinary writes require `createOperations`; approval, disposal and transfer actions require `approveOperations`.
+5. Enforces role permissions: GET/HEAD requires `viewOperations`; ordinary writes require `createOperations`; approval, disposal and transfer actions require `approveOperations`. Sync batches are inspected by operation type: batches containing `STOCKTAKE_APPROVE`, `DISPOSAL_APPROVE` or `STOCK_TRANSFER` require approval permission, while ordinary sale/purchase/create batches require create permission. The exact request body is replayed to the route handler after inspection.
 
 The operational route handlers no longer authenticate using a caller-selected branch token. They use the account bearer token already authenticated by the middleware. The branch ID remains a branch-within-store identifier, not a tenant/store identity.
 
