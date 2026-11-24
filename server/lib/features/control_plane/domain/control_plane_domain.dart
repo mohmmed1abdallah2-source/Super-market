@@ -32,10 +32,58 @@ final class VerifiedAccountIdentity {
 }
 
 enum StoreMembershipRole { owner, admin, manager, staff, readOnly }
-
+enum StoreMembershipStatus { invited, active, suspended, revoked }
 enum ControlPlaneAccountStatus { active, suspended, closed }
-
 enum ControlPlaneStoreStatus { provisioning, active, suspended, failed, closed }
+
+enum StorePermission {
+  viewStore,
+  manageStore,
+  viewMembers,
+  inviteMembers,
+  changeMemberRoles,
+  suspendMembers,
+  viewOperations,
+  createOperations,
+  approveOperations,
+  manageSettings,
+}
+
+extension StoreRolePermissions on StoreMembershipRole {
+  Set<StorePermission> get permissions => switch (this) {
+        StoreMembershipRole.owner => StorePermission.values.toSet(),
+        StoreMembershipRole.admin => {
+            StorePermission.viewStore,
+            StorePermission.viewMembers,
+            StorePermission.inviteMembers,
+            StorePermission.changeMemberRoles,
+            StorePermission.suspendMembers,
+            StorePermission.viewOperations,
+            StorePermission.createOperations,
+            StorePermission.approveOperations,
+            StorePermission.manageSettings,
+          },
+        StoreMembershipRole.manager => {
+            StorePermission.viewStore,
+            StorePermission.viewMembers,
+            StorePermission.inviteMembers,
+            StorePermission.viewOperations,
+            StorePermission.createOperations,
+            StorePermission.approveOperations,
+          },
+        StoreMembershipRole.staff => {
+            StorePermission.viewStore,
+            StorePermission.viewOperations,
+            StorePermission.createOperations,
+          },
+        StoreMembershipRole.readOnly => {
+            StorePermission.viewStore,
+            StorePermission.viewOperations,
+          },
+      };
+
+  bool allows(StorePermission permission) => permissions.contains(permission);
+}
 
 /// A store directory entry visible to an authenticated account through membership.
 final class AccountStoreAccess {
@@ -51,15 +99,59 @@ final class AccountStoreAccess {
   final StoreMembershipRole role;
   final ControlPlaneStoreStatus storeStatus;
 
-  bool get canActivate =>
-      storeStatus == ControlPlaneStoreStatus.active;
+  bool get canActivate => storeStatus == ControlPlaneStoreStatus.active;
+}
+
+final class StoreMember {
+  const StoreMember({
+    required this.accountId,
+    required this.storeId,
+    required this.role,
+    required this.status,
+  });
+
+  final String accountId;
+  final String storeId;
+  final StoreMembershipRole role;
+  final StoreMembershipStatus status;
 }
 
 /// Persistence boundary. Implementations must use the dedicated control-plane DB.
 abstract interface class ControlPlaneRepository {
-  /// Creates or resolves an account only from verified provider claims.
   Future<String> resolveVerifiedAccount(VerifiedAccountIdentity identity);
-
-  /// Returns active memberships only; never returns database credentials.
   Future<List<AccountStoreAccess>> listActiveStores(String accountId);
+  Future<String> createStore({
+    required String storeId,
+    required String membershipId,
+    required String ownerAccountId,
+    required String displayName,
+  });
+  Future<void> addMember({
+    required String membershipId,
+    required String actorAccountId,
+    required String targetAccountId,
+    required String storeId,
+    required StoreMembershipRole role,
+  });
+  Future<void> changeMemberRole({
+    required String actorAccountId,
+    required String targetAccountId,
+    required String storeId,
+    required StoreMembershipRole role,
+  });
+  Future<void> changeMemberStatus({
+    required String actorAccountId,
+    required String targetAccountId,
+    required String storeId,
+    required StoreMembershipStatus status,
+  });
+  Future<List<StoreMember>> listMembers({
+    required String actorAccountId,
+    required String storeId,
+  });
+  Future<bool> hasPermission({
+    required String accountId,
+    required String storeId,
+    required StorePermission permission,
+  });
 }
