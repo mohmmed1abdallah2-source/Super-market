@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS cp_store_branches (
   store_id UUID NOT NULL REFERENCES cp_stores(id) ON DELETE RESTRICT,
   branch_id TEXT NOT NULL CHECK (length(btrim(branch_id)) BETWEEN 1 AND 160),
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  PRIMARY KEY (store_id, branch_id),
+  PRIMARY KEY (store_id, branch_id)
 );
 
 CREATE INDEX IF NOT EXISTS cp_store_branches_branch_idx
