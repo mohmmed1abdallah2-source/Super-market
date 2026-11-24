@@ -1,7 +1,7 @@
 # Control plane and account management — implementation milestone 1
 
 **Branch:** `feature/control-plane-account-management`  
-**Status:** foundation authored; database migration and runtime integration are not yet executed or deployed.
+**Status:** schema migrations and domain tests passed in disposable PostgreSQL 18 CI; production deployment and HTTP/session integration are not performed.
 
 ## Scope
 
@@ -32,4 +32,4 @@ The migration is additive and transactional. Apply it only to a new, dedicated c
 
 ## Verification
 
-Dart unit tests cover verified identity validation and store activation state rules. SQL execution and PostgreSQL integration tests are still pending. No production DDL/DML, credentials, provisioning, deployment or release was performed.
+Dart analysis and 11 control-plane domain/permission tests passed in GitHub Actions run `45294053429`. Both SQL migrations and rollback-only assertions passed against a disposable PostgreSQL 18 database. No production DDL/DML, credentials, provisioning, deployment or release was performed.
