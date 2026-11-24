@@ -15,7 +15,7 @@ final class PostgresControlPlaneRepository implements ControlPlaneRepository, Co
   @override
   Future<String> resolveVerifiedAccount(VerifiedAccountIdentity identity) async {
     identity.validate();
-    return _connection.transaction<String>((ctx) async {
+    return await _connection.transaction((ctx) async {
       final existingIdentity = await ctx.mappedResultsQuery(
         '''SELECT account_id::text AS "accountId"
            FROM cp_account_identities
@@ -99,8 +99,8 @@ final class PostgresControlPlaneRepository implements ControlPlaneRepository, Co
     required String membershipId,
     required String ownerAccountId,
     required String displayName,
-  }) =>
-      _connection.transaction<String>((ctx) async {
+  }) async =>
+      await _connection.transaction((ctx) async {
         final account = await ctx.mappedResultsQuery(
           "SELECT status FROM cp_accounts WHERE id = @id FOR UPDATE",
           substitutionValues: {'id': ownerAccountId},
@@ -460,7 +460,7 @@ final class PostgresControlPlaneRepository implements ControlPlaneRepository, Co
   Future<AccountStoreAccess> activateStore({
     required String accessTokenHash,
     required String storeId,
-  }) => _connection.transaction<AccountStoreAccess>((ctx) async {
+  }) async => await _connection.transaction((ctx) async {
         final rows = await ctx.mappedResultsQuery(
           '''SELECT se.account_id::text AS "accountId",
                     m.id::text AS "membershipId", m.role,
