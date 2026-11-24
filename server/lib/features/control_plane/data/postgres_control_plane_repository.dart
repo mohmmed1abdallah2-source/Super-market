@@ -76,7 +76,11 @@ final class PostgresControlPlaneRepository implements ControlPlaneRepository {
     required StoreMembershipRole role,
   }) =>
       _connection.transaction((ctx) async {
-        await _requireActor(ctx, actorAccountId, storeId, StorePermission.inviteMembers);
+        final actorRole = await _requireActor(ctx, actorAccountId, storeId, StorePermission.inviteMembers);
+        if (actorRole != StoreMembershipRole.owner &&
+            _roleRank(role) >= _roleRank(actorRole)) {
+          throw StateError('An administrator cannot invite an equal or higher role.');
+        }
         final target = await ctx.mappedResultsQuery(
           "SELECT status FROM cp_accounts WHERE id = @id FOR UPDATE",
           substitutionValues: {'id': targetAccountId},
@@ -94,6 +98,37 @@ final class PostgresControlPlaneRepository implements ControlPlaneRepository {
             'role': _roleName(role),
           },
         );
+      });
+
+
+  @override
+  Future<void> acceptInvitation({
+    required String accountId,
+    required String storeId,
+  }) =>
+      _connection.transaction((ctx) async {
+        final account = await ctx.mappedResultsQuery(
+          "SELECT status FROM cp_accounts WHERE id = @account FOR UPDATE",
+          substitutionValues: {'account': accountId},
+        );
+        if (account.isEmpty || _flatten(account.single)['status'] != 'ACTIVE') {
+          throw StateError('An active account is required to accept an invitation.');
+        }
+        final store = await ctx.mappedResultsQuery(
+          "SELECT status FROM cp_stores WHERE id = @store FOR UPDATE",
+          substitutionValues: {'store': storeId},
+        );
+        if (store.isEmpty || !const {'ACTIVE', 'PROVISIONING'}.contains(_flatten(store.single)['status'])) {
+          throw StateError('Store is not accepting membership invitations.');
+        }
+        final result = await ctx.execute(
+          '''UPDATE cp_store_memberships
+             SET status = 'ACTIVE', updated_at = now()
+             WHERE account_id = @account AND store_id = @store
+               AND status = 'INVITED' ''',
+          substitutionValues: {'account': accountId, 'store': storeId},
+        );
+        if (result == 0) throw StateError('No pending invitation was found.');
       });
 
   @override
