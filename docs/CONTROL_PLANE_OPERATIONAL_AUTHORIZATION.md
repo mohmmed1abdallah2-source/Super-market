@@ -34,3 +34,9 @@ The next required backend step is a secret-manager-backed store database connect
 - Middleware tests cover missing/expired sessions, account A attempting to use store B's branch, account B attempting to use account A's branch, forged `X-Store-Id`, role restrictions, and allowed access to a branch registered to the active store.
 - SQL assertions cover per-store branch registration and allow identical branch IDs in different tenant databases.
 - The control-plane CI applies migrations 001, 002 and 003 to a disposable PostgreSQL database, analyzes Dart, and runs all `control_plane_*_test.dart` tests.
+
+## CI verification
+
+- GitHub Actions run [45298767708](https://github.com/mohmmed1abdallah2-source/Super-market/actions/runs/45298767708) completed successfully on code revision `015f43a056dd51dc9943b6d604b63302550986ee`.
+- Migrations 001, 002 and 003 applied successfully to disposable PostgreSQL 18; rollback-only SQL assertions passed; `dart analyze` reported no issues; the full `control_plane_*_test.dart` test command passed.
+- Subsequent changes were documentation-only.
