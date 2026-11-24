@@ -47,6 +47,14 @@ final class ControlPlaneStoreService {
     );
   }
 
+  Future<void> acceptInvitation({
+    required String accountId,
+    required String storeId,
+  }) {
+    _requiredIds(accountId, storeId);
+    return _repository.acceptInvitation(accountId: accountId, storeId: storeId);
+  }
+
   Future<void> changeRole({
     required String actorAccountId,
     required String targetAccountId,
