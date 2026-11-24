@@ -30,6 +30,8 @@ abstract interface class ControlPlaneSessionRepository {
   });
 
   Future<void> revokeSession(String accessTokenHash);
+
+  Future<bool> isBranchAssignedToStore({required String storeId, required String branchId});
 }
 
 abstract interface class AccountIdentityTokenVerifier {
