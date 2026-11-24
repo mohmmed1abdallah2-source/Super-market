@@ -1,0 +1,143 @@
+import 'package:shelf/shelf.dart';
+import 'package:test/test.dart';
+
+import '../lib/features/control_plane/domain/control_plane_domain.dart';
+import '../lib/features/control_plane/domain/control_plane_sessions.dart';
+import '../lib/features/control_plane/presentation/control_plane_operational_access.dart';
+
+void main() {
+  late _FakeSessions sessions;
+  late Handler handler;
+
+  setUp(() {
+    sessions = _FakeSessions();
+    handler = Pipeline()
+        .addMiddleware(ControlPlaneOperationalAccess(sessions).middleware)
+        .addHandler((request) => Response.ok('accepted'));
+  });
+
+  test('rejects requests without an account session', () async {
+    final response = await handler(_request());
+    expect(response.statusCode, 401);
+  });
+
+  test('rejects a forged store ID even with a valid session for another store', () async {
+    final response = await handler(_request(
+      headers: {
+        'authorization': 'Bearer account-a-token',
+        'x-store-id': 'store-b',
+        'x-branch-id': 'branch-b',
+      },
+    ));
+    expect(response.statusCode, 403);
+    expect(sessions.checkedBranches, isEmpty);
+  });
+
+  test('rejects a branch registered to a different store when store header is omitted', () async {
+    final response = await handler(_request(
+      headers: {
+        'authorization': 'Bearer account-a-token',
+        'x-branch-id': 'branch-b',
+      },
+    ));
+    expect(response.statusCode, 403);
+    expect(sessions.checkedBranches, ['store-a:branch-b']);
+  });
+
+  test('allows a branch registered to the active store', () async {
+    final response = await handler(_request(
+      headers: {
+        'authorization': 'Bearer account-a-token',
+        'x-branch-id': 'branch-a',
+      },
+    ));
+    expect(response.statusCode, 200);
+  });
+
+  test('enforces role permissions for write operations', () async {
+    final response = await handler(_request(
+      method: 'POST',
+      path: '/v1/sales/invoices',
+      headers: {
+        'authorization': 'Bearer account-a-token',
+        'x-branch-id': 'branch-a',
+      },
+    ));
+    expect(response.statusCode, 200); // STAFF may create operational records.
+
+    final approval = await handler(_request(
+      method: 'POST',
+      path: '/v1/inventory/stocktaking/session-1/approve',
+      headers: {
+        'authorization': 'Bearer account-a-token',
+        'x-branch-id': 'branch-a',
+      },
+    ));
+    expect(approval.statusCode, 403); // STAFF cannot approve.
+  });
+
+  test('rejects sessions whose membership is no longer active', () async {
+    sessions.valid = false;
+    final response = await handler(_request(
+      headers: {
+        'authorization': 'Bearer account-a-token',
+        'x-branch-id': 'branch-a',
+      },
+    ));
+    expect(response.statusCode, 401);
+  });
+}
+
+Request _request({
+  String method = 'GET',
+  String path = '/v1/sales/invoices',
+  Map<String, String> headers = const {},
+}) =>
+    Request(method, Uri.parse('http://localhost$path'), headers: headers);
+
+final class _FakeSessions implements ControlPlaneSessionRepository {
+  bool valid = true;
+  final List<String> checkedBranches = [];
+
+  @override
+  Future<ControlPlaneSession?> findSession(String accessTokenHash) async {
+    if (!valid || accessTokenHash.isEmpty) return null;
+    return ControlPlaneSession(
+      sessionId: 'session-a',
+      accountId: 'account-a',
+      expiresAt: DateTime.now().toUtc().add(const Duration(hours: 1)),
+      activeStore: const AccountStoreAccess(
+        storeId: 'store-a',
+        displayName: 'Store A',
+        role: StoreMembershipRole.staff,
+        storeStatus: ControlPlaneStoreStatus.active,
+      ),
+    );
+  }
+
+  @override
+  Future<bool> isBranchAssignedToStore({
+    required String storeId,
+    required String branchId,
+  }) async {
+    checkedBranches.add('$storeId:$branchId');
+    return storeId == 'store-a' && branchId == 'branch-a';
+  }
+
+  @override
+  Future<void> createSession({
+    required String sessionId,
+    required String accountId,
+    required String accessTokenHash,
+    required DateTime expiresAt,
+  }) async {}
+
+  @override
+  Future<AccountStoreAccess> activateStore({
+    required String accessTokenHash,
+    required String storeId,
+  }) async => throw UnimplementedError();
+
+  @override
+  Future<void> revokeSession(String accessTokenHash) async {}
+}
