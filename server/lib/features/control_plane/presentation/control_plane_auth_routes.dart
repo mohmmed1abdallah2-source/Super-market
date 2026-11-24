@@ -67,9 +67,8 @@ final class ControlPlaneAuthRoutes {
         return _json(200, {'items': stores.map(_storeJson).toList(growable: false)});
       });
 
-  Future<Response> _activateStore(Request request) async => _guard(() async {
+  Future<Response> _activateStore(Request request, String storeId) async => _guard(() async {
         final session = await _authenticatedSession(request);
-        final storeId = request.params['storeId'];
         if (storeId == null || storeId.trim().isEmpty) {
           throw const FormatException('A store ID is required.');
         }
