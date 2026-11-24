@@ -7,7 +7,7 @@ on:
     paths:
       - 'server/control_plane/**'
       - 'server/lib/features/control_plane/**'
-      - 'server/test/control_plane_domain_test.dart'
+      - 'server/test/control_plane_*.dart'
       - '.github/workflows/control-plane-validation.yml'
   pull_request:
     branches:
@@ -53,6 +53,12 @@ jobs:
         run: |
           psql -h 127.0.0.1 -p 5432 -U erp_test -d control_plane_test \
             -v ON_ERROR_STOP=1 -f server/control_plane/migrations/001_control_plane.sql
+      - name: Apply store membership invariants migration
+        env:
+          PGPASSWORD: disposable_test_only
+        run: |
+          psql -h 127.0.0.1 -p 5432 -U erp_test -d control_plane_test \\
+            -v ON_ERROR_STOP=1 -f server/control_plane/migrations/002_store_membership_invariants.sql
       - name: Run rollback-only control-plane SQL assertions
         env:
           PGPASSWORD: disposable_test_only
@@ -65,6 +71,6 @@ jobs:
       - name: Analyze Dart server
         working-directory: server
         run: dart analyze
-      - name: Run control-plane domain tests
+      - name: Run control-plane domain and permission tests
         working-directory: server
-        run: dart test test/control_plane_domain_test.dart
+        run: dart test test/control_plane_*_test.dart
