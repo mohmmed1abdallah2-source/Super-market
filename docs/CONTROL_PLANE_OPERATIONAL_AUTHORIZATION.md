@@ -27,7 +27,7 @@ VALUES ('<trusted-store-uuid>', '<verified-branch-id>');
 
 The API now rejects cross-store branch identifiers using the control-plane registry, but the current server bootstrap still constructs operational repositories from the single `PGDATABASE` connection. It does **not yet resolve `cp_store_database_bindings.database_key` into a separate per-store PostgreSQL connection**. Therefore this change is an API authorization barrier, not completion of physical per-tenant database routing/isolation. Do not onboard production stores with a shared operational database on the assumption that this completes the separate-database architecture.
 
-The next required backend step is a secret-manager-backed store database connection resolver and request-scoped repository/use-case construction using the authenticated session's store ID. The resolver must fail closed for missing, unavailable or retired bindings. No secret-manager integration, tenant database provisioning, production migration or deployment was performed in this change.
+The next required backend step is a secret-manager-backed store database connection resolver and request-scoped repository/use-case construction using the authenticated session's store ID. As part of that same migration, replace the temporary global branch-ID unique constraint with a per-store composite constraint because tenant databases may reuse branch identifiers. The resolver must fail closed for missing, unavailable or retired bindings. No secret-manager integration, tenant database provisioning, production migration or deployment was performed in this change.
 
 ## Tests
 
