@@ -6,6 +6,7 @@ import 'package:shelf/shelf.dart';
 import 'package:shelf_router/shelf_router.dart';
 import 'package:uuid/uuid.dart';
 
+import '../application/control_plane_store_service.dart';
 import '../domain/control_plane_domain.dart';
 import '../domain/control_plane_sessions.dart';
 
@@ -20,6 +21,7 @@ final class ControlPlaneAuthRoutes {
 
   final AccountIdentityTokenVerifier identityVerifier;
   final ControlPlaneRepository storeRepository;
+  final ControlPlaneStoreService storeService;
   final ControlPlaneSessionRepository sessionRepository;
   final Duration sessionLifetime;
   static const _uuid = Uuid();
@@ -30,6 +32,7 @@ final class ControlPlaneAuthRoutes {
     router.post('/v1/auth/logout', _logout);
     router.get('/v1/stores', _listStores);
     router.post('/v1/stores/<storeId>/activate', _activateStore);
+    router.post('/v1/session/active-store', _selectActiveStore);
     return router;
   }
 
@@ -70,6 +73,26 @@ final class ControlPlaneAuthRoutes {
         if (storeId == null || storeId.trim().isEmpty) {
           throw const FormatException('A store ID is required.');
         }
+        await storeService.changeStoreStatus(
+          actorAccountId: session.accountId,
+          storeId: storeId,
+          status: ControlPlaneStoreStatus.active,
+        );
+        final store = await sessionRepository.activateStore(
+          accessTokenHash: _hash(_bearer(request)),
+          storeId: storeId,
+        );
+        return _json(200, {
+          'status': 'ACTIVE',
+          'activeStore': _storeJson(store),
+          'accountId': session.accountId,
+        });
+      });
+
+  Future<Response> _selectActiveStore(Request request) async => _guard(() async {
+        final session = await _authenticatedSession(request);
+        final body = await _readBody(request);
+        final storeId = _required(body, 'storeId');
         final store = await sessionRepository.activateStore(
           accessTokenHash: _hash(_bearer(request)),
           storeId: storeId,
