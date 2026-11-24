@@ -7,6 +7,8 @@ on:
     paths:
       - 'server/control_plane/**'
       - 'server/lib/features/control_plane/**'
+      - 'server/bin/server.dart'
+      - 'docs/CONTROL_PLANE_ACCOUNT_API.md'
       - 'server/test/control_plane_*.dart'
       - '.github/workflows/control-plane-validation.yml'
   pull_request:
