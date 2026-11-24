@@ -9,6 +9,7 @@ import 'package:shelf_router/shelf_router.dart';
 import '../lib/features/control_plane/data/postgres_control_plane_repository.dart';
 import '../lib/features/control_plane/data/google_identity_token_verifier.dart';
 import '../lib/features/control_plane/presentation/control_plane_auth_routes.dart';
+import '../lib/features/control_plane/presentation/control_plane_operational_access.dart';
 import '../lib/features/ledger/application/ledger_use_cases.dart';
 import '../lib/features/ledger/data/postgres_ledger_repository.dart';
 import '../lib/features/ledger/presentation/ledger_routes.dart';
@@ -38,6 +39,7 @@ Future<void> main(List<String> arguments) async {
 
   PostgreSQLConnection? controlPlaneDatabase;
   ControlPlaneAuthRoutes? controlPlaneAuthRoutes;
+  PostgresControlPlaneRepository? controlPlaneRepository;
   if ((environment['ERP_CONTROL_PLANE_PGHOST'] ?? '').trim().isNotEmpty) {
     controlPlaneDatabase = PostgreSQLConnection(
       _requiredEnvironment(environment, 'ERP_CONTROL_PLANE_PGHOST'),
@@ -48,12 +50,13 @@ Future<void> main(List<String> arguments) async {
       timeoutInSeconds: 30,
     );
     await controlPlaneDatabase.open();
+    controlPlaneRepository = PostgresControlPlaneRepository(controlPlaneDatabase);
     controlPlaneAuthRoutes = ControlPlaneAuthRoutes(
       identityVerifier: GoogleIdentityTokenVerifier(
         clientId: _requiredEnvironment(environment, 'ERP_GOOGLE_OAUTH_CLIENT_ID'),
       ),
-      storeRepository: PostgresControlPlaneRepository(controlPlaneDatabase),
-      sessionRepository: PostgresControlPlaneRepository(controlPlaneDatabase),
+      storeRepository: controlPlaneRepository,
+      sessionRepository: controlPlaneRepository,
     );
   }
 
@@ -100,14 +103,20 @@ Future<void> main(List<String> arguments) async {
         headers: const {'content-type': 'application/json; charset=utf-8'},
       ));
 
-  var cascade = Cascade()
-      .add(root)
+  final operationalRoutes = Cascade()
       .add(ledgerRouter.router)
       .add(salesRouter.router)
       .add(inventoryRouter.router);
+  final securedOperationalRoutes = Pipeline()
+      .addMiddleware(ControlPlaneOperationalAccess(controlPlaneRepository).middleware)
+      .addHandler(operationalRoutes.handler);
+
+  var cascade = Cascade()
+      .add(root);
   if (controlPlaneAuthRoutes != null) {
     cascade = cascade.add(controlPlaneAuthRoutes.router);
   }
+  cascade = cascade.add(securedOperationalRoutes);
   final handler = Pipeline()
       .addMiddleware(logRequests())
       .addHandler(cascade.handler);
