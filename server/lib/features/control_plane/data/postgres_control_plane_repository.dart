@@ -6,7 +6,7 @@ import '../domain/control_plane_sessions.dart';
 
 /// PostgreSQL persistence for the dedicated control-plane database.
 /// This connection must never point at an operational store database.
-final class PostgresControlPlaneRepository implements ControlPlaneRepository, ControlPlaneSessionRepository {
+final class PostgresControlPlaneRepository implements ControlPlaneRepository, ControlPlaneSessionRepository, StoreDatabaseBindingRepository {
   PostgresControlPlaneRepository(this._connection);
 
   final PostgreSQLConnection _connection;
@@ -513,6 +513,22 @@ final class PostgresControlPlaneRepository implements ControlPlaneRepository, Co
     );
   }
 
+
+  @override
+  Future<String?> readyDatabaseKeyForStore(String storeId) async {
+    final rows = await _connection.mappedResultsQuery(
+      '''SELECT db.database_key AS "databaseKey"
+         FROM cp_store_database_bindings db
+         JOIN cp_stores s ON s.id = db.store_id
+         WHERE db.store_id = @store
+           AND db.status = 'READY'
+           AND s.status = 'ACTIVE'
+         LIMIT 1''',
+      substitutionValues: {'store': storeId},
+    );
+    if (rows.isEmpty) return null;
+    return _flatten(rows.single)['databaseKey'] as String;
+  }
 
   @override
   Future<bool> isBranchAssignedToStore({

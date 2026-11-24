@@ -174,6 +174,10 @@ final class _FakeSessions implements ControlPlaneSessionRepository {
   }
 
   @override
+  Future<String?> readyDatabaseKeyForStore(String storeId) async =>
+      storeId == 'store-a' || storeId == 'store-b' ? 'db-$storeId' : null;
+
+  @override
   Future<bool> isBranchAssignedToStore({
     required String storeId,
     required String branchId,

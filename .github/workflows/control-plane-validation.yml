@@ -80,12 +80,31 @@ jobs:
         run: |
           psql -h 127.0.0.1 -p 5432 -U erp_test -d control_plane_test \
             -v ON_ERROR_STOP=1 -f server/control_plane/tests/001_control_plane_assertions.sql
+      - name: Create two disposable tenant databases
+        env:
+          PGPASSWORD: disposable_test_only
+        run: |
+          createdb -h 127.0.0.1 -p 5432 -U erp_test tenant_a_test
+          createdb -h 127.0.0.1 -p 5432 -U erp_test tenant_b_test
+          psql -h 127.0.0.1 -p 5432 -U erp_test -d tenant_a_test -v ON_ERROR_STOP=1 -c "CREATE TABLE tenant_scope_test (branch_id TEXT PRIMARY KEY, marker TEXT NOT NULL); INSERT INTO tenant_scope_test VALUES ('shared-branch-id', 'tenant-a-only');"
+          psql -h 127.0.0.1 -p 5432 -U erp_test -d tenant_b_test -v ON_ERROR_STOP=1 -c "CREATE TABLE tenant_scope_test (branch_id TEXT PRIMARY KEY, marker TEXT NOT NULL); INSERT INTO tenant_scope_test VALUES ('shared-branch-id', 'tenant-b-only');"
       - name: Resolve Dart server dependencies
         working-directory: server
         run: dart pub get
       - name: Analyze Dart server
         working-directory: server
         run: dart analyze
-      - name: Run control-plane domain and permission tests
+      - name: Run authorization, resolver and tenant routing tests
         working-directory: server
-        run: dart test test/control_plane_*_test.dart
+        env:
+          PGTEST_HOST: 127.0.0.1
+          PGTEST_PORT: 5432
+          PGTEST_DATABASE: control_plane_test
+          PGTEST_USER: erp_test
+          PGTEST_PASSWORD: disposable_test_only
+          ERP_STORE_DATABASES_JSON: >-
+            {"tenant-a-test-key":{"host":"127.0.0.1","port":5432,"database":"tenant_a_test","username":"erp_test","password":"disposable_test_only","ssl":false},"tenant-b-test-key":{"host":"127.0.0.1","port":5432,"database":"tenant_b_test","username":"erp_test","password":"disposable_test_only","ssl":false}}
+        run: |
+          dart test test/control_plane_*_test.dart
+          dart test test/store_database_connection_resolver_test.dart
+          dart test test/store_database_routing_integration_test.dart
