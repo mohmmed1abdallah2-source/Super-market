@@ -79,6 +79,7 @@ abstract interface class ControlPlaneRepository {
   Future<String> createStore({required String storeId, required String membershipId, required String ownerAccountId, required String displayName});
   Future<void> addMember({required String membershipId, required String actorAccountId, required String targetAccountId, required String storeId, required StoreMembershipRole role});
   Future<void> acceptInvitation({required String accountId, required String storeId});
+  Future<void> changeStoreStatus({required String actorAccountId, required String storeId, required ControlPlaneStoreStatus status});
   Future<void> changeMemberRole({required String actorAccountId, required String targetAccountId, required String storeId, required StoreMembershipRole role});
   Future<void> changeMemberStatus({required String actorAccountId, required String targetAccountId, required String storeId, required StoreMembershipStatus status});
   Future<List<StoreMember>> listMembers({required String actorAccountId, required String storeId});
