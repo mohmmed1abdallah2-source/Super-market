@@ -88,15 +88,8 @@ class SalesSyncRoutes {
       });
 
   Future<Response> _guard(Request request, Future<Response> Function() action) async {
-    final branch = request.headers['x-branch-id'];
-    final expectedToken = branch == null ? null : branchTokens[branch];
-    if (expectedToken == null ||
-        request.headers['authorization'] != 'Bearer $expectedToken') {
-      return _json(401, {
-        'code': 'UNAUTHORIZED',
-        'message': 'A valid branch-scoped bearer token is required.',
-      });
-    }
+    // Account session, active membership, permission and branch ownership
+    // are enforced by ControlPlaneOperationalAccess before this router.
     try {
       return await action();
     } on FormatException catch (error) {
