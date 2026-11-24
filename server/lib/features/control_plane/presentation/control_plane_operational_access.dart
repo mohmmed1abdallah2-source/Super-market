@@ -89,7 +89,7 @@ final class ControlPlaneOperationalAccess {
         path.endsWith('/transfers')) {
       return StorePermission.approveOperations;
     }
-    if (request.method == 'POST' && path == '/v1/sync/batch') {
+    if (request.method == 'POST' && path.endsWith('sync/batch')) {
       // Sync batches can mix ordinary creates with privileged approvals.
       // Inspect the operation types before authorizing, then replay the exact
       // body to the route handler because middleware consumed the stream.
