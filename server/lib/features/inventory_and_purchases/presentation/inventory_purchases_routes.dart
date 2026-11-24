@@ -214,15 +214,8 @@ final class InventoryPurchasesRoutes {
     Request request,
     Future<Response> Function() action,
   ) async {
-    final branch = request.headers['x-branch-id'];
-    final expectedToken = branch == null ? null : branchTokens[branch];
-    if (expectedToken == null ||
-        request.headers['authorization'] != 'Bearer $expectedToken') {
-      return _json(401, {
-        'code': 'UNAUTHORIZED',
-        'message': 'A valid branch-scoped bearer token is required.',
-      });
-    }
+    // ControlPlaneOperationalAccess validates the account session, store,
+    // active membership, operation permission and branch ownership.
     try {
       return await action();
     } on FormatException catch (error) {
