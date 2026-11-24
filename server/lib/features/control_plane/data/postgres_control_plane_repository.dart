@@ -2,10 +2,11 @@ import 'package:postgres/postgres.dart';
 import 'package:uuid/uuid.dart';
 
 import '../domain/control_plane_domain.dart';
+import '../domain/control_plane_sessions.dart';
 
 /// PostgreSQL persistence for the dedicated control-plane database.
 /// This connection must never point at an operational store database.
-final class PostgresControlPlaneRepository implements ControlPlaneRepository {
+final class PostgresControlPlaneRepository implements ControlPlaneRepository, ControlPlaneSessionRepository {
   PostgresControlPlaneRepository(this._connection);
 
   final PostgreSQLConnection _connection;
@@ -385,6 +386,123 @@ final class PostgresControlPlaneRepository implements ControlPlaneRepository {
     final role = _role(_flatten(rows.single)['role'] as String);
     if (!role.allows(permission)) throw StateError('Permission denied.');
     return role;
+  }
+
+
+  @override
+  Future<void> createSession({
+    required String sessionId,
+    required String accountId,
+    required String accessTokenHash,
+    required DateTime expiresAt,
+  }) async {
+    await _connection.execute(
+      '''INSERT INTO cp_sessions(id, account_id, access_token_hash, expires_at)
+         SELECT @id, a.id, @tokenHash, @expires
+         FROM cp_accounts a WHERE a.id = @account AND a.status = 'ACTIVE' ''',
+      substitutionValues: {
+        'id': sessionId,
+        'account': accountId,
+        'tokenHash': accessTokenHash,
+        'expires': expiresAt.toUtc(),
+      },
+    );
+  }
+
+  @override
+  Future<ControlPlaneSession?> findSession(String accessTokenHash) async {
+    final rows = await _connection.mappedResultsQuery(
+      '''SELECT se.id::text AS "sessionId", se.account_id::text AS "accountId",
+                se.expires_at AS "expiresAt",
+                s.id::text AS "storeId", s.display_name AS "displayName",
+                s.status AS "storeStatus", m.role AS "storeRole"
+         FROM cp_sessions se
+         JOIN cp_accounts a ON a.id = se.account_id
+         LEFT JOIN cp_stores s ON s.id = se.active_store_id
+         LEFT JOIN cp_store_memberships m
+           ON m.id = se.active_membership_id
+          AND m.account_id = se.account_id AND m.store_id = se.active_store_id
+         WHERE se.access_token_hash = @tokenHash
+           AND se.revoked_at IS NULL AND se.expires_at > now()
+           AND a.status = 'ACTIVE'
+         LIMIT 1''',
+      substitutionValues: {'tokenHash': accessTokenHash},
+    );
+    if (rows.isEmpty) return null;
+    final data = _flatten(rows.single);
+    AccountStoreAccess? activeStore;
+    if (data['storeId'] != null &&
+        data['storeStatus'] == 'ACTIVE' &&
+        data['storeRole'] != null) {
+      activeStore = AccountStoreAccess(
+        storeId: data['storeId'] as String,
+        displayName: data['displayName'] as String,
+        role: _role(data['storeRole'] as String),
+        storeStatus: ControlPlaneStoreStatus.active,
+      );
+    }
+    return ControlPlaneSession(
+      sessionId: data['sessionId'] as String,
+      accountId: data['accountId'] as String,
+      expiresAt: (data['expiresAt'] as DateTime).toUtc(),
+      activeStore: activeStore,
+    );
+  }
+
+  @override
+  Future<AccountStoreAccess> activateStore({
+    required String accessTokenHash,
+    required String storeId,
+  }) => _connection.transaction((ctx) async {
+        final rows = await ctx.mappedResultsQuery(
+          '''SELECT se.account_id::text AS "accountId",
+                    m.id::text AS "membershipId", m.role,
+                    s.id::text AS "storeId", s.display_name AS "displayName",
+                    s.status AS "storeStatus"
+             FROM cp_sessions se
+             JOIN cp_accounts a ON a.id = se.account_id
+             JOIN cp_store_memberships m
+               ON m.account_id = se.account_id AND m.store_id = @store
+              AND m.status = 'ACTIVE'
+             JOIN cp_stores s ON s.id = m.store_id AND s.status = 'ACTIVE'
+             WHERE se.access_token_hash = @tokenHash
+               AND se.revoked_at IS NULL AND se.expires_at > now()
+               AND a.status = 'ACTIVE'
+             FOR UPDATE OF se, m, s''',
+          substitutionValues: {'tokenHash': accessTokenHash, 'store': storeId},
+        );
+        if (rows.isEmpty) {
+          throw StateError('An active account, active membership and ACTIVE store are required.');
+        }
+        final data = _flatten(rows.single);
+        await ctx.execute(
+          '''UPDATE cp_sessions
+             SET active_store_id = @store, active_membership_id = @membership,
+                 last_seen_at = now()
+             WHERE access_token_hash = @tokenHash
+               AND revoked_at IS NULL AND expires_at > now()''',
+          substitutionValues: {
+            'store': storeId,
+            'membership': data['membershipId'],
+            'tokenHash': accessTokenHash,
+          },
+        );
+        return AccountStoreAccess(
+          storeId: data['storeId'] as String,
+          displayName: data['displayName'] as String,
+          role: _role(data['role'] as String),
+          storeStatus: ControlPlaneStoreStatus.active,
+        );
+      });
+
+  @override
+  Future<void> revokeSession(String accessTokenHash) async {
+    await _connection.execute(
+      '''UPDATE cp_sessions SET revoked_at = now(), active_store_id = NULL,
+                active_membership_id = NULL
+         WHERE access_token_hash = @tokenHash AND revoked_at IS NULL''',
+      substitutionValues: {'tokenHash': accessTokenHash},
+    );
   }
 
   Map<String, dynamic> _flatten(Map<String, Map<String, dynamic>> row) =>
