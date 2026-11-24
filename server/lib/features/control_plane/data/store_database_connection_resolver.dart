@@ -68,7 +68,14 @@ final class StoreDatabaseConnectionResolver {
   final StoreDatabaseCredentialsProvider credentialsProvider;
 
   Future<StoreDatabaseCredentials> resolveCredentialsForStore(String storeId) async {
-    final key = await bindings.readyDatabaseKeyForStore(storeId);
+    String? key;
+    try {
+      key = await bindings.readyDatabaseKeyForStore(storeId);
+    } catch (_) {
+      throw const StoreDatabaseUnavailableException(
+        'The active store database binding could not be resolved.',
+      );
+    }
     if (key == null || key.trim().isEmpty) {
       throw const StoreDatabaseUnavailableException('The active store has no READY database binding.');
     }
