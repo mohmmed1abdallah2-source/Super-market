@@ -78,7 +78,8 @@ final class ControlPlaneOperationalAccess {
     if (request.method == 'GET' || request.method == 'HEAD') {
       return StorePermission.viewOperations;
     }
-    if (path.endsWith('/approve') ||
+    if (path == '/v1/sync/batch' ||
+        path.endsWith('/approve') ||
         path.endsWith('/disposals') ||
         path.endsWith('/transfers')) {
       return StorePermission.approveOperations;
