@@ -1,4 +1,5 @@
 import 'package:postgres/postgres.dart';
+import 'package:uuid/uuid.dart';
 
 import '../domain/control_plane_domain.dart';
 
@@ -8,6 +9,64 @@ final class PostgresControlPlaneRepository implements ControlPlaneRepository {
   PostgresControlPlaneRepository(this._connection);
 
   final PostgreSQLConnection _connection;
+  static const _uuid = Uuid();
+
+  @override
+  Future<String> resolveVerifiedAccount(VerifiedAccountIdentity identity) async {
+    identity.validate();
+    return _connection.transaction((ctx) async {
+      final existingIdentity = await ctx.mappedResultsQuery(
+        '''SELECT account_id::text AS "accountId"
+           FROM cp_account_identities
+           WHERE provider = @provider AND provider_subject = @subject''',
+        substitutionValues: {'provider': identity.provider, 'subject': identity.subject},
+      );
+      if (existingIdentity.isNotEmpty) {
+        final accountId = _flatten(existingIdentity.single)['accountId'] as String;
+        final account = await ctx.mappedResultsQuery(
+          "SELECT status FROM cp_accounts WHERE id = @id",
+          substitutionValues: {'id': accountId},
+        );
+        if (account.isEmpty || _flatten(account.single)['status'] != 'ACTIVE') {
+          throw StateError('Account is not active.');
+        }
+        return accountId;
+      }
+      final matchingAccount = await ctx.mappedResultsQuery(
+        '''SELECT id::text AS id, status FROM cp_accounts
+           WHERE lower(btrim(primary_email)) = lower(btrim(@email)) FOR UPDATE''',
+        substitutionValues: {'email': identity.email},
+      );
+      late final String accountId;
+      if (matchingAccount.isNotEmpty) {
+        final row = _flatten(matchingAccount.single);
+        if (row['status'] != 'ACTIVE') throw StateError('Account is not active.');
+        accountId = row['id'] as String;
+      } else {
+        accountId = _uuid.v4();
+        await ctx.execute(
+          '''INSERT INTO cp_accounts(id, primary_email, display_name)
+             VALUES (@id, @email, @name)''',
+          substitutionValues: {
+            'id': accountId,
+            'email': identity.email.trim(),
+            'name': identity.displayName?.trim(),
+          },
+        );
+      }
+      await ctx.execute(
+        '''INSERT INTO cp_account_identities(
+             id, account_id, provider, provider_subject, email, email_verified
+           ) VALUES (@id, @account, @provider, @subject, @email, TRUE)''',
+        substitutionValues: {
+          'id': _uuid.v4(), 'account': accountId,
+          'provider': identity.provider, 'subject': identity.subject,
+          'email': identity.email.trim(),
+        },
+      );
+      return accountId;
+    });
+  }
 
   @override
   Future<List<AccountStoreAccess>> listActiveStores(String accountId) async {
