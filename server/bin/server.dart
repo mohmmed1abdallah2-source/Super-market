@@ -100,13 +100,13 @@ Future<void> main(List<String> arguments) async {
         headers: const {'content-type': 'application/json; charset=utf-8'},
       ));
 
-  final cascade = Cascade()
+  var cascade = Cascade()
       .add(root)
       .add(ledgerRouter.router)
       .add(salesRouter.router)
       .add(inventoryRouter.router);
   if (controlPlaneAuthRoutes != null) {
-    cascade.add(controlPlaneAuthRoutes.router);
+    cascade = cascade.add(controlPlaneAuthRoutes.router);
   }
   final handler = Pipeline()
       .addMiddleware(logRequests())
