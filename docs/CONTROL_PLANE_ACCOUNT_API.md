@@ -29,13 +29,21 @@ Response includes `accessToken`, `tokenType`, `expiresAt`, `accountId` and the a
 
 Requires `Authorization: Bearer <accessToken>`. Returns only stores attached to an active membership of an active account. Database binding references and credentials are never returned.
 
-### Select/activate a store in the session
+### Activate a store
 
 `POST /v1/stores/{storeId}/activate`
 
-Requires an active API session, an active account, an active membership for the requested store, and store lifecycle status `ACTIVE`. The server writes the selected store and exact membership ID into that session. The client cannot set an account ID or membership ID.
+Requires an authenticated session and the OWNER role for the store. The control-plane service permits transition from `PROVISIONING` or `SUSPENDED` to `ACTIVE` only when the store's opaque database binding is `READY`. Closed/failed stores and invalid lifecycle transitions are rejected. After the lifecycle transition, the store is selected in the current session.
 
-This endpoint selects the operational store context; it does not provision a database or transition a `PROVISIONING` store to lifecycle `ACTIVE`. A store must already have a `READY` database binding and have completed the owner-controlled lifecycle transition before it can be selected.
+This endpoint activates the store lifecycle; it does not provision the database or create credentials.
+
+### Select an already active store in the session
+
+`POST /v1/session/active-store`
+
+Request: `{"storeId":"<store UUID>"}`
+
+Requires an active API session, an active account, an active membership for the requested store, and store lifecycle status `ACTIVE`. The server writes the selected store and exact membership ID into that session. The client cannot set an account ID or membership ID.
 
 ### Sign out
 
