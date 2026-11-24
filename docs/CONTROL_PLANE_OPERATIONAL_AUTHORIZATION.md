@@ -37,6 +37,6 @@ The next required backend step is a secret-manager-backed store database connect
 
 ## CI verification
 
-- GitHub Actions run [45298767708](https://github.com/mohmmed1abdallah2-source/Super-market/actions/runs/45298767708) completed successfully on code revision `015f43a056dd51dc9943b6d604b63302550986ee`.
-- Migrations 001, 002 and 003 applied successfully to disposable PostgreSQL 18; rollback-only SQL assertions passed; `dart analyze` reported no issues; the full `control_plane_*_test.dart` test command passed.
+- GitHub Actions run [45299152800](https://github.com/mohmmed1abdallah2-source/Super-market/actions/runs/45299152800) completed successfully on code revision `dff57016fd82a4fa53d598d6d7119448f1750b91`.
+- Migrations 001, 002 and 003 applied successfully to disposable PostgreSQL 18; rollback-only SQL assertions (including rejection of a branch ID claimed by two stores) passed; `dart analyze` reported no issues; the full `control_plane_*_test.dart` test command passed.
 - Subsequent changes were documentation-only.
