@@ -17,7 +17,7 @@ final class ControlPlaneAuthRoutes {
     required this.storeRepository,
     required this.sessionRepository,
     this.sessionLifetime = const Duration(hours: 12),
-  });
+  }) : storeService = ControlPlaneStoreService(storeRepository);
 
   final AccountIdentityTokenVerifier identityVerifier;
   final ControlPlaneRepository storeRepository;
