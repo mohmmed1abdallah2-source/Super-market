@@ -6,7 +6,6 @@ import 'package:shelf/shelf.dart';
 import 'package:shelf_router/shelf_router.dart';
 import 'package:uuid/uuid.dart';
 
-import '../application/control_plane_store_service.dart';
 import '../domain/control_plane_domain.dart';
 import '../domain/control_plane_sessions.dart';
 
@@ -145,6 +144,8 @@ final class ControlPlaneAuthRoutes {
       return _json(401, {'code': 'UNAUTHORIZED', 'message': 'A valid account session is required.'});
     } on FormatException catch (error) {
       return _json(422, {'code': 'VALIDATION_ERROR', 'message': error.message});
+    } on ArgumentError catch (error) {
+      return _json(422, {'code': 'VALIDATION_ERROR', 'message': error.message.toString()});
     } on StateError catch (error) {
       final message = error.message;
       final status = message.contains('not active') || message.contains('not accepting')
