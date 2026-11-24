@@ -1,3 +1,6 @@
+import 'dart:convert';
+
+import 'package:crypto/crypto.dart';
 import 'package:shelf/shelf.dart';
 import 'package:test/test.dart';
 
@@ -31,6 +34,18 @@ void main() {
     ));
     expect(response.statusCode, 403);
     expect(sessions.checkedBranches, isEmpty);
+  });
+
+
+  test('account B cannot use account A store branch', () async {
+    final response = await handler(_request(
+      headers: {
+        'authorization': 'Bearer account-b-token',
+        'x-branch-id': 'branch-a',
+      },
+    ));
+    expect(response.statusCode, 403);
+    expect(sessions.checkedBranches.last, 'store-b:branch-a');
   });
 
   test('rejects a branch registered to a different store when store header is omitted', () async {
@@ -101,14 +116,20 @@ final class _FakeSessions implements ControlPlaneSessionRepository {
 
   @override
   Future<ControlPlaneSession?> findSession(String accessTokenHash) async {
-    if (!valid || accessTokenHash.isEmpty) return null;
+    final tokenA = sha256.convert(utf8.encode('account-a-token')).toString();
+    final tokenB = sha256.convert(utf8.encode('account-b-token')).toString();
+    if (!valid) return null;
+    final isAccountA = accessTokenHash == tokenA;
+    if (!isAccountA && accessTokenHash != tokenB) return null;
+    final accountId = isAccountA ? 'account-a' : 'account-b';
+    final storeId = isAccountA ? 'store-a' : 'store-b';
     return ControlPlaneSession(
-      sessionId: 'session-a',
-      accountId: 'account-a',
+      sessionId: 'session-$accountId',
+      accountId: accountId,
       expiresAt: DateTime.now().toUtc().add(const Duration(hours: 1)),
-      activeStore: const AccountStoreAccess(
-        storeId: 'store-a',
-        displayName: 'Store A',
+      activeStore: AccountStoreAccess(
+        storeId: storeId,
+        displayName: isAccountA ? 'Store A' : 'Store B',
         role: StoreMembershipRole.staff,
         storeStatus: ControlPlaneStoreStatus.active,
       ),
@@ -121,7 +142,8 @@ final class _FakeSessions implements ControlPlaneSessionRepository {
     required String branchId,
   }) async {
     checkedBranches.add('$storeId:$branchId');
-    return storeId == 'store-a' && branchId == 'branch-a';
+    return (storeId == 'store-a' && branchId == 'branch-a') ||
+        (storeId == 'store-b' && branchId == 'branch-b');
   }
 
   @override
