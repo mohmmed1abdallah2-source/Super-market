@@ -42,13 +42,13 @@ BEGIN
     RAISE EXCEPTION 'store B branch mapping assertion failed';
   END IF;
 
-  BEGIN
-    INSERT INTO cp_store_branches(store_id, branch_id)
-      VALUES (store_b, 'branch-main');
-    RAISE EXCEPTION 'one branch identifier was unexpectedly registered to two stores';
-  EXCEPTION WHEN unique_violation THEN
-    NULL;
-  END;
+  -- Branch IDs are local to a tenant database, so stores may reuse them.
+  INSERT INTO cp_store_branches(store_id, branch_id)
+    VALUES (store_b, 'branch-main');
+  IF (SELECT count(*) FROM cp_store_branches
+      WHERE branch_id = 'branch-main') <> 2 THEN
+    RAISE EXCEPTION 'same local branch ID must be allowed in different stores';
+  END IF;
 
   INSERT INTO cp_sessions(
     id, account_id, active_store_id, active_membership_id,
