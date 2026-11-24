@@ -60,7 +60,7 @@ Future<void> main(List<String> arguments) async {
     );
   }
 
-  final branchTokens = _readBranchTokens(environment);
+  const branchTokens = <String, String>{};
   final ledgerRepository = PostgresLedgerRepository(database);
   final salesRepository = PostgresSalesSyncRepository(database);
   final inventoryRepository = PostgresInventoryPurchasesReadRepository(database);
@@ -142,25 +142,3 @@ String _requiredEnvironment(Map<String, String> environment, String key) {
   return value.trim();
 }
 
-Map<String, String> _readBranchTokens(Map<String, String> environment) {
-  final encoded = environment['ERP_BRANCH_TOKENS'];
-  if (encoded != null && encoded.trim().isNotEmpty) {
-    final decoded = jsonDecode(encoded);
-    if (decoded is! Map<String, dynamic>) {
-      throw const FormatException('ERP_BRANCH_TOKENS must be a JSON object.');
-    }
-    final tokens = <String, String>{};
-    for (final entry in decoded.entries) {
-      if (entry.key.trim().isEmpty || entry.value is! String || (entry.value as String).isEmpty) {
-        throw const FormatException('Every branch token must have a non-empty branch ID and token.');
-      }
-      tokens[entry.key] = entry.value as String;
-    }
-    if (tokens.isNotEmpty) return tokens;
-  }
-  final developmentToken = environment['ERP_API_TOKEN'];
-  if (developmentToken != null && developmentToken.trim().isNotEmpty) {
-    return {'branch-main': developmentToken.trim()};
-  }
-  throw StateError('Set ERP_BRANCH_TOKENS or ERP_API_TOKEN for branch-main.');
-}
