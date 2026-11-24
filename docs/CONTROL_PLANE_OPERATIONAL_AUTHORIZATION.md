@@ -37,6 +37,6 @@ Migration 004 removes the temporary global uniqueness rule for branch IDs. The r
 
 ## CI verification
 
-- GitHub Actions run [45299152800](https://github.com/mohmmed1abdallah2-source/Super-market/actions/runs/45299152800) completed successfully on code revision `dff57016fd82a4fa53d598d6d7119448f1750b91`.
-- Migrations 001, 002, 003 and 004 applied successfully to disposable PostgreSQL 18; rollback-only SQL assertions (including acceptance of the same local branch ID in two different stores) passed; `dart analyze` reported no issues; the full `control_plane_*_test.dart` test command passed.
-- Subsequent changes were documentation-only.
+- GitHub Actions run [45481811752](https://github.com/mohmmed1abdallah2-source/Super-market/actions/runs/45481811752) completed successfully on code revision `93b4399c8825b200d8926ec38a1c8f694bbc6ac5`.
+- Migrations 001, 002, 003 and 004 applied successfully to disposable PostgreSQL 18; rollback-only SQL assertions (including acceptance of the same local branch ID in two different stores) passed; `dart analyze` reported no issues; all 24 `control_plane_*_test.dart` tests passed, including cross-account/store isolation and mixed Sync Batch permission tests.
+- No production database or deployment changes were performed.
