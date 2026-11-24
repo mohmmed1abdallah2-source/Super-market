@@ -41,6 +41,14 @@ BEGIN
   END IF;
 
   BEGIN
+    INSERT INTO cp_store_memberships(id, account_id, store_id, role, status)
+      VALUES ('30000000-0000-4000-8000-000000000002', account_b, store_a, 'OWNER', 'ACTIVE');
+    RAISE EXCEPTION 'second active store owner unexpectedly succeeded';
+  EXCEPTION WHEN unique_violation THEN
+    NULL;
+  END;
+
+  BEGIN
     INSERT INTO cp_sessions(
       id, account_id, active_store_id, active_membership_id,
       access_token_hash, expires_at
