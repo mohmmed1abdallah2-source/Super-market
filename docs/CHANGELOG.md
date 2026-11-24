@@ -340,3 +340,14 @@ The format follows Keep a Changelog. Version numbers will be assigned when relea
 - Added Dart domain contracts for verified account identities, membership roles, store lifecycle and the control-plane repository boundary, plus unit tests.
 - Documented the deployment boundary: migration is for a separate control-plane database only; no production database was modified and no database provisioning or session issuance is claimed.
 - SQL execution, Dart test execution and API integration are pending CI and follow-up implementation.
+
+
+## 2026-11-24 — Store lifecycle, memberships and role permissions
+
+- Added transactional store creation with an initial OWNER membership and PROVISIONING lifecycle state.
+- Added active-store listing constrained by active account and active membership.
+- Added invitations, self-acceptance, role changes, suspension/revocation, member listing and permission checks in a dedicated PostgreSQL control-plane repository.
+- Added a centralized OWNER/ADMIN/MANAGER/STAFF/READ_ONLY permission matrix and role-rank protections; ordinary membership APIs cannot assign or modify OWNER.
+- Added migration 002 for one active owner per store and invitation lookup, permission tests and separate implementation documentation.
+- Extended CI to apply both control-plane migrations in a disposable PostgreSQL database and run all control-plane Dart tests.
+- HTTP routes intentionally remain gated on verified control-plane session authentication; no client-supplied account ID is treated as identity.
