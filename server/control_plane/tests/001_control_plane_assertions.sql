@@ -32,13 +32,13 @@ BEGIN
   INSERT INTO cp_store_database_bindings(store_id, database_key, status)
     VALUES (store_b, 'secret-manager://stores/store-b', 'READY');
   INSERT INTO cp_store_branches(store_id, branch_id) VALUES
-    (store_a, 'branch-main'), (store_b, 'branch-main');
+    (store_a, 'branch-main'), (store_b, 'branch-b');
   IF (SELECT count(*) FROM cp_store_branches
       WHERE store_id = store_a AND branch_id = 'branch-main') <> 1 THEN
     RAISE EXCEPTION 'store A branch mapping assertion failed';
   END IF;
   IF (SELECT count(*) FROM cp_store_branches
-      WHERE store_id = store_b AND branch_id = 'branch-main') <> 1 THEN
+      WHERE store_id = store_b AND branch_id = 'branch-b') <> 1 THEN
     RAISE EXCEPTION 'store B branch mapping assertion failed';
   END IF;
 
